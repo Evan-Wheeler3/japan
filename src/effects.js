@@ -263,16 +263,25 @@ export function makeBackdrop() {
     m.position.set(x, -40, z); m.scale.z = r(0.6, 1.2); m.rotation.y = r(0, 6); grp.add(m);
   }
   // the mountain we're on, rising behind the shop (and the slopes either side)
-  const back = new THREE.PlaneGeometry(900, 500, 60, 40);
+  // The terrain stays buried under the whole voxel lot (the shop sits on it) and only starts to rise once
+  // it's clear of the lot's edges; vertices every 5 m so it can't slope up through a wall between them.
+  const LOT = { x0: -16, x1: 36, z1: 16 };
+  const back = new THREE.PlaneGeometry(900, 500, 180, 100);
   back.rotateX(-Math.PI / 2);
-  const p = back.attributes.position, colors = [], hgt = [];
+  const p = back.attributes.position, hgt = [];
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i) + 250 + L.cliff; // from the cliff edge back ~500 m
-    const side = Math.max(0, Math.abs(x - 10) - 40);
-    let y = Math.max(0, z - 14) * 0.32 + side * 0.08 + Math.sin(x * 0.03) * 6 * Math.min(1, z / 60);
-    y += (Math.sin(x * 0.11 + z * 0.07) + Math.sin(x * 0.05 - z * 0.13)) * Math.min(3, Math.max(0, z - 16) * 0.05);
-    p.setXYZ(i, x, y + 0.1, z);
-    hgt.push(Math.min(1, y / 120) + 0.6);
+    const out = Math.max(Math.max(0, z - (LOT.z1 + 2)), Math.max(0, LOT.x0 - x, x - LOT.x1) * 0.8); // metres beyond the lot
+    let y = -0.35;
+    if (out > 0) {
+      const k = Math.min(1, out / 12); // waves fade in away from the lot
+      const side = Math.max(0, Math.abs(x - 10) - 40);
+      y = 0.1 + Math.max(0, z - (LOT.z1 + 2)) * 0.32 + side * 0.08 + Math.sin(x * 0.03) * 6 * k * Math.min(1, z / 60);
+      y += (Math.sin(x * 0.11 + z * 0.07) + Math.sin(x * 0.05 - z * 0.13)) * Math.min(3, out * 0.05) * k;
+      y = Math.max(y, 0.0);
+    }
+    p.setXYZ(i, x, y, z);
+    hgt.push(Math.min(1, Math.max(0, y) / 120) + 0.6);
   }
   back.setAttribute('height', new THREE.Float32BufferAttribute(hgt, 1));
   back.computeVertexNormals();

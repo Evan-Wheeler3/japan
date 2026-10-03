@@ -693,6 +693,15 @@ export function buildWorld(W) {
     [-2.25, 13.5, 6.0, 7], [19.0, -8.6, 6.0, 8], [30.5, -8.4, 7.5, 9], [33.5, 2.0, 8.5, 10], [29.5, 12.5, 8.0, 11], [19.25, 13.0, 6.5, 12],
     [24.0, 13.5, 7.0, 13], [33.5, 9.0, 6.0, 14], [-15.0, 4.0, 6.5, 15]].forEach(([x, z, h, s]) => conifer(x, z, h, s));
 
+  // nothing of the snowy ground shows inside the shop: below floor level, within the walls, it's all floor
+  {
+    const snowy = new Set([...P.snow, P.snowShade]);
+    for (let z = Z(-3.25); z < Z(15.875); z++) for (let x = X(0.125); x < X(15.875); x++) for (let y = 0; y < Y(0.25); y++) {
+      const v = G.get(x, y, z);
+      if (!v || snowy.has(v)) G.set(x, y, z, P.floorSeam);
+    }
+  }
+
   meta.lights.push({ pos: [13.4, 2.1, -4.0], color: 0xff9050, intensity: 5, distance: 6, name: 'door' });
   meta.lights.push({ pos: [17.0, 1.2, -3.9], color: 0xcfe4ff, intensity: 4, distance: 5.5, name: 'vending' });
 
