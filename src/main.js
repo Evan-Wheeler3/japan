@@ -475,6 +475,38 @@ async function boot() {
   const openCatalog = () => { catalogOpen = true; unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false); };
   interactions.add([4.85, 4.28, 4.6, 0.16, 0.06, 0.2], () => 'Read the catalog', openCatalog);
 
+  // the little shrine on the west slope: bow twice, clap twice, bow once. Once a day the kami leave ¥100.
+  const SHRINE = { x: -7.6, z: 3.0 };
+  const guestBowed = new Map(); // co-op guests: pid -> the night they last bowed
+  service.onBow = (pid) => {
+    const day = save.night;
+    const done = pid === service.me ? save.shrine === day : guestBowed.get(pid) === day;
+    if (done) { service.say('the snow falls quietly on the hokora. come back tomorrow.', pid); return; }
+    if (pid === service.me) save.shrine = day; else guestBowed.set(pid, day);
+    if (!save.devYen) save.yen += 100;
+    writeSave(save);
+    service.sfx('coin', pid);
+    service.say('a ¥100 coin glints on the offering box. the kami must like your cooking.', pid);
+  };
+  let bowing = 0;
+  const bow = () => {
+    if (bowing) return;
+    bowing = performance.now(); player.frozen = true;
+    player.yaw = Math.atan2(player.pos.x - SHRINE.x, player.pos.z - SHRINE.z); player.pitch = -0.12; // face the hokora
+  };
+  const BOW_LEN = 4.4, bowNod = (t) => {
+    const dip = (a, b) => (t > a && t < b ? 0.5 - 0.5 * Math.cos(((t - a) / (b - a)) * Math.PI * 2) : 0);
+    return Math.max(dip(0.1, 1.0), dip(1.1, 2.0), dip(3.0, 4.2) * 1.1);
+  };
+  const updateBow = () => {
+    if (!bowing) return;
+    const t = (performance.now() - bowing) / 1000, prev = updateBow.t ?? 0; updateBow.t = t;
+    player.nod = bowNod(t);
+    for (const c of [2.3, 2.65]) if (prev < c && t >= c) audio.clap();
+    if (t >= BOW_LEN) { bowing = 0; updateBow.t = 0; player.nod = 0; player.frozen = false; service.request('bow'); }
+  };
+  interactions.add([-7.45, 0.8, 3.0, 0.55, 0.7, 0.62], () => 'Bow at the shrine', bow, () => !bowing && !player.seated);
+
   // the OPEN / CLOSED sign in the veranda window by the door
   const signOpen = Props.openSign().mesh(litMat, emitMat), signClosed = Props.closedSign().mesh(litMat, emitMat);
   for (const m of [signOpen, signClosed]) { m.position.set(14.9, 1.55, -3.07); scene.add(m); }
@@ -659,6 +691,7 @@ async function boot() {
       last = now; requestAnimationFrame(tick); return;
     }
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
+    updateBow();
     player.update(dt);
     const p = player.pos;
 

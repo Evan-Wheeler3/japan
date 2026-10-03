@@ -15,7 +15,7 @@ export const L = {
   inside: { x0: 0.25, x1: 15.75, z0: -3.125, z1: 15.75 },
   door: { x0: 12.75, x1: 14.0, z: -3.25, hinge: 12.8125, h: 2.625 },
   cliff: -11.25,          // the lot ends here; below is the sea
-  bounds: { x0: -1.25, x1: 33.0, z0: -10.4, z1: 15.5 },
+  bounds: { x0: -11.25, x1: 33.0, z0: -10.4, z1: 15.5 },
   roofDry: [[-0.75, 16.75, -4.0, 16.5], [20.5, 27.5, 2.5, 9.5], [-9.25, -6.75, 1.0, 3.0]], // no snow falls under these
 };
 
@@ -92,6 +92,7 @@ export function buildWorld(W) {
     lantern: C('#ffc684', 2.2, 0.04), lanternRed: C('#ff5a38', 2.4, 0.05), kanbanInk: C('#ffe2b0', 1.5, 0.04),
     vermilion: C('#c8402a', 0, 0.05), vermilionD: C('#9a2e1e', 0, 0.05),
     bark: C('#3a2a1e', 0, 0.08), needles: [C('#1e3a2a', 0, 0.1), C('#24452f', 0, 0.1), C('#1a3224', 0, 0.09), C('#2b4d35', 0, 0.1)],
+    bamboo: [C('#8f9a5c', 0, 0.06), C('#7d8a4c', 0, 0.06)], bambooNode: C('#5f6a38', 0, 0.05), straw: C('#d6c08a', 0, 0.06), paper: C('#f6f2e8', 0, 0.03),
     wood: [C('#6a4a30', 0, 0.08), C('#5a3e28', 0, 0.08)], log: C('#8a6a48', 0, 0.06), logEnd: C('#c8a070', 0, 0.06),
   };
   const pick = (arr, x, y, z) => arr[Math.floor(hash01(x, y, z) * arr.length * 0.9999)];
@@ -106,9 +107,11 @@ export function buildWorld(W) {
     const px = mx(x), pz = mz(z);
     if (pz > -5.125 && pz < -3.375) return true;                  // along the front of the shop
     if (px > 12.0 && px < 14.75 && pz > -5.5 && pz < -3.25) return true; // the door apron
+    if (px > -3.25 && px < -2.125 && pz > -5.25 && pz < 3.625) return true; // up to the shrine
+    if (px > -7.0 && px < -2.125 && pz > 2.375 && pz < 3.625) return true;  // the sando, through the torii
     return false;
   };
-  for (let z = Z(-6); z < Z(-3.25); z++) for (let x = 0; x < SX; x++) {
+  for (let z = Z(-6); z < Z(3.75); z++) for (let x = 0; x < SX; x++) {
     if (!isPath(x, z)) continue;
     const row = z >> 2, off = (row & 1) * 2, cx = (x + off) >> 2;
     const seam = ((x + off) & 3) === 0 || (z & 3) === 0;
@@ -655,6 +658,26 @@ export function buildWorld(W) {
     for (let i = 0; i < 3; i++) B(hx - 0.625 + i * 0.125, 1.25 + i * 0.125, hz - 0.625 + i * 0.125, hx + 0.625 - i * 0.125, 1.375 + i * 0.125, hz + 0.625 - i * 0.125, P.tile[i & 1]);
     snowCap(hx - 0.8, hx + 0.8, hz - 0.8, hz + 0.8, 1.0, 2.0, 1);
     meta.lights.push({ pos: [hx + 0.7, 0.9, hz], color: 0xffa050, intensity: 1.2, distance: 3.5, name: 'shrine' });
+    // the offering box in front, slatted on top
+    B(hx + 0.75, 0.125, hz - 0.3125, hx + 1.125, 0.5, hz + 0.3125, (x, y, z) => (y === Y(0.5) - 1 && (z & 1) ? P.walnutD : P.wood[(y >> 1) & 1]));
+    snowCap(hx + 0.75, hx + 1.125, hz - 0.3125, hz + 0.3125, 0.4, 0.8, 0.5);
+    // a straw rope under the torii's nuki, with paper shide hanging from it
+    B(tx - 0.0625, 2.25, za + 0.125, tx + 0.0625, 2.375, zb - 0.125, P.straw);
+    for (const z of [2.375, 3.0, 3.625]) for (let i = 0; i < 4; i++) B(tx - 0.0625, 2.125 - i * 0.125, z + (i & 1) * 0.0625 - 0.0625, tx + 0.0625, 2.25 - i * 0.125, z + (i & 1) * 0.0625 + 0.0625, P.paper);
+  }
+
+  // a low bamboo fence where the lot ends to the west and behind the shrine
+  {
+    const fx = -11.75, fz = 15.5;
+    const pole = (x, y, z) => ((x + z) % 12 === 0 ? P.bambooNode : P.bamboo[(x + z) & 1]);
+    for (let z = L.cliff + 0.75; z < fz; z += 1.25) B(fx - 0.0625, 0.125, z, fx + 0.0625, 1.25, z + 0.125, P.bambooNode);
+    for (let x = fx; x < -0.5; x += 1.25) B(x, 0.125, fz - 0.0625, x + 0.125, 1.25, fz + 0.0625, P.bambooNode);
+    for (const y of [0.5, 0.875, 1.125]) {
+      B(fx - 0.0625, y, L.cliff + 0.75, fx + 0.0625, y + 0.0625, fz + 0.0625, pole);
+      B(fx - 0.0625, y, fz - 0.0625, -0.5, y + 0.0625, fz + 0.0625, pole);
+    }
+    snowCap(fx - 0.2, fx + 0.2, L.cliff + 0.75, fz + 0.1, 1.0, 1.5, 0.7);
+    snowCap(fx - 0.1, -0.5, fz - 0.2, fz + 0.2, 1.0, 1.5, 0.7);
   }
 
   // stone lanterns (toro) along the path
@@ -671,6 +694,7 @@ export function buildWorld(W) {
   for (const [x, z] of [[3.5, -5.75], [10.0, -5.75], [20.0, -5.75], [-1.6, 0.5]]) toro(x, z);
   meta.lights.push({ pos: [3.5, 1.1, -5.75], color: 0xffa050, intensity: 1.6, distance: 4, name: 'toroA' });
   meta.lights.push({ pos: [10.0, 1.1, -5.75], color: 0xffa050, intensity: 1.6, distance: 4, name: 'toroB' });
+  meta.lights.push({ pos: [-1.6, 1.1, 0.5], color: 0xffa050, intensity: 1.4, distance: 4, name: 'toroC' });
 
   // firewood stacked under the eave against the east wall
   for (let z = Z(1.0); z < Z(4.5); z++) for (let y = Y(0.125); y < Y(1.25); y++) for (let x = X(16.0); x < X(16.625); x++) {

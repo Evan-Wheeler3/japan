@@ -65,6 +65,18 @@ try {
   await page.keyboard.press('Backquote');
   check(st.dev && st.spent === 0 && st.owned && !(await page.evaluate(() => window.__yoake.save.devYen)), 'the dev switch buys for free and toggles back off');
 
+  // ---- the shrine: walk out past the old border, bow, and the kami leave ¥100 once a day
+  const bowAt = () => page.evaluate(() => {
+    const d = window.__yoake; d.player.pos.set(-6.4, 0.125, 3.0);
+    d.interactions.items.find((it) => { try { return it.label() === 'Bow at the shrine'; } catch { return false; } }).act();
+  });
+  const yen0 = await page.evaluate(() => window.__yoake.save.yen);
+  await bowAt(); await page.waitForTimeout(5000);
+  const yen1 = await page.evaluate(() => window.__yoake.save.yen);
+  await bowAt(); await page.waitForTimeout(5000);
+  st = await page.evaluate(() => { const d = window.__yoake; return { yen: d.save.yen, x: d.player.pos.x, free: !d.player.frozen, clear: !d.player.blocked(-6.4, 3.0, 0.125) }; });
+  check(yen1 === yen0 + 100 && st.yen === yen1 && st.free && st.clear && st.x < -6, `bowing at the shrine leaves ¥100, once a day (¥${yen0} → ¥${yen1} → ¥${st.yen})`);
+
   // ---- the Fami-Com: pick up the controller, play Sushi Catch, set a high score, put it down
   await page.evaluate(() => window.__yoake.home.onPlay());
   check(await page.evaluate(() => document.body.classList.contains('arcade') && window.__yoake.arcade.mode === 'menu'), 'the Fami-Com opens on its cartridge menu');

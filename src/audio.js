@@ -154,6 +154,17 @@ export class Ambience {
     let at = t;
     for (const [f, d] of seq) { this.tone(f, at, d + 0.05, 0.035, 'square'); at += d; }
   }
+  // two claps at the shrine
+  clap() {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    this.burst(t, 0.045, 1400, 0.9, 0.5); this.burst(t + 0.004, 0.08, 600, 1.5, 0.25);
+  }
+  // a coin turning up: a small bright clink and a shimmer
+  coin() {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    this.tone(3520, t, 0.35, 0.05); this.tone(4699, t + 0.07, 0.5, 0.04); this.tone(2637, t + 0.15, 1.6, 0.05);
+    this.doorBell(0.6);
+  }
   vend() {
     if (!this.ctx) return; const t = this.ctx.currentTime;
     this.tone(880, t, 0.12, 0.05, 'square');

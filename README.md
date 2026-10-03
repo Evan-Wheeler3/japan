@@ -83,6 +83,10 @@ testing. It's remembered until you switch it off.
 
 The vending machine outside takes ¥130 from the cash box for a hot drink.
 
+West of the shop, a flagstone path leads past a stone lantern and through a torii to a little hokora in the
+pines. Bow there (click the shrine: two bows, two claps, one bow) and once a day the kami leave a ¥100
+coin on the offering box.
+
 ## Layout
 
 | File | What it is |

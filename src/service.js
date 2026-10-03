@@ -490,6 +490,7 @@ export class Service {
       },
       openShop: () => { if (this.onOpenShop) this.onOpenShop(); },
       buy: (id) => { if (this.onBuy) this.onBuy(id); },
+      bow: () => { if (this.onBow) this.onBow(this.actor); },
       placePiece: (key, x, z, rot) => { if (this.onPlace) this.onPlace(key, x, z, rot); },
       station: (i) => {
         const st = this.stations[i]; if (!st) return;

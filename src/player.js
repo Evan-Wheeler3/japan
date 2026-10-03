@@ -16,6 +16,7 @@ export class Player {
     this.sens = 0.0022; // mouse look, radians per pixel
     this.stick = { x: 0, y: 0 }; // on-screen thumbstick (touch), -1..1, y down = backward
     this.locked = false;
+    this.frozen = false; this.nod = 0; // a bow: hold still, dip the head (0..1)
     addEventListener('keydown', (e) => { this.keys[e.code] = true; });
     addEventListener('keyup', (e) => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
@@ -82,8 +83,8 @@ export class Player {
         return;
       }
     }
-    const k = this.locked ? this.keys : {};
-    const st = this.locked ? this.stick : { x: 0, y: 0 }, push = Math.hypot(st.x, st.y);
+    const k = this.locked && !this.frozen ? this.keys : {};
+    const st = this.locked && !this.frozen ? this.stick : { x: 0, y: 0 }, push = Math.hypot(st.x, st.y);
     const f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - st.y;
     const s = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0) + st.x;
     if (k.ArrowLeft) this.yaw += dt * 1.8;
@@ -123,7 +124,8 @@ export class Player {
 
     const targetEye = p.y + this.eye;
     this.eyeY += (targetEye - this.eyeY) * Math.min(1, dt * 14);
-    this.cam.position.set(p.x, this.eyeY + this.bob, p.z);
-    this.cam.rotation.set(this.pitch, this.yaw, Math.sin(this.stepPhase * Math.PI * 0.5) * 0.004 * amp, 'YXZ');
+    const n = this.nod, lean = n * 0.22;
+    this.cam.position.set(p.x - Math.sin(this.yaw) * lean, this.eyeY + this.bob - n * 0.3, p.z - Math.cos(this.yaw) * lean);
+    this.cam.rotation.set(this.pitch - n * 0.95, this.yaw, Math.sin(this.stepPhase * Math.PI * 0.5) * 0.004 * amp, 'YXZ');
   }
 }
