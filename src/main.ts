@@ -1,3 +1,4 @@
+import '@fontsource/dotgothic16';
 import './style.css';
 import { Game } from './app/Game';
 

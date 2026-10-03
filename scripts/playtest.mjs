@@ -40,7 +40,10 @@ try {
     const atTable = (t) => use([0.6, t.z + (t.z < 0 ? 0.6 : -0.6)], [t.x, 0.8, t.z]);
 
     window.bot = {
-      open: () => use([3.2, 3.4], [3.2, 1.45, 4.38]),
+      open: () => {
+        const s = g.sign.root.position;
+        return use([s.x, 3.4], [s.x, s.y, s.z]);
+      },
       step() {
         if (g.hand.item === 'dirty_dishes') return use([-4.6, 3.05], [-5.5, 1.0, 3.05]);
         const waiting = g.parties.filter((p) => p.state === 'waiting').sort((a, b) => a.patience - b.patience);
@@ -52,7 +55,7 @@ try {
         }
         const dirty = g.tables.find((t) => t.dirty && (!t.party || t.party.state === 'leaving'));
         if (dirty) return atTable(dirty);
-        if (g.content.ingredients.all().some((i) => g.save.pantry[i.id] <= 1)) return use([-4.4, 3.6], [-5.45, 0.6, 4.0]);
+        if (g.content.ingredients.all().some((i) => g.save.pantry[i.id] <= 1)) return use([-4.4, 3.5], [g.crate.root.position.x, 0.3, g.crate.root.position.z]);
         for (const p of waiting) {
           for (const item of p.remaining) {
             if (item === 'tea_green' && !station('kettle').busy) return atStation('kettle');

@@ -2,17 +2,37 @@ import * as THREE from 'three';
 import type { Game } from '../app/Game';
 import { DIRTY_DISHES } from '../data/content';
 import type { ItemId, RecipeDef, StationDef } from '../data/types';
-import { boxMesh } from './geometry';
 import type { Interactable, Prompt } from './interaction';
 import { disposeGroup, makeItemMesh } from './items';
 import { COUNTER, COUNTER_X, CRATE } from './layout';
-import { mat } from './materials';
+import { F } from './props';
+import { C } from './voxel/palette';
+import { cachedModel, glowMaterial, modelGroup, type Vox } from './voxel/vox';
 
-/** Thin glowing strip on the counter front that lights up when a station is needed. */
-function makeGlowStrip(z: number, width: number): THREE.Mesh {
-  const m = new THREE.MeshStandardMaterial({ color: 0x2a1a10, emissive: 0xffb050, emissiveIntensity: 0, flatShading: true });
-  const strip = boxMesh(m, 0.015, 0.035, width, COUNTER.maxX + 0.055, COUNTER.top - 0.12, z);
-  return strip;
+let poolTexture: THREE.Texture | null = null;
+
+/** Soft warm light pool on the counter: lights up when a station is needed. */
+export function makeGlowPool(x: number, y: number, z: number, w: number, d: number): THREE.Mesh {
+  if (!poolTexture) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const ctx = c.getContext('2d')!;
+    const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.45, 'rgba(255,255,255,0.55)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
+    poolTexture = new THREE.CanvasTexture(c);
+  }
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, d),
+    new THREE.MeshBasicMaterial({ map: poolTexture, color: 0xffb060, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, y, z);
+  m.renderOrder = 2;
+  return m;
 }
 
 class Steam {
@@ -23,9 +43,8 @@ class Steam {
   private level = 0;
 
   constructor(origin: THREE.Vector3, spread = 0.06) {
-    const n = 10;
+    const n = 12;
     this.base = new Float32Array(n * 4);
-    const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       this.base[i * 4] = (Math.random() - 0.5) * spread;
       this.base[i * 4 + 1] = (Math.random() - 0.5) * spread;
@@ -33,8 +52,8 @@ class Steam {
       this.base[i * 4 + 3] = 0.5 + Math.random() * 0.5;
     }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    this.mat = new THREE.PointsMaterial({ color: 0xf4f0ea, size: 0.06, transparent: true, opacity: 0, depthWrite: false });
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    this.mat = new THREE.PointsMaterial({ color: 0xfff4e8, size: 0.05, transparent: true, opacity: 0, depthWrite: false });
     this.points = new THREE.Points(geo, this.mat);
     this.points.position.copy(origin);
     this.points.frustumCulled = false;
@@ -42,12 +61,11 @@ class Steam {
 
   update(dt: number, time: number): void {
     this.level = THREE.MathUtils.damp(this.level, this.active ? 1 : 0, 3, dt);
-    this.mat.opacity = this.level * 0.45;
+    this.mat.opacity = this.level * 0.5;
     const attr = this.points.geometry.attributes.position as THREE.BufferAttribute;
-    const n = attr.count;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < attr.count; i++) {
       const life = (this.base[i * 4 + 2] + time * 0.35 * this.base[i * 4 + 3]) % 1;
-      attr.setXYZ(i, this.base[i * 4] + Math.sin(time * 2 + i) * 0.02 * life, life * 0.45, this.base[i * 4 + 1] + life * 0.03);
+      attr.setXYZ(i, this.base[i * 4] + Math.sin(time * 2 + i) * 0.03 * life, life * 0.5, this.base[i * 4 + 1] + life * 0.04);
     }
     attr.needsUpdate = true;
   }
@@ -64,6 +82,7 @@ export class StationEntity implements Interactable {
   readonly root = new THREE.Group();
   readonly glow: THREE.Mesh;
   readonly label: StationLabel;
+  private readonly model: THREE.Group;
   private readonly recipes: RecipeDef[];
   private placed: ItemId[] = [];
   private placedMeshes: THREE.Object3D[] = [];
@@ -71,11 +90,9 @@ export class StationEntity implements Interactable {
   private readyItem: ItemId | null = null;
   private readyCount = 0;
   private readyMeshes: THREE.Object3D[] = [];
-  private readonly outputSpots: THREE.Vector3[];
-  private readonly inputSpot: THREE.Vector3;
-  private readonly indicator: THREE.MeshStandardMaterial | null;
+  private readonly spec: StationSpec;
+  private readonly lightMat: THREE.MeshBasicMaterial;
   private readonly steam: Steam | null;
-  private readonly box = new THREE.Box3();
 
   constructor(
     private readonly game: Game,
@@ -84,25 +101,22 @@ export class StationEntity implements Interactable {
   ) {
     this.recipes = game.content.recipes.all().filter((r) => r.station === def.id);
     this.root.position.set(COUNTER_X, COUNTER.top, z);
-    const model = buildStationModel(def.id);
-    this.root.add(model.group);
-    this.outputSpots = model.outputs;
-    this.inputSpot = model.input;
-    this.indicator = model.indicator;
-    this.steam = model.steam ? new Steam(model.steam) : null;
+    this.spec = STATION_SPECS[def.id] ?? STATION_SPECS.default;
+    this.lightMat = glowMaterial.clone();
+    this.model = modelGroup(cachedModel(`station-${def.id}`, F, [0, 0, 0], this.spec.build), this.lightMat);
+    this.root.add(this.model);
+    this.steam = this.spec.steam ? new Steam(this.spec.steam) : null;
     if (this.steam) this.root.add(this.steam.points);
-    this.glow = makeGlowStrip(z, model.width);
+    this.glow = makeGlowPool(COUNTER_X + 0.15, COUNTER.top + 0.004, z, 1.1, 0.9);
     this.label = { anchor: new THREE.Vector3(COUNTER_X + 0.15, COUNTER.top + 0.62, z), progress: null, ready: 0 };
-    this.box.setFromObject(model.group);
-    this.box.translate(this.root.position);
   }
 
   get busy(): boolean {
     return this.job !== null;
   }
 
-  outline(): THREE.Box3 {
-    return this.box;
+  outlineTargets(): THREE.Object3D[] {
+    return [this.model, ...this.readyMeshes, ...this.placedMeshes];
   }
 
   reset(): void {
@@ -131,18 +145,14 @@ export class StationEntity implements Interactable {
     const g = this.game;
     const title = this.def.name;
     const hand = g.hand;
-    if (this.job) {
-      const secs = Math.ceil(this.job.remaining);
-      return { title, verb: `${this.job.recipe.verb}… ${secs}s`, ok: false };
-    }
+    if (this.job) return { title, verb: `${this.job.recipe.verb}… ${Math.ceil(this.job.remaining)}s`, ok: false };
     if (this.readyItem) {
       const name = g.content.items.get(this.readyItem).name;
       if (hand.empty) return { title, verb: `Take ${name}`, detail: this.readyCount > 1 ? `${this.readyCount} ready` : undefined, ok: true };
       return { title, verb: `Hands full — ${name} is ready`, ok: false };
     }
     if (!hand.empty) {
-      const r = this.recipeAccepting(hand.item!);
-      if (r) return { title, verb: `Place ${hand.name}`, ok: true };
+      if (this.recipeAccepting(hand.item!)) return { title, verb: `Place ${hand.name}`, ok: true };
       return { title, verb: `Can't use ${hand.name} here`, ok: false };
     }
     const r = this.startable();
@@ -166,8 +176,7 @@ export class StationEntity implements Interactable {
       return;
     }
     if (!g.hand.empty) {
-      const r = this.recipeAccepting(g.hand.item!);
-      if (!r) return g.reject();
+      if (!this.recipeAccepting(g.hand.item!)) return g.reject();
       this.placed.push(g.hand.clear()!);
       this.syncPlaced();
       g.audio.play('place');
@@ -208,16 +217,12 @@ export class StationEntity implements Interactable {
       this.steam.active = this.job !== null;
       this.steam.update(dt, time);
     }
-    if (this.indicator) {
-      if (this.job) {
-        this.indicator.emissive.setHex(0xff3020);
-        this.indicator.emissiveIntensity = 1.5 + Math.sin(time * 6) * 0.5;
-      } else if (this.readyItem) {
-        this.indicator.emissive.setHex(0x50ff70);
-        this.indicator.emissiveIntensity = 1.8;
-      } else {
-        this.indicator.emissiveIntensity = 0;
-      }
+    const flicker = 1 + Math.sin(time * 9.1) * 0.08 + Math.sin(time * 23.7) * 0.05;
+    if (this.spec.light === 'embers') this.lightMat.color.setScalar((this.job ? 1.25 : 0.55) * flicker);
+    else if (this.spec.light === 'indicator') {
+      if (this.job) this.lightMat.color.setRGB(1.5, 0.22, 0.12).multiplyScalar(0.8 + Math.sin(time * 6) * 0.25);
+      else if (this.readyItem) this.lightMat.color.setRGB(0.35, 1.5, 0.45);
+      else this.lightMat.color.setScalar(0.12);
     }
     this.label.progress = this.job ? 1 - this.job.remaining / this.job.recipe.prepSeconds : null;
     this.label.ready = this.readyCount;
@@ -230,9 +235,9 @@ export class StationEntity implements Interactable {
     this.readyMeshes = [];
     if (!this.readyItem) return;
     const visual = this.game.content.items.get(this.readyItem).visual;
-    for (let i = 0; i < Math.min(this.readyCount, this.outputSpots.length); i++) {
+    for (let i = 0; i < Math.min(this.readyCount, this.spec.outputs.length); i++) {
       const m = makeItemMesh(visual);
-      m.position.copy(this.outputSpots[i]);
+      m.position.copy(this.spec.outputs[i]);
       this.root.add(m);
       this.readyMeshes.push(m);
     }
@@ -242,7 +247,7 @@ export class StationEntity implements Interactable {
     for (const m of this.placedMeshes) disposeGroup(m);
     this.placedMeshes = this.placed.map((item, i) => {
       const m = makeItemMesh(this.game.content.items.get(item).visual);
-      m.position.copy(this.inputSpot).add(new THREE.Vector3(0, 0, i * 0.12));
+      m.position.copy(this.spec.input).add(new THREE.Vector3(0, 0, i * 0.12));
       this.root.add(m);
       return m;
     });
@@ -254,80 +259,92 @@ export class StationEntity implements Interactable {
   }
 }
 
-interface StationModel {
-  group: THREE.Group;
+interface StationSpec {
+  build: (v: Vox) => void;
   outputs: THREE.Vector3[];
   input: THREE.Vector3;
-  indicator: THREE.MeshStandardMaterial | null;
   steam: THREE.Vector3 | null;
-  width: number;
+  light: 'embers' | 'indicator' | null;
 }
 
-function buildStationModel(id: string): StationModel {
-  const g = new THREE.Group();
-  const iron = mat(0x2a2a2e, { roughness: 0.5, metalness: 0.4 });
-  const wood = mat(0x8a5a32);
-  const lightWood = mat(0xc89a62);
-  const cream = mat(0xece4d4, { roughness: 0.4 });
-  switch (id) {
-    case 'kettle': {
-      const coals = new THREE.MeshStandardMaterial({ color: 0x3a1a10, emissive: 0xff4a10, emissiveIntensity: 0, flatShading: true });
-      g.add(boxMesh(mat(0x4a3a30), 0.34, 0.14, 0.34, -0.05, 0.07, 0));
-      g.add(boxMesh(coals, 0.26, 0.02, 0.26, -0.05, 0.145, 0));
-      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.17, 8).translate(-0.05, 0.24, 0), iron));
-      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.03, 8).translate(-0.05, 0.34, 0), iron));
-      const spout = boxMesh(iron, 0.14, 0.04, 0.04, 0.1, 0.27, 0);
-      spout.rotation.z = 0.5;
-      g.add(spout);
-      g.add(boxMesh(iron, 0.02, 0.12, 0.2, -0.05, 0.4, 0));
-      g.add(boxMesh(wood, 0.3, 0.02, 0.42, 0.18, 0.01, 0));
-      return { group: g, outputs: [new THREE.Vector3(0.2, 0.02, -0.12), new THREE.Vector3(0.2, 0.02, 0.12)], input: new THREE.Vector3(0.2, 0.02, 0), indicator: coals, steam: new THREE.Vector3(0.14, 0.32, 0), width: 0.8 };
-    }
-    case 'edamame_bowl': {
-      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.18, 0.12, 9).translate(0, 0.06, 0), wood));
-      const greens = [mat(0x6fae3e), mat(0x4f8a2c)];
-      for (let i = 0; i < 18; i++) {
-        const a = i * 2.4;
-        const r = 0.04 + (i % 5) * 0.035;
-        const pod = boxMesh(greens[i % 2], 0.08, 0.025, 0.03, Math.cos(a) * r, 0.125 + (i % 3) * 0.01, Math.sin(a) * r);
-        pod.rotation.y = a;
-        g.add(pod);
-      }
-      g.add(boxMesh(mat(0xefe9dc), 0.2, 0.08, 0.14, 0.14, 0.04, 0.3));
-      return { group: g, outputs: [], input: new THREE.Vector3(), indicator: null, steam: null, width: 0.7 };
-    }
-    case 'rice_cooker': {
-      const light = new THREE.MeshStandardMaterial({ color: 0x331111, emissive: 0xff3020, emissiveIntensity: 0, flatShading: true });
-      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.16, 0.24, 10).translate(0, 0.12, -0.1), cream));
-      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.17, 0.06, 10).translate(0, 0.27, -0.1), mat(0xd8d0bf)));
-      g.add(boxMesh(iron, 0.09, 0.03, 0.04, 0, 0.32, -0.1));
-      g.add(boxMesh(light, 0.03, 0.03, 0.02, 0.16, 0.16, -0.1));
-      g.add(boxMesh(iron, 0.02, 0.06, 0.12, 0.17, 0.1, -0.1));
-      g.add(boxMesh(lightWood, 0.34, 0.02, 0.34, 0.03, 0.01, 0.32));
-      return {
-        group: g,
-        outputs: [new THREE.Vector3(-0.05, 0.02, 0.24), new THREE.Vector3(-0.05, 0.02, 0.4), new THREE.Vector3(0.12, 0.02, 0.24), new THREE.Vector3(0.12, 0.02, 0.4)],
-        input: new THREE.Vector3(),
-        indicator: light,
-        steam: new THREE.Vector3(0, 0.33, -0.1),
-        width: 0.9,
-      };
-    }
-    case 'sushi_board': {
-      g.add(boxMesh(lightWood, 0.5, 0.05, 0.95, 0.05, 0.025, 0));
-      g.add(boxMesh(mat(0xf08a4a), 0.14, 0.07, 0.24, -0.05, 0.085, -0.3));
-      g.add(boxMesh(mat(0xfbd2b0), 0.141, 0.01, 0.24, -0.05, 0.09, -0.3));
-      const blade = boxMesh(mat(0xd8dde4, { metalness: 0.7, roughness: 0.25 }), 0.03, 0.005, 0.22, 0.2, 0.055, -0.15);
-      g.add(blade);
-      g.add(boxMesh(mat(0x2a1a10), 0.025, 0.02, 0.1, 0.2, 0.06, 0.0));
-      g.add(boxMesh(mat(0x1b2a1a), 0.12, 0.004, 0.1, -0.12, 0.052, 0.3));
-      return { group: g, outputs: [new THREE.Vector3(0.1, 0.05, 0.28)], input: new THREE.Vector3(0.08, 0.05, -0.02), indicator: null, steam: null, width: 1.0 };
-    }
-    default:
-      g.add(boxMesh(wood, 0.4, 0.2, 0.4, 0, 0.1, 0));
-      return { group: g, outputs: [new THREE.Vector3(0.1, 0.2, 0)], input: new THREE.Vector3(0, 0.2, 0), indicator: null, steam: null, width: 0.6 };
-  }
-}
+const V3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+const stripes = (a: number, b: number, period = 2) => (_x: number, _y: number, z: number) => (((Math.floor(z / period) % 2) + 2) % 2 ? a : b);
+
+/** Voxel station models in ~3cm voxels; local origin is the counter top at the slot centre, +X faces the room. */
+const STATION_SPECS: Record<string, StationSpec> = {
+  kettle: {
+    build: (v) => {
+      v.box(-11, 0, -7, 2, 6, 7, (x, y) => (y === 5 || x === -11 || x === 1 ? C.stoneD : C.stone));
+      v.box(-10, 5, -6, 1, 6, 6, C.ember);
+      v.cyl(-4.5, 0, 4.6, 6, 12, C.iron);
+      v.cyl(-4.5, 0, 3.2, 12, 13, C.iron);
+      v.box(-5, 13, -1, -4, 14, 1, C.darkWood);
+      v.box(0, 8, -1, 3, 9, 1, C.iron);
+      v.box(2, 9, -1, 4, 10, 1, C.iron);
+      v.box(-5, 12, -5, -4, 16, -4, C.darkWood);
+      v.box(-5, 12, 4, -4, 16, 5, C.darkWood);
+      v.box(-5, 16, -5, -4, 17, 5, C.darkWood);
+      v.box(3, 0, -10, 12, 1, 10, stripes(C.lightWood, C.hinoki));
+    },
+    outputs: [V3(0.235, 0.031, -0.13), V3(0.235, 0.031, 0.13)],
+    input: V3(0.235, 0.031, 0),
+    steam: V3(0.1, 0.3, 0),
+    light: 'embers',
+  },
+  edamame_bowl: {
+    build: (v) => {
+      v.box(-8, 0, -8, 8, 5, 8, C.lightWood);
+      v.box(-7, 1, -7, 7, 5, 7, 0);
+      v.box(-7, 1, -7, 7, 4, 7, (x, y, z) => ((x + y * 2 + z) % 3 === 0 ? C.edamame2 : C.edamame));
+      v.box(-5, 4, -5, 5, 6, 5, (x, y, z) => ((x * 2 + y + z) % 3 === 0 ? C.edamame2 : C.edamame));
+      v.box(-2, 6, -2, 3, 7, 3, C.edamame);
+      v.box(3, 0, 9, 11, 3, 15, (_x, y) => (y % 2 ? C.ceramicBlue : C.ceramic));
+    },
+    outputs: [],
+    input: V3(0, 0, 0),
+    steam: null,
+    light: null,
+  },
+  rice_cooker: {
+    build: (v) => {
+      v.cyl(-3, -4, 6.2, 0, 8, (_x, y) => (y === 1 ? C.mustard : C.white));
+      v.cyl(-3, -4, 6.4, 8, 9, C.ceramic);
+      v.cyl(-3, -4, 4.4, 9, 10, C.ceramic);
+      v.box(-4, 10, -6, -2, 11, -2, C.black);
+      v.box(3, 2, -7, 4, 5, -1, C.steelD);
+      v.set(4, 4, -5, C.indicator);
+      v.set(4, 3, -3, C.white);
+      v.box(-3, 0, 4, 10, 1, 15, stripes(C.lightWood, C.hinoki));
+    },
+    outputs: [V3(0.03, 0.031, 0.22), V3(0.21, 0.031, 0.22), V3(0.03, 0.031, 0.4), V3(0.21, 0.031, 0.4)],
+    input: V3(0, 0, 0),
+    steam: V3(-0.09, 0.32, -0.12),
+    light: 'indicator',
+  },
+  sushi_board: {
+    build: (v) => {
+      v.box(-8, 1, -16, 9, 2, 16, stripes(C.hinoki, C.hinoki2, 4));
+      v.box(-8, 0, -16, 9, 1, -14, C.midWood);
+      v.box(-8, 0, 14, 9, 1, 16, C.midWood);
+      v.box(-7, 2, -14, -1, 5, -6, (x) => (x % 2 === 0 ? C.salmonL : C.salmon));
+      v.box(4, 2, -13, 5, 3, -4, C.steel);
+      v.box(4, 2, -4, 5, 3, 0, C.darkWood);
+      v.box(-6, 2, 11, -4, 3, 13, C.wasabi);
+      v.box(-3, 2, 11, 0, 3, 13, C.ginger);
+    },
+    outputs: [V3(0.03, 0.0625, 0.22)],
+    input: V3(0.03, 0.0625, -0.02),
+    steam: null,
+    light: null,
+  },
+  default: {
+    build: (v) => v.box(-6, 0, -6, 6, 6, 6, C.midWood),
+    outputs: [V3(0.1, 0.19, 0)],
+    input: V3(0, 0.19, 0),
+    steam: null,
+    light: null,
+  },
+};
 
 /** Free counter space for setting things down. Q drops the held item here. */
 export class PassShelf implements Interactable {
@@ -335,23 +352,26 @@ export class PassShelf implements Interactable {
   readonly slots: (ItemId | null)[] = [null, null, null, null];
   private readonly meshes: (THREE.Object3D | null)[] = [null, null, null, null];
   private readonly spots: THREE.Vector3[];
-  private readonly box: THREE.Box3;
+  private readonly model: THREE.Group;
 
   constructor(
     private readonly game: Game,
     z: number,
   ) {
     this.root.position.set(COUNTER_X, COUNTER.top, z);
-    const board = boxMesh(mat(0x5a3a22), 0.6, 0.03, 1.15, 0.05, 0.015, 0);
-    this.root.add(board);
-    this.spots = [-0.42, -0.14, 0.14, 0.42].map((dz) => new THREE.Vector3(0.08, 0.03, dz));
-    for (const s of this.spots) this.root.add(boxMesh(mat(0x6e4a2c), 0.24, 0.005, 0.22, s.x, 0.031, s.z));
-    this.box = new THREE.Box3().setFromObject(board).translate(this.root.position);
-    this.box.max.y += 0.15;
+    const centres = [-13, -4, 5, 14];
+    this.model = modelGroup(
+      cachedModel('pass', F, [0, 0, 0], (v) => {
+        v.box(-9, 0, -19, 9, 1, 19, C.midWood);
+        for (const c of centres) v.box(-5, 1, c - 4, 6, 2, c + 4, (x) => (x % 2 ? C.straw : C.hinoki2));
+      }),
+    );
+    this.root.add(this.model);
+    this.spots = centres.map((c) => new THREE.Vector3(0.0, 2 * F, (c + 0.5) * F));
   }
 
-  outline(): THREE.Box3 {
-    return this.box;
+  outlineTargets(): THREE.Object3D[] {
+    return [this.model, ...this.meshes.filter((m): m is THREE.Object3D => m !== null)];
   }
 
   private nearestSlot(point: THREE.Vector3, filled: boolean): number {
@@ -377,8 +397,7 @@ export class PassShelf implements Interactable {
     const hand = this.game.hand;
     const title = 'Pass Counter';
     if (!hand.empty) return this.hasFree ? { title, verb: `Set down ${hand.name}`, ok: true } : { title, verb: 'No space left', ok: false };
-    const items = this.slots.filter((s): s is ItemId => s !== null);
-    if (items.length === 0) return { title, verb: 'Empty', detail: 'Press Q to set an item down', ok: false };
+    if (this.slots.every((s) => s === null)) return { title, verb: 'Empty', detail: 'Press Q to set an item down', ok: false };
     const at = this.game.interaction.lastHit ? this.nearestSlot(this.game.interaction.lastHit.point, true) : -1;
     const name = at >= 0 ? this.game.content.items.get(this.slots[at]!).name : '';
     return { title, verb: `Pick up ${name}`, ok: true };
@@ -435,28 +454,36 @@ export class Sink implements Interactable {
   private remaining = 0;
   private readonly stack: THREE.Object3D[] = [];
   private readonly water: THREE.Mesh;
-  private readonly box: THREE.Box3;
+  private readonly model: THREE.Group;
 
   constructor(
     private readonly game: Game,
     z: number,
   ) {
     this.root.position.set(COUNTER_X, COUNTER.top, z);
-    const steel = mat(0xa8adb5, { metalness: 0.6, roughness: 0.35 });
-    this.root.add(boxMesh(steel, 0.62, 0.04, 0.9, 0.04, 0.02, 0));
-    this.root.add(boxMesh(mat(0x6a7078, { metalness: 0.5, roughness: 0.4 }), 0.5, 0.01, 0.7, 0.04, 0.045, 0));
-    this.water = boxMesh(new THREE.MeshStandardMaterial({ color: 0x8ab8d8, transparent: true, opacity: 0, roughness: 0.1 }), 0.48, 0.01, 0.66, 0.04, 0.06, 0);
+    this.model = modelGroup(
+      cachedModel('sink', F, [0, 0, 0], (v) => {
+        v.box(-9, 0, -14, 9, 4, 14, C.steel);
+        v.box(-8, 1, -13, 8, 4, 13, 0);
+        v.box(-8, 1, -13, 8, 2, 13, C.steelD);
+        v.box(-10, 4, -1, -8, 12, 1, C.steel);
+        v.box(-10, 11, -1, -3, 12, 1, C.steel);
+        v.box(-4, 10, -1, -3, 11, 1, C.steel);
+        v.box(3, 0, 15, 8, 2, 18, C.mustard);
+        v.box(-7, 0, 15, 1, 6, 17, (_x, y) => (y % 2 ? C.ceramic : C.ceramicBlue));
+      }),
+    );
+    this.root.add(this.model);
+    this.water = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.8), new THREE.MeshStandardMaterial({ color: 0x8ab8d8, transparent: true, opacity: 0, roughness: 0.1 }));
+    this.water.rotation.x = -Math.PI / 2;
+    this.water.position.set(0, 3.5 * F, 0);
     this.root.add(this.water);
-    this.root.add(boxMesh(steel, 0.04, 0.32, 0.04, -0.27, 0.18, 0));
-    this.root.add(boxMesh(steel, 0.2, 0.04, 0.04, -0.18, 0.33, 0));
-    this.glow = makeGlowStrip(z, 0.9);
+    this.glow = makeGlowPool(COUNTER_X + 0.15, COUNTER.top + 0.004, z, 1.0, 0.9);
     this.label = { anchor: new THREE.Vector3(COUNTER_X + 0.15, COUNTER.top + 0.62, z), progress: null, ready: 0 };
-    this.box = new THREE.Box3().setFromObject(this.root);
-    this.box.max.y += 0.1;
   }
 
-  outline(): THREE.Box3 {
-    return this.box;
+  outlineTargets(): THREE.Object3D[] {
+    return [this.model];
   }
 
   prompt(): Prompt {
@@ -498,7 +525,7 @@ export class Sink implements Interactable {
     while (this.stack.length > this.queue) disposeGroup(this.stack.pop()!);
     while (this.stack.length < Math.min(this.queue, 4)) {
       const m = makeItemMesh('dirtyDishes');
-      m.position.set(0.04, 0.05 + this.stack.length * 0.03, -0.15 + this.stack.length * 0.1);
+      m.position.set(0, 2 * F + this.stack.length * 0.02, -0.18 + this.stack.length * 0.12);
       this.root.add(m);
       this.stack.push(m);
     }
@@ -513,25 +540,30 @@ export class Sink implements Interactable {
 export class Crate implements Interactable {
   readonly root = new THREE.Group();
   readonly glow: THREE.Mesh;
-  private readonly box: THREE.Box3;
+  private readonly model: THREE.Group;
 
   constructor(private readonly game: Game) {
-    this.root.position.set(CRATE.x, 0.5, CRATE.z);
-    const contents: [number, number, number, number, number][] = [
-      [0xf08a4a, -0.2, 0.06, -0.1, 0.18],
-      [0xefe6d0, 0.12, 0.08, -0.1, 0.22],
-      [0x6fae3e, -0.2, 0.05, 0.14, 0.14],
-      [0x5a8a3a, 0.14, 0.05, 0.14, 0.16],
-    ];
-    for (const [c, x, h, z, w] of contents) this.root.add(boxMesh(mat(c), w, h * 2, 0.18, x, h, z));
-    this.root.add(boxMesh(mat(0x3a2414), 0.82, 0.04, 0.04, 0, 0.02, -0.3));
-    this.glow = boxMesh(new THREE.MeshStandardMaterial({ color: 0x2a1a10, emissive: 0xffb050, emissiveIntensity: 0 }), 0.82, 0.03, 0.02, 0, -0.1, -0.335);
-    this.root.add(this.glow);
-    this.box = new THREE.Box3(new THREE.Vector3(CRATE.x - 0.42, 0, CRATE.z - 0.34), new THREE.Vector3(CRATE.x + 0.42, 0.7, CRATE.z + 0.34));
+    this.root.position.set(CRATE.x, 0, CRATE.z);
+    this.model = modelGroup(
+      cachedModel('delivery-crate', F, [0, 0, 0], (v) => {
+        v.box(-13, 0, -10, 13, 15, 10, (x, y, z) => (y % 5 === 4 || x === -13 || x === 12 || z === -10 || z === 9 ? C.midWood : C.midWood2));
+        v.box(-12, 4, -9, 12, 15, 9, 0);
+        v.box(-12, 4, -9, -1, 13, -1, C.straw);
+        v.box(-11, 13, -8, -2, 15, -2, C.straw);
+        v.box(1, 4, -9, 12, 12, -1, C.cream);
+        v.box(2, 12, -8, 11, 14, -2, C.salmon);
+        v.box(-12, 4, 0, 0, 12, 9, C.edamame);
+        v.box(-11, 12, 1, -1, 14, 8, C.edamame2);
+        v.box(1, 4, 0, 12, 11, 9, C.leaf);
+        v.box(3, 11, 2, 9, 15, 7, C.red);
+      }),
+    );
+    this.root.add(this.model);
+    this.glow = makeGlowPool(CRATE.x + 0.1, 0.01, CRATE.z, 1.3, 1.1);
   }
 
-  outline(): THREE.Box3 {
-    return this.box;
+  outlineTargets(): THREE.Object3D[] {
+    return [this.model];
   }
 
   restockCost(): { cost: number; units: number } {
@@ -568,7 +600,6 @@ export class Crate implements Interactable {
 export class OpenSign implements Interactable {
   readonly root = new THREE.Group();
   private readonly face: THREE.MeshStandardMaterial;
-  private readonly box: THREE.Box3;
   private readonly textures: Record<'closed' | 'open', THREE.Texture>;
 
   constructor(
@@ -578,13 +609,20 @@ export class OpenSign implements Interactable {
   ) {
     this.textures = textures;
     this.face = new THREE.MeshStandardMaterial({ map: textures.closed, roughness: 0.9, emissive: 0xffe0b0, emissiveMap: textures.closed, emissiveIntensity: 0.25 });
-    const board = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.34, 0.04), [mat(0x2a1a10), mat(0x2a1a10), mat(0x2a1a10), mat(0x2a1a10), mat(0x2a1a10), this.face]);
+    const frame = modelGroup(
+      cachedModel('sign-frame', F, [10.5, 6, 1], (v) => {
+        v.box(0, 0, 0, 21, 12, 1, C.darkWood);
+        v.box(4, 12, 0, 5, 18, 1, C.rope);
+        v.box(16, 12, 0, 17, 18, 1, C.rope);
+      }),
+    );
+    frame.rotation.y = Math.PI;
+    this.root.add(frame);
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.32), this.face);
     board.rotation.y = Math.PI;
+    board.position.z = -0.02;
     this.root.add(board);
-    this.root.add(boxMesh(mat(0x2a1a10), 0.01, 0.2, 0.01, -0.15, 0.25, 0));
-    this.root.add(boxMesh(mat(0x2a1a10), 0.01, 0.2, 0.01, 0.15, 0.25, 0));
     this.root.position.copy(pos);
-    this.box = new THREE.Box3().setFromObject(this.root);
   }
 
   setOpen(open: boolean): void {
@@ -594,8 +632,8 @@ export class OpenSign implements Interactable {
     this.face.needsUpdate = true;
   }
 
-  outline(): THREE.Box3 {
-    return this.box;
+  outlineTargets(): THREE.Object3D[] {
+    return [this.root];
   }
 
   prompt(): Prompt | null {

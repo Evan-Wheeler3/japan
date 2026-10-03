@@ -8,9 +8,45 @@ import { Figure } from './figure';
 import type { Interactable, Prompt } from './interaction';
 import { disposeGroup, makeItemMesh } from './items';
 import { AISLE_X, DOORWAY, ENTRY, OUTSIDE, SEAT_HEIGHT, SEAT_OFFSET, TABLE_SIZE } from './layout';
+import * as P from './props';
+import { C } from './voxel/palette';
+import { cachedModel, modelGroup } from './voxel/vox';
 
 const WALK_SPEED = 1.35;
 const ORDER_DELAY = 2.5;
+
+const FUR = 1 / 16;
+const CUSHIONS = [C.red, C.indigo, C.mustard, C.redDark];
+
+function tableModel(index: number) {
+  return cachedModel(`table-${index % CUSHIONS.length}`, FUR, [0, 0, 0], (v) => {
+    v.box(-10, 11, -6, 10, 12, 6, (_x, _y, z) => (((Math.floor(z / 3) % 2) + 2) % 2 ? C.lightWood : C.hinoki2));
+    v.box(-9, 10, -5, 9, 11, 5, C.darkWood);
+    v.box(-8, 10, -4, 8, 11, 4, 0);
+    for (const [lx, lz] of [
+      [-9, -5],
+      [7, -5],
+      [-9, 3],
+      [7, 3],
+    ])
+      v.box(lx, 0, lz, lx + 2, 10, lz + 2, C.darkWood);
+    for (const side of [-1, 1]) {
+      const c = side * 12;
+      v.box(-4, 5, c - 4, 4, 6, c + 4, C.darkWood);
+      v.box(-4, 6, c - 4, 4, 8, c + 4, (x, y, z) => (y === 7 && (x === -4 || x === 3 || z === c - 4 || z === c + 3) ? C.cream : CUSHIONS[index % CUSHIONS.length]));
+      for (const [lx, lz] of [
+        [-4, c - 4],
+        [3, c - 4],
+        [-4, c + 3],
+        [3, c + 3],
+      ])
+        v.box(lx, 0, lz, lx + 1, 5, lz + 1, C.beam);
+      const back = c + side * 4 - (side > 0 ? 1 : 0);
+      for (let x = -4; x < 4; x++)
+        for (let y = 6; y < 16; y++) if (x === -4 || x === 3 || y === 15 || y === 11 || x === -1 || x === 0) v.set(x, y, back, C.darkWood);
+    }
+  });
+}
 
 export class TableEntity implements Interactable {
   readonly root = new THREE.Group();
@@ -19,7 +55,7 @@ export class TableEntity implements Interactable {
   readonly seats: { pos: THREE.Vector3; facing: number }[];
   private served: THREE.Object3D[] = [];
   private dirtyMesh: THREE.Object3D | null = null;
-  private readonly box: THREE.Box3;
+  private readonly model: THREE.Group;
 
   constructor(
     private readonly game: Game,
@@ -31,11 +67,23 @@ export class TableEntity implements Interactable {
     const hit = new THREE.Mesh(new THREE.BoxGeometry(TABLE_SIZE.w + 0.1, 1.5, TABLE_SIZE.d + SEAT_OFFSET * 2 + 0.3), hitMat);
     hit.position.set(x, 0.75, z);
     this.root.add(hit);
+    this.model = modelGroup(tableModel(index));
+    this.model.position.set(x, 0, z);
+    const decor: [ReturnType<typeof P.soyBottle>, number, number][] = [
+      [P.soyBottle(), 0.5, -0.05],
+      [P.chopstickCup(), 0.5, 0.08],
+      [P.flowerVase(), -0.48, 0.0],
+    ];
+    for (const [m, dx, dz] of decor) {
+      const g = modelGroup(m);
+      g.position.set(dx, TABLE_SIZE.h, dz);
+      this.model.add(g);
+    }
+    this.root.add(this.model);
     this.seats = [
       { pos: new THREE.Vector3(x, 0, z - SEAT_OFFSET), facing: 0 },
       { pos: new THREE.Vector3(x, 0, z + SEAT_OFFSET), facing: Math.PI },
     ];
-    this.box = new THREE.Box3(new THREE.Vector3(x - TABLE_SIZE.w / 2, 0, z - TABLE_SIZE.d / 2), new THREE.Vector3(x + TABLE_SIZE.w / 2, TABLE_SIZE.h + 0.12, z + TABLE_SIZE.d / 2));
   }
 
   get label(): string {
@@ -46,8 +94,8 @@ export class TableEntity implements Interactable {
     return !this.party && !this.dirty;
   }
 
-  outline(): THREE.Box3 {
-    return this.box;
+  outlineTargets(): THREE.Object3D[] {
+    return [this.model, ...(this.party?.members.map((m) => m.figure.root) ?? []), ...this.served];
   }
 
   prompt(): Prompt {
@@ -92,7 +140,7 @@ export class TableEntity implements Interactable {
   private placeServed(item: ItemId): void {
     const i = this.served.length;
     const seat = i % 2;
-    const lateral = (Math.floor(i / 2) - 0.5) * 0.3 + (Math.floor(i / 2) === 0 ? 0.15 : 0);
+    const lateral = [-0.12, 0.18, -0.32, 0.28][Math.floor(i / 2) % 4];
     const m = makeItemMesh(this.game.content.items.get(item).visual);
     m.position.set(this.x + lateral, TABLE_SIZE.h, this.z + (seat === 0 ? -0.2 : 0.2));
     m.rotation.y = seat === 0 ? 0 : Math.PI;

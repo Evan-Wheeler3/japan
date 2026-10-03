@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Rng } from '../sim/rng';
 import { BUILDING_BOUNDS } from './layout';
-import { mat } from './materials';
+import { C } from './voxel/palette';
+import { cachedModel, meshGrid, solidMaterial, Vox } from './voxel/vox';
 
 const OCEAN_Y = -38;
 const FUJI_POS = new THREE.Vector3(-260, OCEAN_Y, -1650);
@@ -134,7 +135,7 @@ export class Environment {
     this.group.add(new THREE.Points(starGeo, this.starsMat));
 
     // ---- Moon ----
-    this.moon = new THREE.Mesh(new THREE.CircleGeometry(65, 12), new THREE.MeshBasicMaterial({ color: 0xc4cadb, fog: false, transparent: true }));
+    this.moon = new THREE.Mesh(new THREE.CircleGeometry(42, 12), new THREE.MeshBasicMaterial({ color: 0xb4bccf, fog: false, transparent: true }));
     this.moon.position.set(700, 520, -2500);
     this.moon.lookAt(0, 0, 0);
     this.group.add(this.moon);
@@ -161,7 +162,7 @@ export class Environment {
     const oceanGeo = new THREE.PlaneGeometry(4200, 3400, 70, 56);
     oceanGeo.rotateX(-Math.PI / 2);
     oceanGeo.translate(0, OCEAN_Y, -1500);
-    this.ocean = new THREE.Mesh(oceanGeo, new THREE.MeshStandardMaterial({ color: 0x0e2340, roughness: 0.62, metalness: 0, flatShading: true }));
+    this.ocean = new THREE.Mesh(oceanGeo, new THREE.MeshStandardMaterial({ color: 0x0f2a4c, roughness: 0.6, metalness: 0, flatShading: true }));
     this.oceanBase = Float32Array.from(oceanGeo.attributes.position.array as Float32Array);
     this.group.add(this.ocean);
 
@@ -229,31 +230,60 @@ export class Environment {
   }
 }
 
-function buildFuji(): THREE.Object3D {
-  const profile = [
-    [330, 0],
-    [250, 22],
-    [175, 55],
-    [115, 98],
-    [70, 140],
-    [36, 176],
-    [26, 186],
-    [0, 184],
-  ].map(([r, y]) => new THREE.Vector2(r, y));
-  const geo = new THREE.LatheGeometry(profile, 11);
-  const colors: number[] = [];
+/** Stepped lathe profile: each terrace is a vertical rise then a flat ledge — reads as voxel from afar. */
+function terracedLathe(radius: (h: number) => number, height: number, steps: number, segments: number): THREE.BufferGeometry {
+  const pts: THREE.Vector2[] = [];
+  for (let i = 0; i < steps; i++) {
+    const y0 = (height * i) / steps;
+    const y1 = (height * (i + 1)) / steps;
+    const r = radius(y0 / height);
+    pts.push(new THREE.Vector2(r, y0), new THREE.Vector2(r, y1));
+    pts.push(new THREE.Vector2(i === steps - 1 ? 0.001 : radius(y1 / height), y1));
+  }
+  return new THREE.LatheGeometry(pts, segments).toNonIndexed();
+}
+
+function colorByHeight(geo: THREE.BufferGeometry, snowLine: number, rock: number, snow: number, streaks = 0): void {
   const pos = geo.attributes.position;
-  const rock = new THREE.Color(0x2b3550);
-  const snow = new THREE.Color(0xe6ecf8);
-  for (let i = 0; i < pos.count; i++) {
-    const y = pos.getY(i);
-    const streak = Math.sin(Math.atan2(pos.getX(i), pos.getZ(i)) * 9) * 10;
-    colors.push(...(y + streak > 95 ? snow : rock).toArray());
+  const colors: number[] = [];
+  const r = new THREE.Color(rock);
+  const sn = new THREE.Color(snow);
+  for (let i = 0; i < pos.count; i += 3) {
+    const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+    const a = Math.atan2(pos.getX(i), pos.getZ(i));
+    const c = y + Math.sin(a * 9) * streaks > snowLine ? sn : r;
+    for (let k = 0; k < 3; k++) colors.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 }));
+}
+
+const landMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+
+function buildFuji(): THREE.Object3D {
+  // Classic concave Fuji profile (radius vs normalised height), terraced for the voxel look.
+  const profile: [number, number][] = [
+    [0, 410],
+    [0.12, 310],
+    [0.3, 218],
+    [0.53, 144],
+    [0.75, 88],
+    [0.95, 45],
+    [1, 32],
+  ];
+  const radius = (t: number) => {
+    for (let i = 1; i < profile.length; i++)
+      if (t <= profile[i][0]) {
+        const [t0, r0] = profile[i - 1];
+        const [t1, r1] = profile[i];
+        return r0 + ((r1 - r0) * (t - t0)) / (t1 - t0);
+      }
+    return profile[profile.length - 1][1];
+  };
+  const h = 223;
+  const geo = terracedLathe(radius, h, 16, 12);
+  colorByHeight(geo, h * 0.5, 0x2b3550, 0xe6ecf8, 14);
+  const mesh = new THREE.Mesh(geo, landMaterial);
   mesh.position.copy(FUJI_POS);
-  mesh.scale.set(1.25, 1.2, 1.25);
   return mesh;
 }
 
@@ -273,24 +303,10 @@ function buildRidges(): THREE.Object3D {
     [1400, -500, 140, 240],
   ];
   for (const [x, z, h, r] of peaks) {
-    const geo = new THREE.ConeGeometry(r, h, 7, 2);
-    const pos = geo.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < pos.count; i++) {
-      if (pos.getY(i) < h / 2 - 1) {
-        pos.setX(i, pos.getX(i) * rng.range(0.8, 1.2));
-        pos.setZ(i, pos.getZ(i) * rng.range(0.8, 1.2));
-      }
-    }
-    const nonIdx = geo.toNonIndexed();
-    const p2 = nonIdx.attributes.position;
-    const colors: number[] = [];
-    const base = new THREE.Color(rng.pick(rockColors));
-    const snow = new THREE.Color(0xc8d2e6);
-    for (let i = 0; i < p2.count; i++) colors.push(...(p2.getY(i) > h * 0.12 ? snow : base).toArray());
-    nonIdx.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    const m = new THREE.Mesh(nonIdx, mat(0xffffff, { key: 'ridge' }));
-    (m.material as THREE.MeshStandardMaterial).vertexColors = true;
-    m.position.set(x, OCEAN_Y + h / 2 - 10, z);
+    const geo = terracedLathe((t) => r * (1 - t) + 8, h, 7 + rng.int(0, 3), 6 + rng.int(0, 2));
+    colorByHeight(geo, h * 0.45, rng.pick(rockColors), 0xc8d2e6);
+    const m = new THREE.Mesh(geo, landMaterial);
+    m.position.set(x, OCEAN_Y - 6, z);
     m.rotation.y = rng.range(0, Math.PI);
     g.add(m);
   }
@@ -300,67 +316,88 @@ function buildRidges(): THREE.Object3D {
 /** Plateau around the restaurant falling away to cliffs and the sea to the north; hills rise east and west. */
 export function terrainHeight(x: number, z: number): number {
   let h = 0;
-  const bump = Math.sin(x * 0.21) * Math.cos(z * 0.17) * 0.6 + Math.sin(x * 0.07 + z * 0.05) * 1.2;
+  const away = Math.min(1, Math.max(0, (Math.max(Math.abs(x) - 16, z - 18, -z - 10) + 6) / 14));
+  const bump = (Math.sin(x * 0.21) * Math.cos(z * 0.17) * 0.8 + Math.sin(x * 0.07 + z * 0.05) * 1.6) * away;
   if (z < -9) h -= Math.min(48, Math.pow(-z - 9, 1.35) * 0.9);
-  h += Math.max(0, Math.abs(x) - 22) * 0.55;
-  if (z > 14) h += (z - 14) * 0.35;
-  const nearBuilding = Math.abs(x) < 9 && z > -9.5 && z < 12;
-  return nearBuilding ? Math.min(h, -0.02) : h + bump - 0.05;
+  h += Math.max(0, Math.abs(x) - 26) * 0.55;
+  if (z > 22) h += (z - 22) * 0.35;
+  const nearBuilding = Math.abs(x) < 16 && z > -10 && z < 18;
+  return nearBuilding ? -0.125 : h + bump;
+}
+
+const TERRAIN_VOXEL = 1.5;
+const TERRAIN_Y0 = -0.125;
+
+/** Top surface (metres) of the terrain block column containing (x, z). */
+export function terrainTop(x: number, z: number): number {
+  const ix = Math.floor(x / TERRAIN_VOXEL);
+  const iz = Math.floor(z / TERRAIN_VOXEL);
+  const j = Math.round((terrainHeight((ix + 0.5) * TERRAIN_VOXEL, (iz + 0.5) * TERRAIN_VOXEL) - TERRAIN_Y0) / TERRAIN_VOXEL);
+  return TERRAIN_Y0 + j * TERRAIN_VOXEL;
 }
 
 function buildTerrain(): THREE.Object3D {
-  const geo = new THREE.PlaneGeometry(200, 170, 70, 60).toNonIndexed();
-  geo.rotateX(-Math.PI / 2);
-  geo.translate(0, 0, -45);
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) pos.setY(i, terrainHeight(pos.getX(i), pos.getZ(i)));
-  geo.computeVertexNormals();
-  const colors: number[] = [];
-  const snow = new THREE.Color(0xe8eefa);
-  const rock = new THREE.Color(0x3a3c48);
-  const n = geo.attributes.normal;
-  for (let i = 0; i < pos.count; i += 3) {
-    const ny = (n.getY(i) + n.getY(i + 1) + n.getY(i + 2)) / 3;
-    const c = ny < 0.62 ? rock : snow;
-    for (let k = 0; k < 3; k++) colors.push(c.r, c.g, c.b);
-  }
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }));
+  const vox = new Vox();
+  const jMin = Math.floor((OCEAN_Y - 3 - TERRAIN_Y0) / TERRAIN_VOXEL);
+  for (let ix = -66; ix < 66; ix++)
+    for (let iz = -86; iz < 27; iz++) {
+      const top = Math.round((terrainHeight((ix + 0.5) * TERRAIN_VOXEL, (iz + 0.5) * TERRAIN_VOXEL) - TERRAIN_Y0) / TERRAIN_VOXEL);
+      for (let j = jMin; j < top; j++) {
+        const depth = top - 1 - j;
+        vox.set(ix, j, iz, depth === 0 ? (((ix * 7 + iz * 3) % 5) + 5) % 5 === 0 ? C.snow2 : C.snow : depth < 2 && (ix + j) % 3 === 0 ? C.snow2 : (ix * 3 + j * 5 + iz) % 4 === 0 ? C.stoneD : C.stone);
+      }
+    }
+  const m = meshGrid(vox.toDense(), TERRAIN_VOXEL);
+  const mesh = new THREE.Mesh(m.solid!, solidMaterial);
+  mesh.position.y = TERRAIN_Y0;
+  return mesh;
+}
+
+function pineModel(variant: number) {
+  return cachedModel(`pine-${variant}`, 0.25, [2.5, 0, 2.5], (v) => {
+    const tiers = 3 + variant;
+    v.box(2, 0, 2, 3, 3, 3, C.darkWood);
+    let y = 2;
+    for (let i = 0; i < tiers; i++) {
+      const r = tiers - i + 1;
+      const c = 2.5;
+      v.box(Math.floor(c - r), y, Math.floor(c - r), Math.ceil(c + r), y + 2, Math.ceil(c + r), (x, yy, z) => ((x + z + yy) % 3 === 0 ? C.leafDark : C.leaf));
+      v.box(Math.floor(c - r), y + 2, Math.floor(c - r), Math.ceil(c + r), y + 3, Math.ceil(c + r), (x, _y, z) =>
+        Math.abs(x + 0.5 - c) >= r - 0.5 || Math.abs(z + 0.5 - c) >= r - 0.5 ? C.snow : (x * 3 + z) % 4 === 0 ? C.snow2 : C.snow,
+      );
+      y += 3;
+    }
+    v.box(2, y, 2, 3, y + 1, 3, C.snow);
+  });
 }
 
 function buildTrees(): THREE.Object3D {
   const rng = new Rng(5);
-  const spots: THREE.Vector3[] = [];
-  while (spots.length < 90) {
-    const x = rng.range(-95, 95);
-    const z = rng.range(-70, 35);
-    if (Math.abs(x) < 10 && z > -11 && z < 13) continue;
-    const y = terrainHeight(x, z);
-    if (y < OCEAN_Y + 4) continue;
-    spots.push(new THREE.Vector3(x, y, z));
-  }
   const g = new THREE.Group();
-  const tiers: { geo: THREE.BufferGeometry; material: THREE.Material }[] = [
-    { geo: new THREE.BoxGeometry(0.4, 1.2, 0.4).translate(0, 0.6, 0), material: mat(0x3a2414) },
-    { geo: new THREE.BoxGeometry(2.2, 1.1, 2.2).translate(0, 1.6, 0), material: mat(0x1f3a2c) },
-    { geo: new THREE.BoxGeometry(2.3, 0.25, 2.3).translate(0, 2.2, 0), material: mat(0xeef3fb) },
-    { geo: new THREE.BoxGeometry(1.5, 1.0, 1.5).translate(0, 2.8, 0), material: mat(0x24432f) },
-    { geo: new THREE.BoxGeometry(1.6, 0.25, 1.6).translate(0, 3.35, 0), material: mat(0xeef3fb) },
-    { geo: new THREE.BoxGeometry(0.8, 0.9, 0.8).translate(0, 3.9, 0), material: mat(0x24432f) },
-    { geo: new THREE.BoxGeometry(0.85, 0.3, 0.85).translate(0, 4.4, 0), material: mat(0xeef3fb) },
-  ];
+  const spots: [number, THREE.Vector3, number][] = [];
+  let tries = 0;
+  while (spots.length < 110 && tries++ < 5000) {
+    const x = rng.range(-95, 95);
+    const z = rng.range(-70, 38);
+    if (Math.abs(x) < 17 && z > -11 && z < 19) continue;
+    if (Math.abs(x) < 34 && z < -9) continue; // keep the sea view from the windows clear
+    const y = terrainTop(x, z);
+    if (y < OCEAN_Y + 4) continue;
+    spots.push([rng.int(0, 2), new THREE.Vector3(x, y, z), rng.range(0.8, 1.5)]);
+  }
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
-  const sc = new THREE.Vector3();
-  for (const tier of tiers) {
-    const inst = new THREE.InstancedMesh(tier.geo, tier.material, spots.length);
-    const r2 = new Rng(11);
-    spots.forEach((p, i) => {
-      const s = r2.range(0.8, 1.6);
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r2.range(0, Math.PI));
-      m.compose(p, q, sc.set(s, s, s));
+  const up = new THREE.Vector3(0, 1, 0);
+  for (let variant = 0; variant < 3; variant++) {
+    const mine = spots.filter((s) => s[0] === variant);
+    const model = pineModel(variant);
+    const inst = new THREE.InstancedMesh(model.solid!, solidMaterial, mine.length);
+    mine.forEach(([, p, s], i) => {
+      q.setFromAxisAngle(up, (Math.floor(rng.range(0, 4)) * Math.PI) / 2);
+      m.compose(p, q, new THREE.Vector3(s, s, s));
       inst.setMatrixAt(i, m);
     });
+    inst.computeBoundingSphere();
     g.add(inst);
   }
   return g;

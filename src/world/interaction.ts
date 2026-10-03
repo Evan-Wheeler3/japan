@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import type { ItemId } from '../data/types';
 import type { Content } from '../data/registry';
-import { makeItemMesh, disposeGroup } from './items';
+import type { ItemId } from '../data/types';
+import { disposeGroup, makeItemMesh } from './items';
 
 export interface Prompt {
   title: string;
@@ -14,7 +14,8 @@ export interface Interactable {
   readonly root: THREE.Object3D;
   prompt(): Prompt | null;
   interact(hit: THREE.Intersection): void;
-  outline(): THREE.Box3;
+  /** Visible objects that get the soft hover outline. */
+  outlineTargets(): THREE.Object3D[];
 }
 
 const REACH = 2.7;
@@ -26,18 +27,10 @@ export class InteractionSystem {
   private readonly raycaster = new THREE.Raycaster();
   private readonly interactables = new Set<Interactable>();
   private readonly extraTargets = new Set<THREE.Object3D>();
-  private readonly outlineMesh: THREE.LineSegments;
+  private readonly centre = new THREE.Vector2(0, 0);
 
-  constructor(
-    scene: THREE.Scene,
-    private readonly blockers: THREE.Object3D[],
-  ) {
+  constructor(private readonly blockers: THREE.Object3D[]) {
     this.raycaster.far = REACH;
-    const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
-    this.outlineMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.85, depthTest: false }));
-    this.outlineMesh.renderOrder = 999;
-    this.outlineMesh.visible = false;
-    scene.add(this.outlineMesh);
   }
 
   register(i: Interactable): void {
@@ -54,36 +47,18 @@ export class InteractionSystem {
     this.extraTargets.delete(o);
   }
 
-  unregister(i: Interactable): void {
-    this.interactables.delete(i);
-    if (this.hovered === i) this.hovered = null;
-  }
-
-  update(camera: THREE.Camera, enabled: boolean, time: number): void {
+  update(camera: THREE.Camera, enabled: boolean): void {
     this.hovered = null;
     this.lastHit = null;
-    if (enabled) {
-      this.raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const roots = [...this.interactables].map((i) => i.root);
-      const hits = this.raycaster.intersectObjects([...roots, ...this.extraTargets, ...this.blockers], true);
-      for (const hit of hits) {
-        const owner = findInteractable(hit.object);
-        if (owner) {
-          this.hovered = owner;
-          this.lastHit = hit;
-        }
-        break;
-      }
-    }
-    if (this.hovered) {
-      const box = this.hovered.outline();
-      box.getCenter(this.outlineMesh.position);
-      box.getSize(this.outlineMesh.scale);
-      this.outlineMesh.scale.addScalar(0.04);
-      (this.outlineMesh.material as THREE.LineBasicMaterial).opacity = 0.55 + Math.sin(time * 5) * 0.2;
-      this.outlineMesh.visible = true;
-    } else {
-      this.outlineMesh.visible = false;
+    if (!enabled) return;
+    this.raycaster.setFromCamera(this.centre, camera);
+    const roots = [...this.interactables].map((i) => i.root);
+    const hits = this.raycaster.intersectObjects([...roots, ...this.extraTargets, ...this.blockers], true);
+    const hit = hits[0];
+    const owner = hit ? findInteractable(hit.object) : null;
+    if (owner && hit) {
+      this.hovered = owner;
+      this.lastHit = hit;
     }
   }
 
@@ -112,9 +87,9 @@ export class Hand {
     camera: THREE.Camera,
     private readonly content: Content,
   ) {
-    this.holder.position.set(0.34, -0.3, -0.72);
-    this.holder.rotation.set(0.3, -0.4, 0);
-    this.holder.scale.setScalar(0.95);
+    this.holder.position.set(0.3, -0.27, -0.62);
+    this.holder.rotation.set(0.35, -0.45, 0);
+    this.holder.scale.setScalar(0.62);
     camera.add(this.holder);
   }
 
@@ -130,9 +105,6 @@ export class Hand {
     this.clear();
     this.item = item;
     this.mesh = makeItemMesh(this.content.items.get(item).visual);
-    this.mesh.traverse((o) => {
-      o.renderOrder = 10;
-    });
     this.holder.add(this.mesh);
     this.bob = 0.12;
   }
@@ -147,6 +119,6 @@ export class Hand {
 
   update(dt: number, time: number): void {
     this.bob = Math.max(0, this.bob - dt * 0.6);
-    this.holder.position.y = -0.3 - this.bob + Math.sin(time * 2) * 0.004;
+    this.holder.position.y = -0.27 - this.bob + Math.sin(time * 2) * 0.004;
   }
 }

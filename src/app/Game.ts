@@ -3,6 +3,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { AudioEngine, type MusicMood } from '../audio/audio';
 import { DIRTY_DISHES } from '../data/content';
 import { buildContent, recipeFor, stationChain, unlockedMenu } from '../data/registry';
@@ -17,13 +19,32 @@ import { StationBadge, Ticket, UI, yen } from '../ui/ui';
 import { Party, TableEntity } from '../world/dining';
 import { Environment } from '../world/environment';
 import { Hand, InteractionSystem } from '../world/interaction';
-import { COUNTER_SLOTS, PLAYER_SPAWN, SIGN_POS, TABLES } from '../world/layout';
+import { COUNTER_SLOTS, INTERIOR_BOUNDS, PLAYER_SPAWN, ROOM, SIGN_POS, TABLES } from '../world/layout';
 import { signTexture } from '../world/materials';
 import { Player } from '../world/player';
-import { buildRestaurant, LANTERN_GLOW, menuBoardTexture, type RestaurantBuild } from '../world/restaurant';
+import { buildRestaurant, menuBoardTexture, type RestaurantBuild } from '../world/restaurant';
+import { glowMaterial, updateLightMask } from '../world/voxel/vox';
 import { Crate, OpenSign, PassShelf, Sink, StationEntity, type StationLabel } from '../world/stations';
 
 export type Mode = 'title' | 'prep' | 'shift' | 'sunrise' | 'summary';
+
+/** Cozy grade in linear space before tone mapping: saturation, warm shadow lift, vignette. */
+const GRADE_SHADER = {
+  uniforms: { tDiffuse: { value: null }, saturation: { value: 1.18 }, lift: { value: new THREE.Vector3(0.006, 0.0025, 0.0) }, vignette: { value: 1.05 } },
+  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float saturation; uniform vec3 lift; uniform float vignette;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+      vec3 col = mix(vec3(l), c.rgb, saturation);
+      col += lift * (1.0 - smoothstep(0.0, 0.25, l));
+      vec2 d = vUv - 0.5;
+      col *= clamp(1.0 - dot(d, d) * vignette, 0.0, 1.0);
+      gl_FragColor = vec4(col, c.a);
+    }`,
+};
 
 const SUMMARY_DELAY = 4;
 
@@ -34,6 +55,7 @@ export class Game {
   readonly camera: THREE.PerspectiveCamera;
   private readonly composer: EffectComposer;
   private readonly bloom: UnrealBloomPass;
+  private readonly outline: OutlinePass;
   private readonly env: Environment;
   private readonly build: RestaurantBuild;
   readonly interaction: InteractionSystem;
@@ -60,7 +82,7 @@ export class Game {
   parties: Party[] = [];
   private readonly tickets = new Map<Party, Ticket>();
   private readonly badges: [StationBadge, StationLabel][] = [];
-  private readonly glows = new Map<string, THREE.MeshStandardMaterial>();
+  private readonly glows = new Map<string, THREE.MeshBasicMaterial>();
 
   private sunriseT = 0;
   private summaryTimer = 0;
@@ -81,22 +103,30 @@ export class Game {
     this.renderer.toneMappingExposure = 1.05;
     container.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 7000);
+    this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 7000);
     this.scene.add(this.camera);
 
     const target = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, { type: THREE.HalfFloatType, samples: 4 });
     this.composer = new EffectComposer(this.renderer, target);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.55, 0.82);
+    this.outline = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), this.scene, this.camera);
+    this.outline.edgeStrength = 3.2;
+    this.outline.edgeGlow = 0.7;
+    this.outline.edgeThickness = 1.6;
+    this.outline.visibleEdgeColor.set(0xffcf7a);
+    this.outline.hiddenEdgeColor.set(0x000000);
+    this.composer.addPass(this.outline);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.7, 0.65, 0.72);
     this.composer.addPass(this.bloom);
+    this.composer.addPass(new ShaderPass(GRADE_SHADER));
     this.composer.addPass(new OutputPass());
 
     this.env = new Environment(this.scene);
     this.build = buildRestaurant();
     this.scene.add(this.build.group);
-    this.scene.add(new THREE.AmbientLight(0x4a3020, 0.35));
+    this.scene.add(new THREE.AmbientLight(0x2a2a3a, 0.35));
 
-    this.interaction = new InteractionSystem(this.scene, this.build.blockers);
+    this.interaction = new InteractionSystem(this.build.blockers);
     this.player = new Player(this.camera, this.renderer.domElement, this.build.colliders);
     this.player.onStep = () => this.audio.play('step');
     this.hand = new Hand(this.camera, this.content);
@@ -108,7 +138,7 @@ export class Game {
       const s = new StationEntity(this, def, z);
       this.addEntity(s);
       this.scene.add(s.glow);
-      this.glows.set(def.id, s.glow.material as THREE.MeshStandardMaterial);
+      this.glows.set(def.id, s.glow.material as THREE.MeshBasicMaterial);
       this.addBadge(s.label);
       this.stations.push(s);
     }
@@ -117,11 +147,12 @@ export class Game {
     this.sink = new Sink(this, COUNTER_SLOTS.sink);
     this.addEntity(this.sink);
     this.scene.add(this.sink.glow);
-    this.glows.set('sink', this.sink.glow.material as THREE.MeshStandardMaterial);
+    this.glows.set('sink', this.sink.glow.material as THREE.MeshBasicMaterial);
     this.addBadge(this.sink.label);
     this.crate = new Crate(this);
     this.addEntity(this.crate);
-    this.glows.set('crate', this.crate.glow.material as THREE.MeshStandardMaterial);
+    this.scene.add(this.crate.glow);
+    this.glows.set('crate', this.crate.glow.material as THREE.MeshBasicMaterial);
     const signTex = (jp: string, en: string, bg: string) =>
       signTexture({ width: 120, height: 68, bg, fg: '#f4ead2', border: '#2a1a10', lines: [{ text: jp, size: 24, y: 26 }, { text: en, size: 14, y: 52 }] });
     this.sign = new OpenSign(this, SIGN_POS, { closed: signTex('準備中', 'CLOSED', '#5a2a20'), open: signTex('営業中', 'OPEN', '#2a4a30') });
@@ -132,6 +163,8 @@ export class Game {
       this.tables.push(table);
     });
 
+    this.scene.updateMatrixWorld(true);
+    updateLightMask(this.scene, INTERIOR_BOUNDS, ROOM.height);
     this.clock = new NightClock(this.content.night);
     const defaults = newSave(this.content);
     const loaded = this.storage ? loadSave(this.storage, defaults) : null;
@@ -232,6 +265,7 @@ export class Game {
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
     this.bloom.resolution.set(w, h);
+    this.outline.setSize(w, h);
   }
 
   // ---------------------------------------------------------------- states
@@ -488,7 +522,8 @@ export class Game {
     this.env.update(this.time, skyT, snow, this.camera);
     this.updateInteriorLights();
 
-    this.interaction.update(this.camera, this.isPlaying && !this.paused && this.player.locked, this.time);
+    this.interaction.update(this.camera, this.isPlaying && !this.paused && this.player.locked);
+    this.outline.selectedObjects = this.interaction.hovered ? this.interaction.hovered.outlineTargets() : [];
     this.updateUi(dt);
     this.updateHighlights();
     this.audio.update(dt, { mood: this.musicMood(), busy: Math.min(1, this.parties.filter((p) => p.state === 'waiting').length / 4), snow });
@@ -533,14 +568,17 @@ export class Game {
   private updateInteriorLights(): void {
     const dawn = this.mode === 'sunrise' || this.mode === 'summary' ? THREE.MathUtils.smoothstep(this.sunriseT, 0.5, 1) : 0;
     const f = 1 - dawn * 0.45;
-    for (const l of this.build.interiorLights) l.intensity = (l.userData.base ??= l.intensity) * f;
-    this.build.lanternMaterial.emissiveIntensity = LANTERN_GLOW * f;
+    this.build.interiorLights.forEach((l, i) => {
+      const flicker = 1 + Math.sin(this.time * 7.3 + i * 1.7) * 0.035 + Math.sin(this.time * 13.9 + i * 3.1) * 0.025;
+      l.intensity = (l.userData.base ??= l.intensity) * f * flicker;
+    });
+    glowMaterial.color.setScalar(f * (1 + Math.sin(this.time * 5.1) * 0.02));
   }
 
   private updateTitleCamera(): void {
-    const a = 0.75 + Math.sin(this.time * 0.05) * 0.12;
-    this.camera.position.set(Math.sin(a) * 19, 4.2 + Math.sin(this.time * 0.13) * 0.2, 4 + Math.cos(a) * 15);
-    this.camera.lookAt(-1.5, 2.6, -4);
+    const a = Math.sin(this.time * 0.05) * 0.1;
+    this.camera.position.set(9.5 + a * 6, 4.2 + Math.sin(this.time * 0.13) * 0.15, 13.5 - a * 3);
+    this.camera.lookAt(-0.5, 2.3, -1.5);
   }
 
   private musicMood(): MusicMood {
@@ -608,8 +646,8 @@ export class Game {
     }
     const pulse = 0.8 + Math.sin(this.time * 3) * 0.35;
     for (const [id, m] of this.glows) {
-      const target = needed.has(id) ? pulse * 1.6 : 0;
-      m.emissiveIntensity += (target - m.emissiveIntensity) * 0.15;
+      const target = needed.has(id) ? 0.35 + pulse * 0.25 : 0;
+      m.opacity += (target - m.opacity) * 0.12;
     }
   }
 

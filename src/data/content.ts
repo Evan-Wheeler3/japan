@@ -89,9 +89,9 @@ export const ARCHETYPES: ArchetypeDef[] = [
     id: 'salaryman',
     name: 'Salaryman',
     looks: [
-      [{ skin: SKIN[1], hair: 0x1b1714, top: 0x2b3140, bottom: 0x22252e, hairStyle: 'short', accent: 0xa8322d, height: 1 }],
+      [{ skin: SKIN[1], hair: 0x1b1714, top: 0x2b3140, bottom: 0x22252e, hairStyle: 'short', accent: 0xa8322d, scarf: 0x7a2a2a, height: 1 }],
       [{ skin: SKIN[0], hair: 0x241c18, top: 0x3a3f4c, bottom: 0x23262d, hairStyle: 'short', accent: 0x2d5ea8, height: 1.03 }],
-      [{ skin: SKIN[2], hair: 0x120f0d, top: 0x24282f, bottom: 0x1d1f25, hairStyle: 'short', accent: 0x7a6a2a, height: 0.98 }],
+      [{ skin: SKIN[2], hair: 0x120f0d, top: 0x4a3a2c, bottom: 0x1d1f25, hairStyle: 'short', accent: 0x7a6a2a, hat: 0x3a4a6a, height: 0.98 }],
     ],
     patienceSeconds: 75,
     itemsPerPerson: [1, 2],
@@ -106,12 +106,12 @@ export const ARCHETYPES: ArchetypeDef[] = [
     name: 'Elderly Couple',
     looks: [
       [
-        { skin: SKIN[0], hair: 0xc9c6c0, top: 0x5b4636, bottom: 0x3b3430, hairStyle: 'bald', height: 0.95 },
+        { skin: SKIN[0], hair: 0xc9c6c0, top: 0x5b4636, bottom: 0x3b3430, hairStyle: 'bald', scarf: 0x9a8a5a, height: 0.95 },
         { skin: SKIN[4], hair: 0xd8d5d0, top: 0x6c3b47, bottom: 0x3a3236, hairStyle: 'bun', accent: 0xc9a46a, height: 0.9 },
       ],
       [
-        { skin: SKIN[1], hair: 0xb8b4ae, top: 0x3f5544, bottom: 0x33302c, hairStyle: 'short', height: 0.94 },
-        { skin: SKIN[1], hair: 0xe2dfda, top: 0x4c5a78, bottom: 0x2f3038, hairStyle: 'bun', accent: 0xd8b25c, height: 0.88 },
+        { skin: SKIN[1], hair: 0xb8b4ae, top: 0x3f5544, bottom: 0x33302c, hairStyle: 'short', hat: 0x8a3a3a, height: 0.94 },
+        { skin: SKIN[1], hair: 0xe2dfda, top: 0x4c5a78, bottom: 0x2f3038, hairStyle: 'bun', scarf: 0xd8b25c, height: 0.88 },
       ],
     ],
     patienceSeconds: 130,
@@ -128,11 +128,11 @@ export const ARCHETYPES: ArchetypeDef[] = [
     looks: [
       [
         { skin: SKIN[2], hair: 0x2a1d16, top: 0xb5553a, bottom: 0x2f3a52, hairStyle: 'long', height: 0.97 },
-        { skin: SKIN[2], hair: 0x2a1d16, top: 0xe0b23c, bottom: 0x3a5a8a, hairStyle: 'short', accent: 0xd94f4f, height: 0.68 },
+        { skin: SKIN[2], hair: 0x2a1d16, top: 0xe0b23c, bottom: 0x3a5a8a, hairStyle: 'short', hat: 0xd94f4f, height: 0.68 },
       ],
       [
-        { skin: SKIN[3], hair: 0x16110e, top: 0x3d6b5a, bottom: 0x2c2c34, hairStyle: 'short', height: 1.02 },
-        { skin: SKIN[3], hair: 0x16110e, top: 0xd96a8a, bottom: 0x40405a, hairStyle: 'bun', height: 0.66 },
+        { skin: SKIN[3], hair: 0x16110e, top: 0x3d6b5a, bottom: 0x2c2c34, hairStyle: 'short', scarf: 0xc8a050, height: 1.02 },
+        { skin: SKIN[3], hair: 0x16110e, top: 0xd96a8a, bottom: 0x40405a, hairStyle: 'bun', scarf: 0xf2e6c8, height: 0.66 },
       ],
     ],
     patienceSeconds: 95,

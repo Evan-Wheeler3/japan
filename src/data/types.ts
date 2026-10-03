@@ -57,6 +57,8 @@ export interface CustomerLook {
   bottom: number;
   hairStyle: HairStyle;
   accent?: number;
+  hat?: number;
+  scarf?: number;
   height: number;
 }
 

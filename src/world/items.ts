@@ -1,87 +1,89 @@
 import * as THREE from 'three';
 import type { ItemVisual } from '../data/types';
-import { boxMesh } from './geometry';
-import { mat } from './materials';
+import { C, PAL } from './voxel/palette';
+import { cachedModel, modelGroup, type Vox, type VoxMesh } from './voxel/vox';
 
-const C = {
-  cup: mat(0x6d7a5a),
-  tea: mat(0x9cbf5a, { roughness: 0.3 }),
-  plate: mat(0xefe9dc, { roughness: 0.5 }),
-  plateDirty: mat(0xc8c0b0, { roughness: 0.6 }),
-  bean: mat(0x6fae3e),
-  beanDark: mat(0x4f8a2c),
-  bowl: mat(0x2b2f3a, { roughness: 0.5 }),
-  rice: mat(0xfbf8ee),
-  salmon: mat(0xf08a4a, { emissive: 0x401000, emissiveIntensity: 0.4 }),
-  salmonStripe: mat(0xfbd2b0),
-  geta: mat(0x8a5a32),
-  scrap: mat(0x8a6a4a),
+/** Food is modelled at ~2cm voxels so sushi reads as chunky little blocks. */
+const IF = 1 / 48;
+const plateDirty = PAL.add(0xc8c0b0, 0.04);
+const crumbs = PAL.add(0x7a5a3a, 0.1);
+
+const builders: Record<ItemVisual, [pivot: [number, number, number], build: (v: Vox) => void]> = {
+  teaCup: [
+    [2.5, 0, 2.5],
+    (v) => {
+      v.cyl(2.5, 2.5, 2.6, 0, 5, (_x, y) => (y === 1 ? C.ceramic : C.teacup));
+      v.cyl(2.5, 2.5, 1.6, 4, 5, C.tea);
+    },
+  ],
+  edamame: [
+    [5, 0, 4],
+    (v) => {
+      v.box(0, 0, 0, 10, 1, 8, C.ceramic);
+      v.box(1, 1, 1, 9, 1, 7, 0);
+      const pods: [number, number, number, boolean][] = [
+        [1, 1, 1, true],
+        [5, 1, 2, true],
+        [2, 1, 4, false],
+        [6, 1, 5, false],
+        [3, 2, 2, true],
+        [4, 2, 4, false],
+      ];
+      for (const [x, y, z, alongX] of pods) {
+        if (alongX) v.box(x, y, z, x + 3, y + 1, z + 1, (xx) => ((xx + z) % 2 ? C.edamame : C.edamame2));
+        else v.box(x, y, z, x + 1, y + 1, z + 3, (_x, _y, zz) => ((zz + x) % 2 ? C.edamame : C.edamame2));
+      }
+    },
+  ],
+  riceBowl: [
+    [3.5, 0, 3.5],
+    (v) => {
+      v.cyl(3.5, 3.5, 2.2, 0, 1, C.ceramicBlue);
+      v.cyl(3.5, 3.5, 3.6, 1, 3, (x, y, z) => (y === 2 && (x + z) % 3 === 0 ? C.ceramic : C.ceramicBlue));
+      v.cyl(3.5, 3.5, 3.0, 3, 4, C.rice);
+      v.cyl(3.5, 3.5, 2.0, 4, 5, C.rice);
+    },
+  ],
+  nigiriSalmon: [
+    [6, 0, 3.5],
+    (v) => {
+      v.box(0, 1, 0, 12, 2, 7, C.lightWood);
+      v.box(1, 0, 0, 2, 1, 7, C.midWood);
+      v.box(10, 0, 0, 11, 1, 7, C.midWood);
+      for (const x0 of [1, 6]) {
+        v.box(x0, 2, 2, x0 + 4, 4, 5, C.rice);
+        v.box(x0, 4, 1, x0 + 5, 5, 6, (x) => ((x - x0) % 2 === 1 ? C.salmonL : C.salmon));
+      }
+      v.set(11, 2, 1, C.wasabi);
+      v.box(10, 2, 4, 12, 3, 6, C.ginger);
+    },
+  ],
+  dirtyDishes: [
+    [5, 0, 4],
+    (v) => {
+      for (let i = 0; i < 3; i++) v.box(i, i, i % 2, 10 - i, i + 1, 8 - (i % 2), plateDirty);
+      v.set(4, 3, 3, crumbs);
+      v.set(6, 3, 4, crumbs);
+      v.cyl(9, 6, 2, 0, 4, C.teacup);
+    },
+  ],
 };
 
-const builders: Record<ItemVisual, () => THREE.Group> = {
-  teaCup: () => {
-    const g = new THREE.Group();
-    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.038, 0.085, 8).translate(0, 0.0425, 0), C.cup));
-    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.039, 0.039, 0.005, 8).translate(0, 0.078, 0), C.tea));
-    return g;
-  },
-  edamame: () => {
-    const g = new THREE.Group();
-    g.add(boxMesh(C.plate, 0.2, 0.025, 0.14, 0, 0.0125, 0));
-    const pods: [number, number, number][] = [
-      [-0.05, 0.035, -0.02],
-      [0.0, 0.04, 0.03],
-      [0.05, 0.035, -0.01],
-      [-0.02, 0.05, 0.0],
-      [0.03, 0.055, 0.02],
-      [-0.06, 0.04, 0.035],
-    ];
-    pods.forEach(([x, y, z], i) => {
-      const pod = boxMesh(i % 2 ? C.bean : C.beanDark, 0.07, 0.022, 0.028, x, y, z);
-      pod.rotation.y = i * 0.9;
-      g.add(pod);
-    });
-    return g;
-  },
-  riceBowl: () => {
-    const g = new THREE.Group();
-    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.05, 0.06, 8).translate(0, 0.03, 0), C.bowl));
-    g.add(new THREE.Mesh(new THREE.SphereGeometry(0.068, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.05, 0), C.rice));
-    return g;
-  },
-  nigiriSalmon: () => {
-    const g = new THREE.Group();
-    g.add(boxMesh(C.geta, 0.22, 0.025, 0.12, 0, 0.0125, 0));
-    for (const x of [-0.05, 0.05]) {
-      g.add(boxMesh(C.rice, 0.075, 0.035, 0.045, x, 0.043, 0));
-      g.add(boxMesh(C.salmon, 0.088, 0.018, 0.055, x, 0.069, 0));
-      g.add(boxMesh(C.salmonStripe, 0.088, 0.004, 0.008, x, 0.079, -0.01));
-      g.add(boxMesh(C.salmonStripe, 0.088, 0.004, 0.008, x, 0.079, 0.012));
-    }
-    return g;
-  },
-  dirtyDishes: () => {
-    const g = new THREE.Group();
-    for (let i = 0; i < 3; i++) {
-      const p = boxMesh(C.plateDirty, 0.2 - i * 0.02, 0.02, 0.16 - i * 0.02, (i % 2) * 0.01, 0.01 + i * 0.022, 0);
-      p.rotation.y = i * 0.3;
-      g.add(p);
-    }
-    g.add(boxMesh(C.scrap, 0.04, 0.01, 0.03, 0.02, 0.072, 0.01));
-    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.034, 0.075, 8).translate(0.07, 0.1, 0.02), C.cup));
-    return g;
-  },
-};
+export function itemModel(visual: ItemVisual): VoxMesh {
+  const [pivot, build] = builders[visual];
+  return cachedModel(`item-${visual}`, IF, pivot, build);
+}
 
 export function makeItemMesh(visual: ItemVisual): THREE.Group {
-  const g = builders[visual]();
+  const g = modelGroup(itemModel(visual));
   g.userData.visual = visual;
   return g;
 }
 
+/** Removes an object, disposing only geometry that isn't shared through the model cache. */
 export function disposeGroup(obj: THREE.Object3D): void {
   obj.removeFromParent();
   obj.traverse((o) => {
-    if (o instanceof THREE.Mesh) o.geometry.dispose();
+    if (o instanceof THREE.Mesh && !o.geometry.userData.shared) o.geometry.dispose();
   });
 }

@@ -39,7 +39,9 @@ Debug URL parameters: `?debug` exposes `window.yoake` (the `Game` instance); `?s
 - **Sunrise**: once the last guest leaves and the restaurant is clean, the sky changes from night to deep red and gold, and a large sun rises from behind Mount Fuji's shoulder with its light reflected on the sea. You keep control the whole time.
 - **End-of-night summary**: sales, tips, ingredients, net profit, satisfaction, and the reputation change (blueprint rating formula, MVP terms).
 - **Save/load**: versioned localStorage save with a migration chain and default-filling. Quitting mid-shift restarts that night.
-- **Procedural everything**: no asset files. Pixel textures, signs, and icons are drawn on canvas, and all sound effects, wind/ocean ambience, and generative koto-style music are synthesized with Web Audio.
+- **Cozy voxel art direction**: everything is built from voxels by a small engine (`src/world/voxel`) with per-voxel color variation and baked Minecraft-style ambient occlusion. Architecture uses 12.5 cm voxels, furniture 6 cm, props 3 cm, food 2 cm, and terrain 1.5 m blocks. Snow settles on the roof, deck, and railings automatically. The scene is densely dressed: paper and red lanterns, izakaya menu strips, sake bottles, a maneki-neko, a daruma, plants, cushions, barrels, a snowman, and a stone lantern. A terraced voxel Mount Fuji sits across the bay.
+- **Lighting & post**: flickering lantern light, a soft gold hover outline, bloom, and a cozy color grade with saturation, warm shadow lift, and vignette. A small shader mask keeps indoor lights from shining through the roof, so the building stays warm inside and cold, snowy, and moonlit outside.
+- **No asset files**: signs and icons are drawn on canvas, and sound effects, ambience, and koto-style music are synthesized with Web Audio. The DotGothic16 pixel font is self-hosted.
 
 ## Code layout
 
@@ -47,7 +49,8 @@ Debug URL parameters: `?debug` exposes `window.yoake` (the `Game` instance); `?s
 src/data    content tables (items, ingredients, stations, recipes, menu, archetypes, night config) + registries
 src/sim     pure logic: clock, economy & rating, order generation, spawner, seeded RNG (unit-tested)
 src/save    save schema, migrations, storage adapter (unit-tested)
-src/world   three.js: restaurant, environment/sky/sunrise, player, interaction, stations, dining (tables & parties)
+src/world   three.js: restaurant, environment/sky/sunrise, player, interaction, stations, dining (tables & parties), props
+src/world/voxel  voxel palette, sparse builder, AO mesher, prop batching, interior light mask
 src/ui      DOM overlay: HUD, prompts, tickets, screens
 src/audio   procedural Web Audio engine
 src/app     Game: state machine (title → prep → shift → sunrise → summary) and main loop
