@@ -58,13 +58,19 @@ async function boot() {
   const hemi = new THREE.HemisphereLight(0x4a5884, 0x2a1a12, 3.0); scene.add(hemi);
   const ambient = new THREE.AmbientLight(0x30283a, 8.0); scene.add(ambient);
   const sun = new THREE.DirectionalLight(0xffb080, 0); scene.add(sun, sun.target);
+  // There are more lamps than it's cheap to light with, so a fixed pool of point lights follows you:
+  // each frame the pool takes the lamps nearest the camera (a fixed count, so shaders never recompile).
   const named = {};
-  for (const l of meta.lights) {
-    const pl = new THREE.PointLight(l.color, l.intensity, l.distance, 2);
-    pl.position.set(...l.pos);
-    scene.add(pl);
-    named[l.name] = pl;
-  }
+  const lamps = meta.lights.map((l) => ({ ...l, mul: 1, v: new THREE.Vector3(...l.pos) }));
+  for (const l of lamps) named[l.name] = l;
+  const POOL = 18;
+  const pool = Array.from({ length: Math.min(POOL, lamps.length) }, () => { const pl = new THREE.PointLight(0, 0, 1, 2); scene.add(pl); return pl; });
+  const assignLamps = () => {
+    const cam = camera.position;
+    for (const l of lamps) l.score = l.v.distanceTo(cam) - l.distance * 0.6;
+    const pick = [...lamps].sort((a, b) => a.score - b.score);
+    pool.forEach((pl, i) => { const l = pick[i]; pl.position.copy(l.v); pl.color.setHex(l.color); pl.intensity = l.intensity * l.mul; pl.distance = l.distance; });
+  };
   const NIGHT_SKY = new THREE.Color(0x4a5884), NIGHT_GROUND = new THREE.Color(0x2a1a12), DAWN_SKY = new THREE.Color(0xffcbb0), DAWN_GROUND = new THREE.Color(0x8a9ab8);
   const NIGHT_AMB = new THREE.Color(0x30283a), DAWN_AMB = new THREE.Color(0x4a4058);
 
@@ -374,6 +380,17 @@ async function boot() {
       player.sitOn(seat); audio.clickSound(); toast('take a load off · walk to stand up');
     }, () => !seat.occupant && !player.seated);
   }
+  // home: the cushions round the kotatsu are yours alone (guests never come upstairs)
+  for (const seat of batch.homeSeats) {
+    interactions.add([seat.x, seat.y - 0.15, seat.z, 0.3, 0.15, 0.3], () => 'Sit at the kotatsu', () => {
+      player.sitOn(seat); audio.clickSound(); toast('toes under the quilt. warm. · walk to stand up');
+    }, () => !seat.occupant && !player.seated);
+  }
+  interactions.add([3.0, 3.95, 13.0, 0.5, 0.2, 1.0], () => 'Lie down for a minute', () => {
+    audio.purr(); toast(shift.active ? 'just a minute… then back down to the shop.' : 'the futon is still warm.');
+  });
+  interactions.add([12.25, 4.8, 15.1, 0.2, 0.15, 0.22], () => 'Put the kettle on', () => { audio.pour(); toast('a cup of hojicha, just for you.'); });
+  interactions.add([1.2, 4.2, 11.0, 0.22, 0.45, 0.22], () => 'Andon lamp', () => { const l = named.aptBed; l.mul = l.mul > 0.5 ? 0.15 : 1; audio.clickSound(); });
 
   // ---------------------------------------------------------------- loop
   let indoor = 1, last = performance.now(), time = 0, dawn = 0;
@@ -461,9 +478,10 @@ async function boot() {
     su.time.value = time; su.cam.value.copy(camera.position);
 
     // lanterns breathe a little
-    if (named.door) named.door.intensity = 5 * (0.92 + Math.sin(time * 2.1) * 0.04 + Math.sin(time * 5.3) * 0.03);
-    if (named.toroA) named.toroA.intensity = 1.6 * (0.85 + Math.random() * 0.15);
-    if (named.toroB) named.toroB.intensity = 1.6 * (0.85 + Math.random() * 0.15);
+    if (named.door) named.door.mul = 0.92 + Math.sin(time * 2.1) * 0.04 + Math.sin(time * 5.3) * 0.03;
+    if (named.toroA) named.toroA.mul = 0.85 + Math.random() * 0.15;
+    if (named.toroB) named.toroB.mul = 0.85 + Math.random() * 0.15;
+    assignLamps();
 
     // shaders
     steam.material.uniforms.time.value = time;

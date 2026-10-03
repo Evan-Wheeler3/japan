@@ -688,6 +688,83 @@ const sacks = memo(() => {
 });
 
 
+// ---------------------------------------------------------------- the apartment upstairs
+// kotatsu: a low table over a heater, wrapped in a quilt (glows faintly where the quilt meets the floor)
+export const kotatsu = memo(() => {
+  const m = new Model(18, 8, 18, 1 / 16);
+  const quilt = (x, y, z) => (((x >> 1) + (z >> 1)) & 1 ? C('#c0582a', 0, 0.05) : C('#d8783a', 0, 0.05));
+  m.box(0, 0, 0, 18, 6, 18, (x, y, z) => (x === 0 || z === 0 || x === 17 || z === 17 || y === 5 ? (y === 0 && (x + z) % 3 === 0 ? C('#ff8a3a', 1.6, 0.1) : quilt(x, y, z)) : null));
+  m.box(1, 6, 1, 17, 7, 17, K.wood); m.box(2, 7, 2, 16, 7 + 1, 16, null);
+  m.box(1, 6, 1, 17, 7, 17, (x, y, z) => (x === 1 || z === 1 || x === 16 || z === 16 ? K.woodD : K.hinoki));
+  return m;
+});
+export const zabuton = memo(() => {
+  const m = new Model(9, 2, 9, 1 / 16);
+  m.box(0, 0, 0, 9, 2, 9, (x, y, z) => (y === 1 && x > 0 && x < 8 && z > 0 && z < 8 ? C('#3a4a7a', 0, 0.05) : C('#2a3660', 0, 0.05)));
+  m.set(4, 2 - 1, 4, C('#e8c040', 0, 0.03));
+  return m;
+});
+// futon laid out on the bedroom tatami: mattress, a patterned quilt turned down, a buckwheat pillow
+export const futon = memo(() => {
+  const m = new Model(16, 4, 32, 1 / 16);
+  m.box(0, 0, 0, 16, 2, 32, C('#f0ece2', 0, 0.03));
+  m.box(0, 2, 0, 16, 4, 22, (x, y, z) => (((x >> 2) + (z >> 2)) & 1 ? C('#5a7aa8', 0, 0.05) : C('#e8e0d0', 0, 0.04)));
+  m.box(0, 2, 20, 16, 3, 24, C('#d8d0c0', 0, 0.04));
+  m.box(4, 2, 26, 12, 4, 30, C('#c8b890', 0, 0.06));
+  return m;
+});
+// andon: a paper floor lamp in a wooden frame
+export const andon = memo(() => {
+  const m = new Model(6, 14, 6, 1 / 16);
+  m.box(0, 0, 0, 6, 1, 6, K.woodD);
+  for (const [x, z] of [[0, 0], [5, 0], [0, 5], [5, 5]]) m.box(x, 1, z, x + 1, 14, z + 1, K.woodD);
+  m.box(1, 2, 1, 5, 12, 5, (x, y, z) => (x === 1 || x === 4 || z === 1 || z === 4 ? C('#ffd49a', 1.4, 0.05) : null));
+  m.box(0, 13, 0, 6, 14, 6, (x, y, z) => (x === 0 || z === 0 || x === 5 || z === 5 ? K.woodD : null));
+  return m;
+});
+// tansu: a stepped chest of drawers with iron pulls (faces -z)
+export const tansu = memo(() => {
+  const m = new Model(20, 18, 8, 1 / 16);
+  m.box(0, 0, 0, 20, 12, 8, K.oak); m.box(0, 12, 0, 12, 18, 8, K.oak);
+  for (let y = 1; y < 18; y += 4) for (const x0 of [1, 11]) { if (y > 11 && x0 > 1) continue; m.box(x0, y, 0, x0 + 8, y + 3, 1, K.wood); m.set(x0 + 4, y + 1, 0, K.black); }
+  return m;
+});
+// kitchenette against the back wall: cabinet, a little sink, a two-ring gas hob with a kettle (faces -z)
+export const kitchenette = memo(() => {
+  const m = new Model(40, 18, 10, 1 / 16);
+  m.box(0, 0, 0, 40, 13, 10, (x, y, z) => (z === 0 && x % 10 === 0 ? K.woodD : C('#d8d0c0', 0, 0.03)));
+  m.box(0, 13, 0, 40, 14, 10, K.steel);
+  m.box(4, 12, 2, 14, 14, 8, (x, y) => (y === 13 ? null : C('#8a9098', 0, 0.04))); m.box(9, 14, 8, 10, 18, 9, K.chrome); m.box(9, 17, 5, 10, 18, 8, K.chrome);
+  for (const x of [22, 31]) m.cyl(x + 2, 5, 2.4, 14, 15, K.black);
+  m.cyl(24, 5, 2.2, 15, 18, C('#a8302a', 0, 0.05)); m.box(26, 17, 4, 28, 18, 6, K.black); // kettle
+  m.cyl(33, 5, 1.0, 14, 15, C('#4a8aff', 2.2, 0.05));
+  return m;
+});
+export const shoeRack = memo(() => {
+  const m = new Model(14, 10, 6, 1 / 16);
+  m.box(0, 0, 0, 14, 10, 6, (x, y, z) => (y % 5 === 0 || x === 0 || x === 13 ? K.wood : null));
+  m.box(2, 1, 1, 6, 2, 5, C('#3a2a1a', 0, 0.05)); m.box(8, 6, 1, 12, 7, 5, C('#7a2a2a', 0, 0.05));
+  return m;
+});
+export const bookshelf = memo(() => {
+  const m = new Model(20, 16, 6, 1 / 16);
+  const r = rng(31);
+  m.box(0, 0, 0, 20, 16, 6, (x, y) => (y % 5 === 0 || x === 0 || x === 19 ? K.wood : null));
+  for (let sh = 0; sh < 3; sh++) for (let x = 1; x < 19; x++) {
+    if (r() < 0.15) continue;
+    const h = 2 + Math.floor(r() * 3), c = C(['#8a2a24', '#2a4a7a', '#e8dcc0', '#3a5a3a', '#c89a3a', '#5a3a5a'][Math.floor(r() * 6)], 0, 0.06);
+    m.box(x, sh * 5 + 1, 1, x + 1, sh * 5 + 1 + h, 5, c);
+  }
+  return m;
+});
+// a little rounded hatch where the sushi belt goes through the wall (opening faces -z)
+export const beltHatch = memo(() => {
+  const m = new Model(12, 10, 10, 1 / 32);
+  m.box(0, 0, 0, 12, 10, 10, (x, y, z) => (z === 0 && x > 1 && x < 10 && y < 5 ? null : (z > 0 && x > 1 && x < 10 && y < 5 ? C('#0e0a08', 0, 0.02) : (y === 9 ? K.woodD : K.wood))));
+  m.box(3, 6, 0, 9, 8, 1, C('#e8482a', 1.0, 0.05)); // a little red noren
+  return m;
+});
+
 // ---------------------------------------------------------------- placement
 export function placeProps(batch) {
   const F = 0.25; // shop floor
@@ -753,11 +830,12 @@ export function placeProps(batch) {
 
   // counter: cedar stools on the step, bamboo mats, mikan, the sushi case, the register and its lucky cat
   for (let x = 3.5; x < 13.0; x += 0.85) { batch.add(stool(), x, 0.375, 6.6, 2); seats.push({ x, z: 6.6, y: 1.06, yaw: Math.PI, kind: 'stool' }); }
-  for (let x = 3.5, i = 0; x < 13.0; x += 0.85, i++) batch.add(i % 3 === 0 ? placematK() : placematN(), x, 1.075, 7.15, 0, false);
-  batch.add(mikan(), 8.2, 1.075, 7.55, 0, false);
-  batch.add(sushiCase(), 12.55, 1.075, 7.45, 0, false, 'sushi');
-  batch.add(register(), 3.4, 1.075, 7.45, 2, false, 'register');
-  batch.add(maneki(), 3.05, 1.075, 7.15, 0, false);
+  for (let x = 3.5, i = 0; x < 13.0; x += 0.85, i++) batch.add(i % 3 === 0 ? placematK() : placematN(), x, 1.125, 7.15, 0, false);
+  batch.add(mikan(), 8.2, 1.125, 7.71, 0, false);
+  // the sushi belt runs down the middle of the counter, in and out of little hatches at each end
+  batch.add(beltHatch(), 13.24, 1.125, 7.43, 1, false); batch.add(beltHatch(), 3.76, 1.125, 7.43, 3, false);
+  batch.add(register(), 3.4, 1.125, 7.45, 2, false, 'register');
+  batch.add(maneki(), 3.05, 1.125, 7.15, 0, false);
   for (const x of [4.6, 7.4, 10.2]) batch.add(chochin(6, 'red'), x, 2.7, 7.4, 0, false);
 
   // back bar: tea urns, rice cookers, tins, the shelf of cups, menu boards, sake on the fridge
@@ -765,6 +843,7 @@ export function placeProps(batch) {
   batch.add(urn(), 7.3, BT, 9.65, 0, false, 'urns'); batch.add(urn(), 7.9, BT, 9.65, 0, false, 'urns');
   batch.add(riceCooker(), 8.8, BT, 9.7, 0, false); batch.add(riceCooker(), 9.3, BT, 9.7, 0, false);
   batch.add(teaTins(), 5.5, BT, 9.75, 0, false);
+  batch.add(sushiCase(), 11.9, BT, 9.62, 0, false, 'sushi');
   batch.add(plates(), 10.2, BT, 9.7, 0, false, 'platesA'); batch.add(plates(), 10.5, BT, 9.7, 0, false, 'platesA'); batch.add(plates(), 13.0, BT, 9.7, 0, false, 'platesB');
   batch.add(radio(), 6.2, BT, 9.75, 0, false);
   batch.add(sakeSign(), 3.75, 2.05, 9.22, 0, false);
@@ -807,7 +886,8 @@ export function placeProps(batch) {
   batch.add(prepStuff(), 9.5, 0.875, 12.4, 0, false);
   batch.add(sacks(), 9.5, 0.5, 12.4, 0, false);
   batch.add(ticketRail(), 11.75, 2.2, 10.32, 2, false);
-  batch.add(plates(), 12.45, 0.875, 10.55, 0, false, 'platesK'); batch.add(plates(), 12.75, 0.875, 10.55, 0, false, 'platesK');
+  batch.add(plates(), 12.8, 0.875, 10.42, 0, false, 'platesK'); batch.add(plates(), 12.8, 0.875, 10.72, 0, false, 'platesK');
+  batch.add(beltHatch(), 12.42, 0.875, 10.55, 1, false); // the belt starts on the plating station and dives into this hatch
   batch.add(dishRack(), 5.5, 0.875, 13.3, 0, false, 'dishRack');
   batch.add(faucetSpray(), 5.3, 0.875, 12.3, 3, false);
   batch.add(sacks(), 15.4, 0.25, 15.3, 1);
@@ -829,4 +909,27 @@ export function placeProps(batch) {
   batch.add(vending(), 17.0, S, -2.6, 0);
   batch.add(postbox(), 11.1, S, -5.75);
   batch.add(nobori(), 11.9, S, -5.6, 0); batch.add(nobori(), 15.0, S, -5.6, 0);
+
+  // ================= the apartment upstairs (nobody but you comes up here)
+  const F2 = 3.75;
+  const home = batch.homeSeats = [];
+  batch.add(kotatsu(), 4.5, F2, 4.5, 0);
+  batch.add(akari(), 4.5, F2 + 1.55, 4.5, 0, false);   // a paper globe hung low over the kotatsu
+  batch.add(akari(), 12.0, F2 + 1.55, 13.5, 0, false);
+  for (const [x, z, rot] of [[4.5, 3.55, 0], [4.5, 5.45, 2], [3.55, 4.5, 1]]) {
+    batch.add(zabuton(), x, F2, z, 0, false);
+    home.push({ x, z, y: F2 + 0.3, yaw: rot * Math.PI / 2 + Math.PI, kind: 'cushion', app: [x + (x - 4.5) * 0.9, z + (z - 4.5) * 0.9], floorY: F2 });
+  }
+  batch.add(mikan(), 4.5, F2 + 0.5, 4.5, 0, false);
+  batch.add(bookshelf(), 0.65, F2, 7.0, 3);
+  batch.add(radio(), 0.6, F2 + 1.0, 7.0, 3, false);
+  batch.add(pothos(), 8.6, F2, 1.0, 0, false);
+  batch.add(kakejiku(), 0.27, F2 + 2.2, 4.5, 3, false);
+  batch.add(prints[1](), 9.0, F2 + 1.5, 0.27, 2, false);
+  batch.add(futon(), 3.0, F2, 13.0, 0, false);
+  batch.add(andon(), 1.2, F2, 11.0, 0);
+  batch.add(tansu(), 6.8, F2, 15.25, 0);
+  batch.add(kitchenette(), 12.0, F2, 15.15, 0);
+  batch.add(shoeRack(), 15.2, F2, 14.4, 3);
+  batch.add(noren(), 15.85, F2 + 2.1, 12.875, 1, false);
 }

@@ -27,20 +27,28 @@ Guests with a **!** want to order: click them. Then make what they asked for:
 | Dish | How |
 |---|---|
 | Green tea | take a clean cup from the shelf behind the counter, pour at a tea urn |
-| Salmon nigiri | take a clean plate, use the sushi case on the counter |
+| Salmon nigiri | take a clean plate, use the sushi case on the back counter by the pass |
 | Yakitori | lay skewers on a charcoal grill in the kitchen, plate them when they're ready (don't let them burn) |
 | Gyoza | fry a batch on the teppan in the kitchen, plate them when they're ready |
 
-Serve it, and when they're done they line up at the register (**¥**). Carry dirty dishes to the sink in the
-kitchen, stay there while they wash, then take the clean ones from the rack back to the shelf. You can set
-anything down on a counter. Each night you finish unlocks a perk.
+Serve it by hand, or set it on the **sushi belt**: it starts on the plating station in the kitchen, slips
+through a hatch and runs down the middle of the counter, and guests on the stools lift off whatever they ordered
+as it passes. Anything nobody takes goes back round; you can take it off again.
+
+When guests are done they line up at the register (**¥**). Carry dirty dishes to the sink in the kitchen, stay
+there while they wash, then take the clean ones from the rack back to the shelf. You can set anything down on
+a counter. Each night you finish unlocks a perk.
+
+You live upstairs. Go out the front door and round the east side of the shop, up the wooden stair: there's a
+tatami room with a kotatsu (sit and warm your feet), a window over the bay, a futon behind the fusuma, and a
+kettle on the hob.
 
 ## Layout
 
 | File | What it is |
 |---|---|
 | `src/voxel.js` | Palette, voxel grid, face-culled mesher with baked AO, `Model` (props) and `PropBatch` (merged static props), 5×7 pixel font |
-| `src/world.js` | The 1/8 m voxel world: the snowy lot, the shop and its upstairs, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
+| `src/world.js` | The 1/8 m voxel world: the snowy lot, the shop, the apartment upstairs and its outdoor stair, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
 | `src/props.js` | Finer-scale prop models: furniture, lanterns, the sushi case, kitchen gear, signs, the cat, the vending machine, and where they're placed |
 | `src/effects.js` | Night-to-dawn sky, snowfall, frosted glass, steam, the cliff, the sea, the hills and Mt Fuji, post FX |
 | `src/audio.js` | Fully synthesized sound: wind, the sea, room tone, a generative koto radio, the door chime, snowy footsteps |
@@ -48,8 +56,9 @@ anything down on a counter. Each night you finish unlocks a perk.
 | `src/interact.js` | Click-to-use raycasting, hinged and sliding doors |
 | `src/npc.js` | Guests: voxel people, walk/sit animation, nav grid + A*, the crowd |
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
+| `src/belt.js` | The kaiten sushi belt: its loop from the kitchen to the counter, the plates riding it |
 | `src/shift.js` | The clock (10 PM → 6 AM), rushes, the dawn, the stats card, perks |
-| `src/main.js` | Boot, lights, the sunrise at the end of the night, the loop |
+| `src/main.js` | Boot, the lamp pool (the nearest lamps get real lights), the sunrise at the end of the night, the loop |
 | `src/menu.js`, `src/coop.js`, `src/net.js`, `src/touch.js` | Menus, online co-op (up to 4), touch controls |
 | `server/` | The co-op relay (a Cloudflare Durable Object) and the Pages worker; see `deploy.sh` |
 | `docs/BLUEPRINT.md` | The original design blueprint |

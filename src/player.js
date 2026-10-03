@@ -61,7 +61,7 @@ export class Player {
   }
   standUp() {
     const s = this.seated; this.seated = null; s.occupant = null;
-    if (s.app) this.pos.set(s.app[0], 0.25, s.app[1]);
+    if (s.app) this.pos.set(s.app[0], s.floorY ?? 0.25, s.app[1]);
     this.vy = 0;
   }
   update(dt) {

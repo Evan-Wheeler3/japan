@@ -2,6 +2,7 @@
 // (Internally a cup is still a 'mug', so co-op snapshots keep their shape.)
 import * as THREE from 'three';
 import { Model, C } from './voxel.js';
+import { Belt } from './belt.js';
 
 export const MENU = {
   tea: { name: 'Green tea', price: 300 },
@@ -20,13 +21,12 @@ const INVISIBLE = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: f
 // counter tops you can set things on: [x0, x1, z0, z1, top y]. The bar counter stops short of the
 // customers' side so their plates have room; spots near props on the counters are kept clear.
 const COUNTERS = [
-  [3.0, 13.25, 7.3, 7.8, 1.075],   // the counter, your side
+  [3.0, 13.25, 7.62, 7.84, 1.125], // the counter, your side of the sushi belt
   [4.6, 13.2, 9.15, 9.5, 1.0],     // back bar, in front of the urns and plates
   [7.1, 11.9, 12.05, 12.8, 0.875], // kitchen prep island
-  [10.55, 12.25, 10.3, 10.8, 0.875], // plating station under the pass (plate stacks at the east end)
   [10.8, 12.7, 9.8, 10.45, 1.125],  // the pass between the kitchen and the bar
 ];
-const KEEP_CLEAR = [[3.4, 7.45, 0.35], [3.05, 7.2, 0.22], [12.55, 7.45, 0.5], [8.2, 7.55, 0.22], [9.5, 12.4, 0.45]];
+const KEEP_CLEAR = [[3.4, 7.45, 0.35], [3.05, 7.2, 0.22], [8.2, 7.71, 0.22], [11.9, 9.4, 0.45], [9.5, 12.4, 0.45]];
 
 const W = C('#f2efe8', 0, 0.03), rim = C('#2a4a7a', 0, 0.04), teaC = C('#8ab840', 0, 0.05), ring = C('#6a7a4a', 0, 0.06);
 const glaze = C('#6d7a5a', 0, 0.05), glazeL = C('#a8b08a', 0, 0.05);
@@ -167,6 +167,7 @@ export class Service {
     this.heldEmit = this.emitMat.clone(); this.heldEmit.depthTest = false;
     this.held = new THREE.Group(); this.camera.add(this.held);
     this.setupStations();
+    this.belt = new Belt(this.scene, (type) => this.dishModel(type).mesh(this.litMat, this.emitMat));
     this.A = this.actions();
     this.setupInteractions();
     this.crowd.onSeated = (q) => this.seated(q);
@@ -235,7 +236,7 @@ export class Service {
   spot(seat, idx) {
     const fx = -Math.sin(seat.yaw), fz = -Math.cos(seat.yaw);
     const sx = -fz, sz = fx, side = (idx - 0.5) * 0.18;
-    const surf = seat.kind === 'stool' ? 1.075 : 1.0;
+    const surf = seat.kind === 'stool' ? 1.125 : 1.0;
     return [seat.x + fx * 0.42 + sx * side, surf, seat.z + fz * 0.42 + sz * side];
   }
   dishGroup(seat) {
@@ -278,6 +279,18 @@ export class Service {
         b.position.y = q.state === 'sit' || q.state === 'sitting' ? (q.seat ? q.seat.y - q.pos.y : 0.5) + 1.0 : 2.0;
         if (key === '!' || key === '¥') b.position.y += Math.sin(performance.now() / 260) * 0.03;
       }
+    }
+    // the sushi belt: counter guests lift off what they're waiting for as it passes
+    this.belt.update(dt);
+    if (sim) for (const p of [...this.belt.plates]) {
+      if (p.seg !== 'counter') continue;
+      const q = this.crowd.people.find((c) => c.svc && c.svc.phase === 'food' && c.state === 'sit' && c.seat && c.seat.kind === 'stool' &&
+        Math.abs(c.seat.x - p.x) < 0.2 && c.svc.items.some((i) => !i.done && i.kind === p.type));
+      if (!q) continue;
+      this.belt.remove(p);
+      this.serveItem(q, q.svc.items.find((i) => !i.done && i.kind === p.type));
+      this.beltServed = (this.beltServed || 0) + 1;
+      this.sfxAll('clickSound');
     }
     // cooking
     for (const st of this.stations) {
@@ -452,6 +465,17 @@ export class Service {
       setDown: (x, y, z, yaw) => this.setDown(x, y, z, yaw),
       pickUp: (id) => { const c = this.counterItems.find((it) => it.id === id); if (c) this.pickUp(c); },
       drop: () => this.drop(),
+      beltPut: (s) => {
+        const h = this.hands[this.hands.length - 1];
+        if (!h || !MENU[h.type]) return T('only finished dishes go on the belt');
+        if (!this.belt.isFree(s)) return T('no room on the belt there');
+        this.hands.pop(); this.belt.add(h.type, s); this.sfx('clickSound');
+      },
+      beltTake: (id) => {
+        const p = this.belt.plates.find((q) => q.id === id); if (!p) return;
+        if (this.handsFree < 1) return T(this.fullMsg());
+        this.belt.remove(p); this.hold({ type: p.type }); this.sfx('clickSound');
+      },
     };
   }
   setupInteractions() {
@@ -473,11 +497,20 @@ export class Service {
     const plateLabel = () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean plate (${this.stock.plates} left)`);
     I.add([10.35, 1.2, 9.7, 0.35, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesA'));
     I.add([13.0, 1.2, 9.7, 0.2, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesB'));
-    I.add([12.6, 1.1, 10.55, 0.32, 0.24, 0.2], plateLabel, R('plate'), null, shape('platesK'));
+    I.add([12.8, 1.1, 10.57, 0.18, 0.24, 0.32], plateLabel, R('plate'), null, shape('platesK'));
     // tea urns
     I.add([7.6, 1.45, 9.65, 0.55, 0.45, 0.25], () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn'), null, shape('urns'));
     // the sushi case on the counter
-    I.add([12.55, 1.25, 7.45, 0.42, 0.2, 0.2], () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi'), null, shape('sushi'));
+    I.add([11.9, 1.2, 9.62, 0.42, 0.2, 0.2], () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi'), null, shape('sushi'));
+    // the sushi belt: put finished dishes on it (in the kitchen or behind the counter), or take one off
+    I.add(() => this.beltBox, () => {
+      const h = this.hands[this.hands.length - 1];
+      if (h) return MENU[h.type] ? `Put the ${MENU[h.type].name.toLowerCase()} on the belt` : 'Sushi belt (finished dishes only)';
+      return this.beltPlate ? `Take the ${MENU[this.beltPlate.type].name.toLowerCase()} off the belt` : 'Sushi belt · counter guests take what they ordered';
+    }, () => {
+      if (this.hands.length) this.request('beltPut', this.beltS);
+      else if (this.beltPlate) this.request('beltTake', this.beltPlate.id);
+    }, () => this.pickBelt(), { highlight: () => (this.beltPlate ? this.beltPlate.mesh : null) });
     // griddles + broiler
     this.stations.forEach((st, i) => {
       I.add([st.x, 1.15, st.z, st.kind === 'gyoza' ? 0.44 : 0.48, 0.25, 0.42], () => {
@@ -523,12 +556,29 @@ export class Service {
     this.stock = { mugs: 6, plates: 6 }; this.sink = { mugs: 0, plates: 0 }; this.rack = { mugs: 0, plates: 0 };
     this.washing = 0; this.washer = null;
     for (const st of this.stations) { st.state = 'idle'; st.t = 0; }
+    this.belt.clear();
     this.queue = [];
     this.refreshUI(true);
   }
   itemLabel(h) {
     if (!h) return '';
     return h.type === 'tub' ? 'bus tub' : h.type === 'clean' ? 'clean dishes' : h.type === 'mug' ? 'clean cup' : h.type === 'plate' ? 'clean plate' : MENU[h.type].name.toLowerCase();
+  }
+  // where the reticle meets the sushi belt
+  pickBelt() {
+    const o = this.camera.getWorldPosition(new THREE.Vector3()), d = this.camera.getWorldDirection(new THREE.Vector3());
+    if (d.y > -0.05) return false;
+    for (const y of [1.125, 0.875]) {
+      const t = (y + 0.03 - o.y) / d.y;
+      if (t <= 0 || t > 2.3) continue;
+      const x = o.x + d.x * t, z = o.z + d.z * t, s = this.belt.sAt(x, z, y);
+      if (s === null) continue;
+      this.beltS = s; this.beltPlate = this.hands.length ? null : this.belt.near(s);
+      const q = this.belt.at(s);
+      this.beltBox = [q.x, y + 0.05, q.z, 0.16, 0.06, 0.16];
+      return true;
+    }
+    return false;
   }
   // where the reticle meets a counter top (only while carrying something)
   pickCounter() {
@@ -663,11 +713,17 @@ export class Service {
     } else if (s.phase === 'food') {
       const item = s.items.find((i) => !i.done && this.has(i.kind));
       if (!item) return this.say(`they ordered ${s.items.filter((i) => !i.done).map((i) => MENU[i.kind].name.toLowerCase()).join(' and ')}`);
-      this.takeHand(item.kind); item.done = true;
-      this.place(q.seat, item.kind);
+      this.takeHand(item.kind);
+      this.serveItem(q, item);
       this.sfx('clickSound');
-      if (s.items.every((i) => i.done)) { s.phase = 'eat'; s.t = 25 + Math.random() * 20; this.say('itadakimasu!'); }
     }
+  }
+  // a dish reaches its guest, by hand or by belt
+  serveItem(q, item) {
+    const s = q.svc;
+    item.done = true;
+    this.place(q.seat, item.kind);
+    if (s.items.every((i) => i.done)) { s.phase = 'eat'; s.t = 25 + Math.random() * 20; this.sayAll(`${s.name}: itadakimasu!`); }
   }
   pickDirty() {
     let best = null, bd = 1e9;
@@ -699,6 +755,7 @@ export class Service {
       queue: this.queue.map((q) => q.id),
       m: [this.money, this.tips, this.served, this.walkouts, this.washed, this.burnt],
       perks: [this.handCap, this.washTime, this.patience],
+      belt: this.belt.snapshot(),
     };
   }
   applySnapshot(d) {
@@ -734,6 +791,7 @@ export class Service {
     this.queue = d.queue.map((id) => byId.get(id)).filter(Boolean);
     [this.money, this.tips, this.served, this.walkouts, this.washed, this.burnt] = d.m;
     [this.handCap, this.washTime, this.patience] = d.perks;
+    if (d.belt) this.belt.applySnapshot(d.belt);
   }
   // switch this game into co-op: you're `id`, and either run the shop ('host') or mirror it ('guest')
   goCoop(net, role) {
