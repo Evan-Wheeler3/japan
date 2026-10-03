@@ -155,8 +155,8 @@ export class Menu {
       </div>${keys}`;
     } else if (s === 'catalog') {
       const c = this.catalog || { yen: 0, items: [] };
-      const row = (it) => `<div class="buy"><div class="what"><b>${esc(it.name)}</b><span>${esc(it.text)}</span></div>
-        <button class="chip${it.owned ? ' on' : ''}" data-act="buy:${it.id}" ${it.owned || it.price > c.yen || c.locked ? 'disabled' : ''}>${it.owned ? 'yours' : `¥${it.price.toLocaleString('en-US')}`}</button></div>`;
+      const row = (it) => `<div class="buy${it.blocked ? ' later' : ''}"><div class="what"><b>${esc(it.name)}</b><span>${esc(it.text)}${it.blocked ? ` · needs ${esc(it.needsName.toLowerCase())}` : ''}</span></div>
+        <button class="chip${it.owned ? ' on' : ''}" data-act="buy:${it.id}" ${it.owned || it.blocked || it.price > c.yen ? 'disabled' : ''}>${it.owned ? 'yours' : `¥${it.price.toLocaleString('en-US')}`}</button></div>`;
       html = `<div class="col"><div><div class="hand tagline">mail order · delivered by morning</div><div style="font:500 44px Fredoka">the catalog</div></div>
         <div class="purse-big">¥${Math.round(c.yen).toLocaleString('en-US')}<span>in the cash box</span></div>
         ${c.note ? `<div class="err">${esc(c.note)}</div>` : ''}
@@ -164,6 +164,7 @@ export class Menu {
         <div class="look glass catalog"><div class="scroll">
           <section><div class="lbl">for the shop</div>${c.items.filter((i) => i.kind === 'shop').map(row).join('')}</section>
           <section><div class="lbl">for home</div>${c.items.filter((i) => i.kind === 'home').map(row).join('')}</section>
+          <section><div class="lbl">for the fami-com</div>${c.items.filter((i) => i.kind === 'games').map(row).join('')}</section>
         </div></div>`;
     } else if (s === 'ready') {
       html = `<div class="col"><div><div class="hand tagline">${esc(this.readyNote || 'the shop is open')}</div><div style="font:500 44px Fredoka">${esc(this.readyTitle || 'clock in')}</div></div>

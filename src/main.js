@@ -9,7 +9,8 @@ import { Interactions, Door } from './interact.js';
 import { Crowd } from './npc.js';
 import { Service } from './service.js';
 import { Shift, clockText, START_HOUR, UNLOCKS } from './shift.js';
-import { loadSave, writeSave, clearSave, CATALOG, itemById, applyUpgrades, Home } from './home.js';
+import { loadSave, writeSave, clearSave, CATALOG, itemById, applyUpgrades, ownedGames, Home } from './home.js';
+import { Arcade } from './arcade.js';
 import { Menu } from './menu.js';
 import { Net, newCode } from './net.js';
 import { Coop } from './coop.js';
@@ -165,7 +166,7 @@ async function boot() {
   const overlay = $('overlay');
   const dev = location.hash === '#dev';
   if (dev) overlay.classList.add('hidden');
-  let arrived = false, paused = false, net = null, coop = null, introShown = false, catalogOpen = false;
+  let arrived = false, paused = false, net = null, coop = null, introShown = false, catalogOpen = false, arcadeOpen = false;
   // step into the shop (or back in after a pause); must run from a click, for pointer lock
   const enter = () => {
     audio.start();
@@ -191,12 +192,13 @@ async function boot() {
     overlay.classList.toggle('hidden', locked);
     document.body.classList.toggle('playing', locked);
     if (!locked) interactions.clear();
-    if (!locked && catalogOpen) menu.show('catalog', { catalog: catalogData() });
+    if (!locked && arcadeOpen) {} // the Fami-Com fills the screen
+    else if (!locked && catalogOpen) menu.show('catalog', { catalog: catalogData() });
     else if (!locked && arrived && !document.body.classList.contains('summary'))
       menu.show('pause', { clock: clockText(shift.minutes).toLowerCase(), coop: !!coop, isHost: !!(coop && coop.isHost), pausePanel: null });
     // full pause once you've come in (solo only: in co-op the shop keeps going for everyone else)
     paused = arrived && !locked && !coop && !dev && !sunrise;
-    if (audio.ctx) { if (paused) audio.ctx.suspend(); else audio.ctx.resume(); }
+    if (audio.ctx) { if (paused && !arcadeOpen) audio.ctx.suspend(); else audio.ctx.resume(); }
     if (locked && !introShown) { introShown = true; setTimeout(() => $('intro').classList.add('gone'), 9000); }
   }
   addEventListener('keydown', (e) => {
@@ -251,7 +253,7 @@ async function boot() {
   });
   const cans = ['a hot can of royal milk tea', 'hot corn soup. somehow perfect.', 'a hot can of coffee. it warms your hands.', 'hot lemon. a little treat.'];
   interactions.add([17.0, 1.2, -2.95, 0.45, 0.6, 0.12], () => 'Buy a hot drink · ¥130', () => {
-    if (save.yen < 130) { toast('the cash box is empty. maybe after tonight.'); audio.rattle(); return; }
+    if (cashBox() < 130) { toast('the cash box is empty. maybe after tonight.'); audio.rattle(); return; }
     save.yen -= 130; writeSave(save);
     audio.vend(); toast(cans[Math.floor(Math.random() * cans.length)]);
   });
@@ -296,12 +298,48 @@ async function boot() {
   const save = loadSave();
   service.owned = [...save.owned];
   const homeSteam = [];
-  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast,
+  // the Fami-Com and the TV it plugs into
+  const arcade = new Arcade();
+  arcade.hi = { ...(save.hi || {}) };
+  arcade.onHi = (id, score) => { save.hi = { ...(save.hi || {}), [id]: score }; writeSave(save); };
+  arcade.onSfx = (kind) => audio.chip(kind);
+  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast, arcade,
     addSeat: (seat) => addSitSpot(seat, 'Sit by the fire', 'warm hands. the kettle ticks. · walk to stand up'),
     addLamp: (l) => { const r = { ...l, mul: 1, v: new THREE.Vector3(...l.pos) }; lamps.push(r); named[l.name] = r; },
     addSteam: (src) => { const st = makeSteam([src]); scene.add(st); homeSteam.push(st); } });
-  const applyAll = () => { applyUpgrades(service, service.owned); home.sync(service.owned); };
+  const applyAll = () => {
+    applyUpgrades(service, service.owned); home.sync(service.owned);
+    arcade.owned = ownedGames(service.owned);
+    if (home.tvOn && arcade.mode === 'tv' && service.owned.includes('famicom')) arcade.setPower(true, true);
+    if (catalogOpen && !player.locked) menu.show('catalog', { catalog: catalogData() });
+  };
   service.onOwned = (list) => { service.owned = [...list]; applyAll(); };
+  home.tvOn = false;
+  home.onTV = () => { home.tvOn = !home.tvOn; arcade.setPower(home.tvOn, service.owned.includes('famicom')); audio.clickSound(); };
+  home.onPlay = () => {
+    if (!home.tvOn) { home.tvOn = true; arcade.setPower(true, true); }
+    arcadeOpen = true; arcade.open();
+    $('arcade').querySelector('.tv').appendChild(arcade.canvas);
+    document.body.classList.add('arcade');
+    unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false);
+  };
+  const putDownController = () => {
+    if (!arcadeOpen) return;
+    arcadeOpen = false; arcade.close();
+    document.body.classList.remove('arcade');
+    setPlaying(false); // back to the pause menu: one click and you're in the room again
+  };
+  $('arcade').querySelector('[data-act="putDown"]').onclick = putDownController;
+  for (const b of $('arcade').querySelectorAll('[data-k]')) {
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); arcade.key(b.dataset.k, true); });
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => arcade.key(b.dataset.k, false));
+  }
+  addEventListener('keydown', (e) => {
+    if (!arcadeOpen) return;
+    if (e.code === 'Escape' || e.code === 'KeyQ') { putDownController(); return; }
+    if (arcade.key(e.code, true)) e.preventDefault();
+  });
+  addEventListener('keyup', (e) => { if (arcadeOpen && arcade.key(e.code, false)) e.preventDefault(); });
   applyAll();
   service.onOpenShop = () => { if (shift.openShop()) { audio.doorBell(); } };
   const WAKE = { x: 4.6, z: 12.6, yaw: 0.19 };
@@ -330,11 +368,26 @@ async function boot() {
     }, 1600);
     setTimeout(() => fade(false), 3800);
   };
+  // what's in the cash box: the saved yen plus what tonight has taken so far (a co-op guest sees the host's)
+  const cashBox = () => {
+    if (coop && !coop.isHost) return service.cashBox || 0;
+    const tonight = shift.snap && (shift.active || shift.closing) ? service.money - shift.snap.money : 0;
+    return save.yen + tonight;
+  };
   const catalogData = () => ({
-    yen: save.yen, locked: !!(coop && !coop.isHost),
-    note: coop && !coop.isHost ? 'only the owner of the shop can order from the catalog' : '',
-    items: CATALOG.map((c) => ({ ...c, owned: service.owned.includes(c.id) })),
+    yen: cashBox(),
+    note: coop && !coop.isHost ? 'orders go on the shop\'s cash box' : '',
+    items: CATALOG.map((c) => ({ ...c, owned: service.owned.includes(c.id), blocked: !!c.needs && !service.owned.includes(c.needs), needsName: c.needs ? itemById(c.needs).name : '' })),
   });
+  // buying runs on the host (or solo): it comes out of the shared cash box and everyone gets the delivery
+  const buyItem = (id) => {
+    const it = itemById(id);
+    if (!it || service.owned.includes(id) || (it.needs && !service.owned.includes(it.needs)) || cashBox() < it.price) return;
+    save.yen -= it.price; service.owned.push(id); save.owned = [...service.owned]; writeSave(save);
+    applyAll(); audio.kaching();
+    service.sayAll(it.kind === 'shop' ? `${it.name.toLowerCase()}: ready tonight` : `${it.name.toLowerCase()}: delivered upstairs`);
+  };
+  service.onBuy = buyItem;
   const openCatalog = () => { catalogOpen = true; unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false); };
   interactions.add([4.85, 4.28, 4.6, 0.16, 0.06, 0.2], () => 'Read the catalog', openCatalog);
 
@@ -439,11 +492,8 @@ async function boot() {
     onSettings: applySettings,
     onResume: () => { catalogOpen = false; enter(); },
     onBuy: (id) => {
-      const it = itemById(id);
-      if (!it || (coop && !coop.isHost) || service.owned.includes(id) || save.yen < it.price) return;
-      save.yen -= it.price; service.owned.push(id); save.owned = [...service.owned]; writeSave(save);
-      applyAll(); audio.kaching();
-      toast(it.kind === 'shop' ? `${it.name.toLowerCase()}: ready tonight` : `${it.name.toLowerCase()}: delivered upstairs`);
+      if (coop && !coop.isHost) { service.request('buy', id); return; } // the host's game takes the order
+      buyItem(id);
       menu.show('catalog', { catalog: catalogData() });
     },
     onNewGame: () => { clearSave(); location.reload(); },
@@ -515,7 +565,14 @@ async function boot() {
   }
 
   function tick(now) {
-    if (paused) { last = now; requestAnimationFrame(tick); return; }
+    if (paused) {
+      // a paused room still runs the Fami-Com when you're playing it
+      if (arcadeOpen) {
+        arcade.tick(Math.min(0.05, (now - last) / 1000));
+        const h = $('arcade').querySelector('.hint'); if (h.textContent !== arcade.hint) h.textContent = arcade.hint;
+      }
+      last = now; requestAnimationFrame(tick); return;
+    }
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     player.update(dt);
     const p = player.pos;
@@ -556,13 +613,16 @@ async function boot() {
       dawn += ((shift.active || shift.closing ? shift.dawn : 0) - dawn) * Math.min(1, dt * 0.5);
     }
     setDawn(dawn);
+    if (arcade.mode !== 'off') arcade.tick(dt);
 
     // the sign, the cash box, the telescope
     signOpen.visible = shift.active && !shift.waiting; signClosed.visible = !signOpen.visible;
     if ((purseT -= dt) < 0) {
       purseT = 0.5;
-      const tonight = shift.snap && (shift.active || shift.closing) ? service.money - shift.snap.money : 0;
-      const txt = `¥${Math.round(save.yen + tonight).toLocaleString('en-US')}`;
+      const cash = cashBox();
+      if (!coop || coop.isHost) service.cashBox = cash;
+      const txt = `¥${Math.round(cash).toLocaleString('en-US')}`;
+      if (arcadeOpen) { const h = $('arcade').querySelector('.hint'); if (h.textContent !== arcade.hint) h.textContent = arcade.hint; }
       if ($('purse').textContent !== txt) $('purse').textContent = txt;
     }
     if (zoom && (player.keys.KeyW || player.keys.KeyA || player.keys.KeyS || player.keys.KeyD || Math.hypot(player.stick.x, player.stick.y) > 0.4 || !player.locked)) zoom = false;
@@ -600,7 +660,7 @@ async function boot() {
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
-  window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home,
+  window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home, arcade,
     get coop() { return coop; }, get net() { return net; }, get dawn() { return dawn; }, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
 }
 

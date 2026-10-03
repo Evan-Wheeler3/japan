@@ -147,6 +147,13 @@ export class Ambience {
       g.connect(this.master);
     }
   }
+  // the Fami-Com: square-wave blips
+  chip(kind) {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    const seq = { move: [[660, 0.05]], start: [[523, 0.08], [659, 0.08], [784, 0.12]], point: [[988, 0.05], [1319, 0.07]], hurt: [[220, 0.12], [165, 0.18]], over: [[392, 0.15], [330, 0.15], [262, 0.3]] }[kind] || [];
+    let at = t;
+    for (const [f, d] of seq) { this.tone(f, at, d + 0.05, 0.035, 'square'); at += d; }
+  }
   vend() {
     if (!this.ctx) return; const t = this.ctx.currentTime;
     this.tone(880, t, 0.12, 0.05, 'square');

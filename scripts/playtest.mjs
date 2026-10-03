@@ -1,5 +1,6 @@
 // End-to-end playtest: a bot plays the whole loop in a headless browser and checks it holds together.
-//   wake upstairs → buy from the catalog → open the shop → work a full night (by hand and by belt,
+//   wake upstairs → buy from the catalog (dishes, upgrade levels, the TV, the Fami-Com and its games)
+//   → play the Fami-Com → open the shop → work a full night (by hand and by belt,
 //   cooking every dish, washing up) → sunrise and the night's card → go to bed → wake for night 2
 //   → reload and check the save carried over.
 // Usage: npm install && npm run playtest     (CHROME_PATH=/path/to/chrome to pick a browser)
@@ -48,11 +49,33 @@ try {
   // ---- the catalog: new dishes, an upgrade and things for home
   st = await page.evaluate(() => {
     const d = window.__yoake;
-    d.save.yen = 30000;
-    for (const id of ['onigiri', 'tempura', 'ramen', 'beltMotor', 'irori', 'telescope', 'catbed']) d.menu.h.onBuy(id);
-    return { owned: d.service.owned, menu: [...d.service.menuKinds], speed: d.service.belt.speed, placed: [...d.home.placed], yen: d.save.yen };
+    d.save.yen = 45000;
+    d.menu.h.onBuy('beltMotor2'); // needs the first motor: refused
+    const early = d.service.owned.length;
+    for (const id of ['onigiri', 'tempura', 'ramen', 'beltMotor', 'beltMotor2', 'irori', 'telescope', 'catbed', 'crt', 'famicom', 'game_dash', 'game_koi', 'game_daruma']) d.menu.h.onBuy(id);
+    return { early, owned: d.service.owned, menu: [...d.service.menuKinds], speed: d.service.belt.speed, placed: [...d.home.placed], games: d.arcade.owned, yen: d.save.yen };
   });
-  check(st.owned.length === 7 && st.menu.includes('ramen') && st.speed > 0.5 && st.placed.includes('irori'), `bought ${st.owned.join(', ')} (¥${st.yen} left)`);
+  check(st.early === 0, 'a level-two upgrade waits for level one');
+  check(st.owned.length === 13 && st.menu.includes('ramen') && st.speed > 0.8 && st.placed.includes('irori') && st.games.length === 4, `bought ${st.owned.join(', ')} (¥${st.yen} left)`);
+
+  // ---- the Fami-Com: pick up the controller, play Sushi Catch, set a high score, put it down
+  await page.evaluate(() => window.__yoake.home.onPlay());
+  check(await page.evaluate(() => document.body.classList.contains('arcade') && window.__yoake.arcade.mode === 'menu'), 'the Fami-Com opens on its cartridge menu');
+  await page.keyboard.press('Space');
+  for (let i = 0; i < 40; i++) {
+    await page.evaluate(() => { // a steady hand: slide under the lowest sushi
+      const a = window.__yoake.arcade, s = a.s; if (!s || !s.items) return;
+      const it = s.items.filter((x) => x.kind !== 'wasabi').sort((p, q) => q.y - p.y)[0];
+      a.keys.left = !!it && it.x < s.x - 4; a.keys.right = !!it && it.x > s.x + 4;
+    });
+    await page.waitForTimeout(250);
+  }
+  st = await page.evaluate(() => { const a = window.__yoake.arcade; const score = a.s.score; a.s.lives = 0; return { mode: a.mode, game: a.gameId, score }; });
+  await page.waitForTimeout(500);
+  st.hi = await page.evaluate(() => window.__yoake.save.hi && window.__yoake.save.hi.sushi);
+  check(st.game === 'sushi' && st.score > 0 && st.hi === st.score, `Sushi Catch played: ${st.score} points, saved as the high score`);
+  await page.keyboard.press('Escape');
+  check(await page.evaluate(() => !document.body.classList.contains('arcade')), 'Esc puts the controller down');
 
   // ---- open the shop and work the night
   await page.evaluate(() => {
@@ -131,7 +154,7 @@ try {
   check(/night 2/.test(st.label) && st.save.owned.includes('irori'), `after a reload the title offers "${st.label.trim()}" and the purchases are kept`);
   await page.click('#screen [data-act="solo"]');
   st = await page.evaluate(() => { const d = window.__yoake; return { n: d.shift.n, hands: d.service.handCap, placed: [...d.home.placed], menu: [...d.service.menuKinds] }; });
-  check(st.n === 2 && st.hands === 2 && st.placed.includes('irori') && st.menu.includes('tempura'), "night 2 starts with last night's perk and everything you bought");
+  check(st.n === 2 && st.hands === 2 && st.placed.includes('irori') && st.placed.includes('famicom') && st.menu.includes('tempura'), "night 2 starts with last night's perk and everything you bought");
 
   if (errors.length) throw new Error(`page errors:\n${errors.join('\n')}`);
   console.log('PLAYTEST PASSED');

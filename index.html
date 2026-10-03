@@ -138,6 +138,24 @@
     .buy .chip { flex-shrink: 0; min-width: 84px; font-variant-numeric: tabular-nums; }
     .buy .chip[disabled] { opacity: .5; cursor: default; }
     .buy .chip.on[disabled] { opacity: 1; }
+    .buy.later .what b { color: var(--muted); }
+
+    /* the Fami-Com: the game fills the screen inside a CRT bezel */
+    #arcade { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 40;
+      background: radial-gradient(ellipse at 50% 45%, rgba(40,30,24,.92), rgba(6,5,8,.97) 70%); padding: 16px; box-sizing: border-box; }
+    body.arcade #arcade { display: flex; }
+    body.arcade #overlay, body.arcade .hud, body.arcade #reticle, body.arcade #hint { display: none; }
+    #arcade .tv { position: relative; width: min(86vw, calc((100vh - 170px) * 256 / 224)); aspect-ratio: 256 / 224; max-width: 100%; padding: 22px; box-sizing: content-box;
+      border-radius: 34px; background: linear-gradient(160deg, #3a3a42, #1e1e24); box-shadow: inset 0 2px 0 rgba(255,255,255,.08), 0 24px 60px rgba(0,0,0,.6); }
+    #arcade canvas { width: 100%; height: 100%; display: block; border-radius: 18px / 22px; image-rendering: pixelated; image-rendering: crisp-edges; }
+    #arcade .tv::after { content: ''; position: absolute; inset: 22px; border-radius: 18px / 22px; pointer-events: none;
+      background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.06), rgba(0,0,0,0) 45%, rgba(0,0,0,.45) 100%); box-shadow: inset 0 0 40px rgba(0,0,0,.6); }
+    #arcade .hint { font: 600 15px Nunito, sans-serif; color: var(--muted); text-align: center; }
+    #arcade .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+    #arcade .pads { display: none; gap: 10px; }
+    body.touch #arcade .pads { display: flex; }
+    #arcade .pads button { width: 56px; height: 56px; border-radius: 16px; background: rgba(255,236,210,.12); color: var(--cream); font: 600 20px Fredoka, sans-serif; touch-action: none; }
+    #arcade .pads button.a { background: #b8282a; border-radius: 50%; }
 
     /* ---------------------------------------------------------------- the fade between scenes (sunrise, sleep) */
     #fade { position: fixed; inset: 0; background: #05060a; opacity: 0; pointer-events: none; transition: opacity .9s ease; z-index: 50;
@@ -296,6 +314,9 @@
   <div id="summary"></div>
   <div id="purse" class="hud glass"></div>
   <div id="fade"><div class="cap"></div></div>
+  <div id="arcade"><div class="tv"></div><div class="hint"></div>
+    <div class="row"><div class="pads"><button data-k="ArrowLeft">◀</button><button data-k="ArrowUp">▲</button><button data-k="ArrowDown">▼</button><button data-k="ArrowRight">▶</button><button class="a" data-k="Space">A</button></div>
+    <button class="text-btn" data-act="putDown">put the controller down <kbd>Esc</kbd></button></div></div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

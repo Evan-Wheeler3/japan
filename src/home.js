@@ -26,6 +26,10 @@ export const CATALOG = [
   { id: 'binchotan', kind: 'shop', name: 'Binchotan charcoal', price: 2500, text: 'White oak charcoal burns hotter: yakitori and gyoza cook 30% faster.' },
   { id: 'dishes', kind: 'shop', name: 'More cups and plates', price: 2000, text: 'Four more of each on the shelves every night.' },
   { id: 'heaters', kind: 'shop', name: 'Kerosene heaters', price: 4000, text: 'Two more heaters in the dining room. Warm guests wait 25% longer.' },
+  { id: 'beltMotor2', kind: 'shop', needs: 'beltMotor', name: 'An industrial belt motor', price: 6000, text: 'The belt runs at twice its old speed.' },
+  { id: 'binchotan2', kind: 'shop', needs: 'binchotan', name: "A grill master's konro", price: 5500, text: 'Yakitori and gyoza cook in half the time.' },
+  { id: 'dishes2', kind: 'shop', needs: 'dishes', name: 'A full set of tableware', price: 4000, text: 'Another four cups and plates: fourteen of each.' },
+  { id: 'heaters2', kind: 'shop', needs: 'heaters', name: 'Hot towels at every seat', price: 7000, text: 'Guests wait half again as long before giving up.' },
   { id: 'lanterns', kind: 'home', name: 'A string of paper lanterns', price: 600, text: 'Little lanterns along the living room walls.' },
   { id: 'plants', kind: 'home', name: 'Houseplants', price: 700, text: 'A monstera and a fern, for the corners.' },
   { id: 'bonsai', kind: 'home', name: 'Bonsai pine', price: 900, text: 'On a stand by the window. Older than the shop.' },
@@ -35,17 +39,25 @@ export const CATALOG = [
   { id: 'record', kind: 'home', name: 'A record player', price: 2000, text: 'Koto records to play upstairs.' },
   { id: 'telescope', kind: 'home', name: 'A brass telescope', price: 2500, text: 'At the front window. Look at Fuji up close.' },
   { id: 'irori', kind: 'home', name: 'An irori hearth', price: 5000, text: 'A sunken fire pit with a kettle on a hook. Sit by the embers.' },
+  { id: 'crt', kind: 'home', name: 'A CRT television', price: 1800, text: 'A chunky old set for the living room, facing the kotatsu.' },
+  { id: 'famicom', kind: 'home', needs: 'crt', name: 'A Fami-Com console', price: 2500, text: 'Two red controllers, and Sushi Catch in the slot.' },
+  { id: 'game_dash', kind: 'games', needs: 'famicom', game: 'dash', name: 'Snow Dash', price: 600, text: 'Run through the snow, jump the snowmen, duck the crows.' },
+  { id: 'game_koi', kind: 'games', needs: 'famicom', game: 'koi', name: 'Koi Pond', price: 700, text: 'A koi grows longer with every pellet. Mind the stones.' },
+  { id: 'game_daruma', kind: 'games', needs: 'famicom', game: 'daruma', name: 'Daruma Break', price: 900, text: 'Bounce a ball and knock down every daruma on the shelf.' },
 ];
+// the cartridges you own (Sushi Catch comes with the console)
+export const ownedGames = (owned) => (owned.includes('famicom') ? ['sushi', ...CATALOG.filter((c) => c.game && owned.includes(c.id)).map((c) => c.game)] : []);
 export const itemById = (id) => CATALOG.find((c) => c.id === id);
 
 // what the shop upgrades do, applied to the service (and the belt) every time ownership changes
 export function applyUpgrades(service, owned) {
   const has = (id) => owned.includes(id);
   service.menuKinds = new Set(['tea', 'sushi', 'yakitori', 'gyoza', ...['onigiri', 'tempura', 'ramen'].filter(has)]);
-  service.stockMax = 6 + (has('dishes') ? 4 : 0);
-  service.patienceBonus = has('heaters') ? 1.25 : 1;
-  service.belt.speed = has('beltMotor') ? 0.63 : 0.42;
-  for (const st of service.stations) st.cook = st.baseCook * (has('binchotan') && (st.kind === 'yakitori' || st.kind === 'gyoza') ? 0.7 : 1);
+  service.stockMax = 6 + (has('dishes') ? 4 : 0) + (has('dishes2') ? 4 : 0);
+  service.patienceBonus = has('heaters2') ? 1.5 : has('heaters') ? 1.25 : 1;
+  service.belt.speed = has('beltMotor2') ? 0.84 : has('beltMotor') ? 0.63 : 0.42;
+  const grill = has('binchotan2') ? 0.5 : has('binchotan') ? 0.7 : 1;
+  for (const st of service.stations) st.cook = st.baseCook * (st.kind === 'yakitori' || st.kind === 'gyoza' ? grill : 1);
 }
 
 // ---------------------------------------------------------------- models for the apartment
@@ -153,6 +165,26 @@ const hangingKettle = () => {
   return m;
 };
 
+// a chunky CRT on a low stand (faces -z); the picture is a separate plane laid over the glass
+const crt = () => {
+  const m = new Model(16, 18, 12, 1 / 16);
+  m.box(0, 0, 0, 16, 5, 12, (x, y, z) => (y === 4 || x === 0 || x === 15 ? wood : (z === 0 && y > 0 ? woodD : null)));
+  const body = C('#2a2a30', 0, 0.04), bodyL = C('#3a3a42', 0, 0.04);
+  m.box(1, 5, 1, 15, 17, 12, (x, y, z) => (z === 1 && x > 2 && x < 13 && y > 6 && y < 16 ? C('#101418', 0, 0.02) : y === 16 || x === 1 || x === 14 ? bodyL : body));
+  m.box(13, 7, 0, 14, 8, 1, C('#ff3020', 2.0, 0.02)); m.box(13, 9, 0, 14, 10, 1, C('#a8a8b0', 0, 0.03)); m.box(13, 11, 0, 14, 12, 1, C('#a8a8b0', 0, 0.03));
+  m.box(7, 17, 6, 8, 18, 7, C('#a8a8b0', 0, 0.03)); m.box(5, 17, 6, 6, 18, 7, C('#a8a8b0', 0, 0.03)); // rabbit ears
+  return m;
+};
+// a cream-and-red console with two controllers on their cords (faces -z)
+const famicom = () => {
+  const m = new Model(24, 3, 16, 1 / 32);
+  const cream = C('#ece4d0', 0, 0.03), red = C('#b8282a', 0, 0.04), dark = C('#2a1a1a', 0, 0.04);
+  m.box(6, 0, 8, 18, 2, 15, cream); m.box(6, 2, 9, 18, 3, 14, red); m.box(10, 2, 13, 14, 3, 15, dark);
+  for (const x0 of [1, 15]) { m.box(x0, 0, 1, x0 + 8, 1, 5, red); m.set(x0 + 1, 1, 3, dark); m.set(x0 + 2, 1, 2, dark); m.set(x0 + 2, 1, 4, dark); m.set(x0 + 3, 1, 3, dark); m.set(x0 + 6, 1, 3, C('#e8c040', 0, 0.03)); }
+  for (let z = 5; z < 9; z++) { m.set(4, 0, z, dark); m.set(19, 0, z, dark); }
+  return m;
+};
+
 // where each item goes, and what you can do with it
 const PLACE = {
   lanterns: (h) => { h.put(lanternString(), 4.5, 6.35, 0.45, 0); h.put(lanternString(), 4.5, 6.35, 9.85, 0); },
@@ -181,6 +213,16 @@ const PLACE = {
     h.steam({ pos: [12.5, F2 + 0.6, 5.5], size: 0.35 });
   },
   heaters: (h) => { h.put(heater(), 0.65, 0.25, 9.6, 1); h.put(heater(), 15.35, 0.25, 4.9, 3); },
+  crt: (h) => {
+    h.put(crt(), 7.7, F2, 4.5, 1);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.5), new THREE.MeshBasicMaterial({ map: h.arcade.texture }));
+    scr.position.set(7.7 - 12 / 32 + 1 / 16 - 0.008, F2 + 11 / 16, 4.5); scr.rotation.y = -Math.PI / 2; h.scene.add(scr); // over the glass
+    h.act([7.7, F2 + 0.75, 4.5, 0.38, 0.4, 0.5], () => (h.tvOn ? 'Turn the TV off' : 'Turn the TV on'), () => h.onTV && h.onTV());
+  },
+  famicom: (h) => {
+    h.put(famicom(), 7.1, F2, 4.5, 1, false);
+    h.act([7.1, F2 + 0.05, 4.5, 0.22, 0.08, 0.38], 'Play the Fami-Com', () => h.onPlay && h.onPlay());
+  },
 };
 
 // Places the things you own into the world, once each.

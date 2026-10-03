@@ -59,10 +59,17 @@ kettle on the hob.
 The **catalog** on the kotatsu sells, for the yen in your cash box:
 
 - **for the shop:** onigiri, tempura and miso ramen for the menu; a stronger belt motor; binchotan charcoal
-  (faster yakitori and gyoza); more cups and plates; kerosene heaters (guests wait longer).
+  (faster yakitori and gyoza); more cups and plates; kerosene heaters (guests wait longer). Each of those four
+  upgrades has a second level once you own the first.
 - **for home:** paper lanterns, houseplants, a bonsai, a big woodblock print, a cat bed (a black cat moves
   in), a goldfish tank, a record player, a brass telescope at the front window (look at Fuji up close), and an
-  irori hearth to sit by.
+  irori hearth to sit by, a CRT television, and a Fami-Com console that plugs into it.
+- **for the Fami-Com:** the console comes with *Sushi Catch* (catch falling sushi, dodge the wasabi). Three more
+  cartridges: *Snow Dash* (jump snowmen, duck crows), *Koi Pond* (a snake game in a koi pond) and
+  *Daruma Break* (breakout with daruma dolls). Click the console to play: arrow keys or WASD, space, Esc to put
+  the controller down. High scores are saved. The game shows on the TV in the room too.
+
+In co-op everyone can order from the catalog; it all comes out of the shop's one cash box.
 
 The vending machine outside takes ¥130 from the cash box for a hot drink.
 
@@ -81,6 +88,7 @@ The vending machine outside takes ¥130 from the cash box for a hot drink.
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen to the counter, the plates riding it |
 | `src/home.js` | The save file, the catalog, what each upgrade does, and the things you can buy for the apartment |
+| `src/arcade.js` | The Fami-Com: a 256×224 canvas that is both the CRT's picture and the full-screen view, and its four games |
 | `src/shift.js` | The clock (10 PM → 6 AM), rushes, the dawn, the stats card, perks |
 | `src/main.js` | Boot, the lamp pool (the nearest lamps get real lights), the sunrise at the end of the night, the loop |
 | `src/menu.js`, `src/coop.js`, `src/net.js`, `src/touch.js` | Menus, online co-op (up to 4), touch controls |
@@ -90,7 +98,7 @@ The vending machine outside takes ¥130 from the cash box for a hot drink.
 ## Testing and hosting
 
 `npm install && npm run playtest` runs a bot through the whole loop in a headless browser: wake upstairs, buy
-from the catalog, open, work a full night (every dish, the belt, washing up), sleep, wake for night 2, reload
+from the catalog (including upgrade levels and the Fami-Com), play Sushi Catch, open, work a full night (every dish, the belt, washing up), sleep, wake for night 2, reload
 and check the save. Set `CHROME_PATH` if Playwright can't find a Chromium.
 
 `.github/workflows/pages.yml` publishes the game to GitHub Pages on every push and runs the playtest. Turn it
