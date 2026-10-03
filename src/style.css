@@ -641,3 +641,29 @@ body {
   opacity: 0;
   pointer-events: none;
 }
+
+.btn.danger {
+  border-color: #e5574a;
+  color: #ffd8d0;
+}
+
+.touch-note {
+  display: none;
+}
+@media (hover: none) and (pointer: coarse) {
+  .touch-note {
+    display: block;
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 14px;
+    background: rgba(14, 20, 42, 0.92);
+    border: 1px solid rgba(240, 180, 90, 0.35);
+    border-radius: 8px;
+    color: #f4ead2;
+    font-size: 14px;
+    text-align: center;
+    z-index: 10;
+  }
+}

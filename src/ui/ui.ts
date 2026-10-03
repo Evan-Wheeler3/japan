@@ -282,8 +282,16 @@ export class UI {
         <div class="hint">Best with headphones · Click to capture the mouse</div>
       </div>`;
     this.titleScreen.querySelector('[data-a="continue"]')?.addEventListener('click', onContinue);
-    this.titleScreen.querySelector('[data-a="new"]')?.addEventListener('click', () => {
-      if (hasSave && !confirm('Start over? Your current restaurant will be lost.')) return;
+    const newBtn = this.titleScreen.querySelector<HTMLButtonElement>('[data-a="new"]')!;
+    let armed = !hasSave;
+    newBtn.addEventListener('click', () => {
+      // Two-step confirm in the page itself: browser confirm() dialogs are blocked in embedded viewers.
+      if (!armed) {
+        armed = true;
+        newBtn.textContent = 'Erase save and start over?';
+        newBtn.classList.add('danger');
+        return;
+      }
       onNew();
     });
     this.titleScreen.classList.add('show');
