@@ -1,4 +1,4 @@
-// Customers: voxel people who come in from the rain, find a seat, linger, and leave.
+// Customers: voxel people who come in from the snow, find a seat, linger, and leave.
 import * as THREE from 'three';
 import { Model, C } from './voxel.js';
 

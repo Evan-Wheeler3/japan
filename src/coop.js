@@ -1,4 +1,4 @@
-// Co-op glue. The host runs the diner and sends a snapshot ten times a second; guests mirror it and send
+// Co-op glue. The host runs the shop and sends a snapshot ten times a second; guests mirror it and send
 // their clicks to the host. Everyone sends where they are, and sees the others as their own characters.
 import * as THREE from 'three';
 import { Person } from './npc.js';
@@ -40,7 +40,7 @@ export class Coop {
     net.on('summary', (m) => { if (!this.isHost) this.onSummary(m.r); });
     net.on('shiftStart', (m) => { if (!this.isHost) this.onShiftStart(m.n); });
     net.onClose = (why) => this.onHostLeft(why);
-    net.on('hostLeft', () => this.onHostLeft('the host closed the diner'));
+    net.on('hostLeft', () => this.onHostLeft('the host closed the shop'));
     // doors: guests ask the host to open/close them
     service.A.door = (i, x, z) => {
       const d = this.doors[i]; if (!d) return;
@@ -107,7 +107,7 @@ export class Coop {
     }
   }
 
-  // ---------------------------------------------------------------- the diner itself
+  // ---------------------------------------------------------------- the shop itself
   sendSnap() {
     const crowd = this.crowd.snapshot(), looks = {};
     // looks only when someone new walks in, plus everyone now and then (in case a message went missing)

@@ -1,6 +1,6 @@
 # The co-op relay. It has no public URL of its own: the Pages site reaches it through a binding.
 # Deploy: npx wrangler deploy (from this folder). Local dev: npx wrangler dev --port 8787
-name = "my-cozy-diner-relay"
+name = "yoake-relay"
 main = "relay.js"
 compatibility_date = "2026-10-01"
 workers_dev = false

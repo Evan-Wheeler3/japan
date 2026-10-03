@@ -1,5 +1,5 @@
 // Co-op relay: one Durable Object per game code. It keeps the lobby list and passes messages between
-// the players; the host's browser runs the actual diner. Reached at /api/room?code=ABCD&role=host|join
+// the players; the host's browser runs the actual shop. Reached at /api/room?code=ABCD&role=host|join
 // (through the Pages site's _worker.js in production, or directly from `wrangler dev` locally).
 
 const MAX_PLAYERS = 4;
@@ -62,8 +62,8 @@ export class Room {
     ws.serializeAttachment(null);
     try { ws.close(1000, 'bye'); } catch {}
     if (me && me.host) {
-      // no host, no diner: send everyone home
-      for (const p of this.players()) { try { p.ws.send(JSON.stringify({ t: 'hostLeft' })); p.ws.close(4010, 'the host left, so the diner closed for the night'); } catch {} }
+      // no host, no shop: send everyone home
+      for (const p of this.players()) { try { p.ws.send(JSON.stringify({ t: 'hostLeft' })); p.ws.close(4010, 'the host left, so the shop closed for the night'); } catch {} }
       return;
     }
     this.lobby();
@@ -81,6 +81,6 @@ export function roomRequest(req, env) {
 export default {
   fetch(req, env) {
     if (new URL(req.url).pathname === '/api/room') return roomRequest(req, env);
-    return new Response('my cozy diner relay', { status: 404 });
+    return new Response('yoake relay', { status: 404 });
   },
 };

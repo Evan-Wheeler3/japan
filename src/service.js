@@ -1,15 +1,18 @@
-// Working the night shift: take orders, make coffee and food, serve, ring up, bus and wash dishes, restock.
+// Working the night: take orders, pour tea and make food, serve, ring up, bus and wash dishes, restock.
+// (Internally a cup is still a 'mug', so co-op snapshots keep their shape.)
 import * as THREE from 'three';
 import { Model, C } from './voxel.js';
 
 export const MENU = {
-  coffee: { name: 'Coffee', price: 2.25 },
-  pie: { name: 'Cherry pie', price: 4.5 },
-  pancakes: { name: 'Pancakes', price: 7.5 },
-  burger: { name: 'Burger', price: 9.25 },
+  tea: { name: 'Green tea', price: 300 },
+  sushi: { name: 'Salmon nigiri', price: 600 },
+  yakitori: { name: 'Yakitori', price: 800 },
+  gyoza: { name: 'Gyoza', price: 700 },
 };
-const NAMES = ['the cab driver', 'a night nurse', 'the jazz pianist', 'an insomniac poet', 'a night-shift cop', 'a grad student', 'the baker next door',
-  'an old regular', 'a theater usher', 'a tired line cook', 'a bike messenger', 'a couple of strangers', 'a nervous first date', 'the mailman', 'a painter', 'a doorman'];
+const NAMES = ['a tired salaryman', 'the ski instructor', 'two snowboarders', 'a night-shift nurse', 'the old fisherman', 'a ferry deckhand',
+  'an onsen tourist', 'the snowplow driver', 'a poet in a long scarf', 'a nervous first date', 'the shrine caretaker', 'a student up late cramming',
+  'the mountain hut keeper', 'a long-haul trucker', 'the baker from the village', 'an off-duty taxi driver'];
+const yen = (v) => `¥${Math.round(v).toLocaleString('en-US')}`;
 
 // ---------------------------------------------------------------- little voxel models for dishes
 const INVISIBLE = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
@@ -17,38 +20,41 @@ const INVISIBLE = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: f
 // counter tops you can set things on: [x0, x1, z0, z1, top y]. The bar counter stops short of the
 // customers' side so their plates have room; spots near props on the counters are kept clear.
 const COUNTERS = [
-  [3.0, 13.25, 7.3, 7.8, 1.075],   // bar counter, your side
+  [3.0, 13.25, 7.3, 7.8, 1.075],   // the counter, your side
   [4.6, 13.2, 9.15, 9.5, 1.0],     // back bar, in front of the urns and plates
   [7.1, 11.9, 12.05, 12.8, 0.875], // kitchen prep island
   [10.55, 12.25, 10.3, 10.8, 0.875], // plating station under the pass (plate stacks at the east end)
   [10.8, 12.7, 9.8, 10.45, 1.125],  // the pass between the kitchen and the bar
 ];
-const KEEP_CLEAR = [[3.4, 7.45, 0.35], [12.6, 7.45, 0.3], [5.4, 7.55, 0.25], [10.9, 7.55, 0.25], [8.2, 7.55, 0.22], [9.5, 12.4, 0.45]];
+const KEEP_CLEAR = [[3.4, 7.45, 0.35], [3.05, 7.2, 0.22], [12.55, 7.45, 0.5], [8.2, 7.55, 0.22], [9.5, 12.4, 0.45]];
 
-const W = C('#f2efe8', 0, 0.03), coffeeC = C('#2a1608', 0, 0.05), ring = C('#6a4a30', 0, 0.06);
+const W = C('#f2efe8', 0, 0.03), rim = C('#2a4a7a', 0, 0.04), teaC = C('#8ab840', 0, 0.05), ring = C('#6a7a4a', 0, 0.06);
+const glaze = C('#6d7a5a', 0, 0.05), glazeL = C('#a8b08a', 0, 0.05);
+// yunomi: a tall handle-less tea cup
 function mugModel(state) {
-  const m = new Model(5, 5, 4, 1 / 32, [2, 0, 2]);
-  m.cyl(2, 2, 1.8, 0, 4, W, state === 'empty' ? 1.0 : -1);
-  if (state === 'coffee') m.cyl(2, 2, 1.0, 3, 4, coffeeC);
-  if (state === 'dirty') m.cyl(2, 2, 1.0, 1, 2, ring);
-  m.set(4, 1, 2, W); m.set(4, 2, 2, W); m.set(4, 3, 2, W);
+  const m = new Model(5, 5, 5, 1 / 32, [2.5, 0, 2.5]);
+  m.cyl(2.5, 2.5, 2.0, 0, 5, (x, y) => (y === 4 ? glazeL : glaze), state === 'empty' || state === 'dirty' ? 1.1 : -1);
+  m.cyl(2.5, 2.5, 2.0, 0, 1, glaze);
+  if (state === 'coffee') m.cyl(2.5, 2.5, 1.2, 4, 5, teaC);
+  if (state === 'dirty') m.cyl(2.5, 2.5, 1.2, 1, 2, ring);
   return m;
 }
 function plateModel(food) {
   const m = new Model(10, 7, 10, 1 / 32, [5, 0, 5]);
-  m.cyl(5, 5, 4.6, 0, 1, W);
-  if (food === 'pancakes') { m.cyl(5, 5, 3.2, 1, 4, C('#d8a050', 0, 0.08)); m.cyl(5, 5, 2.2, 4, 5, C('#5a2c10', 0, 0.06)); m.set(5, 5, 5, C('#f6e070', 0, 0.03)); }
-  if (food === 'pie') {
-    const crust = C('#c99a5a', 0, 0.06), fill = C('#8e1a28', 0, 0.06);
-    for (let i = 0; i < 5; i++) for (let j = 0; j <= i; j++) { m.set(3 + i, 1, 3 + j, i === 4 ? crust : fill); m.set(3 + i, 2, 3 + j, (i + j) & 1 ? crust : fill); }
-    m.set(7, 3, 6, C('#f4f0e6', 0, 0.02));
+  m.cyl(5, 5, 4.6, 0, 1, (x, y, z) => (Math.hypot(x + 0.5 - 5, z + 0.5 - 5) > 3.8 ? rim : W));
+  if (food === 'sushi') {
+    const rice = C('#fbf8ee', 0, 0.02), salmon = C('#f08a4a', 0, 0.04), stripe = C('#fbd2b0', 0, 0.03);
+    for (const z0 of [2, 5]) { m.box(2, 1, z0, 7, 3, z0 + 2, rice); m.box(2, 3, z0, 8, 4, z0 + 2, (x) => (x % 2 ? stripe : salmon)); }
+    m.box(7, 1, 7, 9, 2, 9, C('#f2b8b0', 0, 0.04)); m.set(8, 1, 2, C('#8ab84a', 0, 0.04));
   }
-  if (food === 'burger') {
-    m.cyl(4.5, 5, 2.6, 1, 2, C('#c08040', 0, 0.06)); m.cyl(4.5, 5, 2.8, 2, 3, C('#4a2614', 0, 0.06));
-    m.cyl(4.5, 5, 2.8, 3, 4, C('#6fb03a', 0, 0.08)); m.cyl(4.5, 5, 2.6, 4, 6, C('#d39048', 0, 0.06));
-    for (let i = 0; i < 3; i++) m.box(7, 1, 2 + i * 2, 9, 2, 3 + i * 2, C('#e8b040', 0, 0.08));
+  if (food === 'yakitori') {
+    for (const z of [3, 5, 7]) { m.box(1, 1, z, 9, 2, z + 1, C('#c8b070', 0, 0.04)); for (const x of [2, 4, 6]) m.box(x, 1, z, x + 2, 3, z + 1, x === 4 ? C('#e8f0d0', 0, 0.04) : C('#7a3a18', 0, 0.08)); }
   }
-  if (food === 'dirty') { m.set(4, 1, 4, C('#8a5a2a', 0, 0.1)); m.set(6, 1, 5, C('#6a3a1a', 0, 0.1)); m.set(5, 1, 6, C('#a8703a', 0, 0.1)); m.set(3, 1, 6, C('#8a5a2a', 0, 0.1)); }
+  if (food === 'gyoza') {
+    for (let i = 0; i < 5; i++) { const x = 2 + i * 1.3 | 0; m.box(x, 1, 3, x + 1, 3, 7, (vx, y) => (y === 1 ? C('#c8862a', 0, 0.05) : C('#f0e6d0', 0, 0.04))); }
+    m.cyl(8, 8, 1.2, 1, 2, C('#2a140a', 0, 0.03));
+  }
+  if (food === 'dirty') { m.set(4, 1, 4, C('#8a5a2a', 0, 0.1)); m.set(6, 1, 5, C('#6a3a1a', 0, 0.1)); m.set(5, 1, 6, C('#a8703a', 0, 0.1)); m.set(3, 1, 6, C('#c8b070', 0, 0.1)); }
   return m;
 }
 function tubModel(mugs, plates, clean) {
@@ -56,34 +62,38 @@ function tubModel(mugs, plates, clean) {
   if (!clean) { m.box(0, 0, 0, 14, 6, 10, C('#4a4e54', 0, 0.04)); m.box(1, 1, 1, 13, 6, 9, null); for (let x = 1; x < 13; x++) for (let z = 1; z < 9; z++) for (let y = 1; y < 6; y++) m.set(x, y, z, 0); }
   const n = Math.min(4, plates);
   for (let i = 0; i < n; i++) m.cyl(5, 5, 3.8, 1 + i, 2 + i, (x, y) => (clean ? W : (y & 1 ? W : C('#d8d0c0', 0, 0.05))));
-  for (let i = 0; i < Math.min(3, mugs); i++) m.cyl(11, 2.5 + i * 2.6, 1.2, 1, 5, W);
+  for (let i = 0; i < Math.min(3, mugs); i++) m.cyl(11, 2.5 + i * 2.6, 1.2, 1, 5, glaze);
   return m;
 }
 
-// pixel-art food icons, shared by the orders slip (as <img>) and the speech bubbles
-export const ICON_SRC = (kind) => `src/icons/${kind}.png`;
-const ICON_IMG = {};
-for (const k of ['coffee', 'pie', 'pancakes', 'burger']) { const im = new Image(); im.src = ICON_SRC(k); ICON_IMG[k] = im; }
-const iconReady = (ic) => !ICON_IMG[ic] || (ICON_IMG[ic].complete && ICON_IMG[ic].naturalWidth > 0);
+// little food icons, drawn on canvas: shared by the orders slip (as <img>) and the speech bubbles
+const ICON_CACHE = {};
+export const ICON_SRC = (kind) => {
+  if (!ICON_CACHE[kind]) { const cv = document.createElement('canvas'); cv.width = cv.height = 72; const g = cv.getContext('2d'); g.translate(36, 36); drawIcon(g, kind); ICON_CACHE[kind] = cv.toDataURL(); }
+  return ICON_CACHE[kind];
+};
 
-// one icon (an order item, or ! / $) drawn centered at the origin, about 64px across
+// one icon (an order item, or ! / ¥) drawn centered at the origin, about 64px across
 function drawIcon(g, ic) {
-  if (ICON_IMG[ic] && iconReady(ic)) { g.imageSmoothingEnabled = false; g.drawImage(ICON_IMG[ic], -34, -34, 68, 68); return; }
-  if (ic === '!' || ic === '$' || ic === '…' || ic === '?') {
-    g.fillStyle = ic === '$' ? '#2a7a3a' : ic === '!' ? '#c8302a' : '#5a4a40'; g.font = '600 64px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ic, 0, 4);
-  } else if (ic === 'coffee') {
-    g.fillStyle = '#f4f0e8'; g.strokeStyle = '#3a2a20'; g.lineWidth = 4; g.beginPath(); g.roundRect(-18, -14, 30, 34, 5); g.fill(); g.stroke();
-    g.beginPath(); g.arc(14, 2, 8, -1.3, 1.3); g.stroke(); g.fillStyle = '#3a1e0e'; g.fillRect(-15, -12, 24, 7);
-    g.strokeStyle = '#9a8a80'; g.lineWidth = 3; g.beginPath(); g.moveTo(-6, -20); g.quadraticCurveTo(0, -28, -4, -36); g.stroke();
-  } else if (ic === 'pancakes') {
-    for (let k = 0; k < 3; k++) { g.fillStyle = k % 2 ? '#c88a40' : '#e0a858'; g.beginPath(); g.ellipse(0, 14 - k * 10, 26, 8, 0, 0, Math.PI * 2); g.fill(); }
-    g.fillStyle = '#6a3410'; g.beginPath(); g.ellipse(0, -10, 16, 5, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#f6e070'; g.fillRect(-5, -16, 10, 6);
-  } else if (ic === 'pie') {
-    g.fillStyle = '#c99a5a'; g.beginPath(); g.moveTo(-24, 18); g.lineTo(24, 18); g.lineTo(0, -22); g.closePath(); g.fill();
-    g.fillStyle = '#9a1e2a'; g.beginPath(); g.moveTo(-15, 12); g.lineTo(15, 12); g.lineTo(0, -12); g.closePath(); g.fill();
-  } else if (ic === 'burger') {
-    g.fillStyle = '#d39048'; g.beginPath(); g.ellipse(0, -8, 24, 12, 0, Math.PI, 0); g.fill();
-    g.fillStyle = '#6fb03a'; g.fillRect(-24, -8, 48, 5); g.fillStyle = '#4a2614'; g.fillRect(-23, -3, 46, 9); g.fillStyle = '#c08040'; g.fillRect(-22, 6, 44, 8);
+  if (ic === '!' || ic === '¥' || ic === '…' || ic === '?') {
+    g.fillStyle = ic === '¥' ? '#2a7a3a' : ic === '!' ? '#c8302a' : '#5a4a40'; g.font = '600 64px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ic, 0, 4);
+  } else if (ic === 'tea') {
+    g.fillStyle = '#6d7a5a'; g.strokeStyle = '#2a2a1a'; g.lineWidth = 4; g.beginPath(); g.roundRect(-17, -16, 34, 38, 6); g.fill(); g.stroke();
+    g.fillStyle = '#a8cf62'; g.fillRect(-14, -13, 28, 6); g.fillStyle = '#a8b08a'; g.fillRect(-14, -4, 28, 4);
+    g.strokeStyle = '#9a9a90'; g.lineWidth = 3; g.beginPath(); g.moveTo(-4, -20); g.quadraticCurveTo(2, -28, -2, -36); g.stroke();
+  } else if (ic === 'sushi') {
+    g.fillStyle = '#fbf8ee'; g.strokeStyle = '#3a2a20'; g.lineWidth = 4; g.beginPath(); g.roundRect(-26, -2, 52, 20, 9); g.fill(); g.stroke();
+    g.fillStyle = '#f08a4a'; g.beginPath(); g.roundRect(-28, -14, 56, 16, 7); g.fill(); g.stroke();
+    g.strokeStyle = '#fbd2b0'; g.lineWidth = 3; for (const x of [-14, 0, 14]) { g.beginPath(); g.moveTo(x - 4, -12); g.lineTo(x + 4, 0); g.stroke(); }
+  } else if (ic === 'yakitori') {
+    g.strokeStyle = '#c8b070'; g.lineWidth = 4; g.beginPath(); g.moveTo(-30, 26); g.lineTo(26, -28); g.stroke();
+    [[-14, 10, '#7a3a18'], [0, -4, '#e8f0d0'], [14, -18, '#7a3a18']].forEach(([x, y, c]) => { g.fillStyle = c; g.strokeStyle = '#2a1a10'; g.lineWidth = 3; g.beginPath(); g.roundRect(x - 9, y - 8, 18, 16, 5); g.fill(); g.stroke(); });
+  } else if (ic === 'gyoza') {
+    for (const dx of [-16, 0, 16]) {
+      g.fillStyle = '#f0e6d0'; g.strokeStyle = '#3a2a20'; g.lineWidth = 3;
+      g.beginPath(); g.ellipse(dx, 4, 9, 18, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = '#c8862a'; g.beginPath(); g.ellipse(dx, 14, 7, 6, 0, 0, Math.PI); g.fill();
+    }
   }
 }
 // speech-bubble icon textures
@@ -104,7 +114,7 @@ function bubbleTex(key) {
     g.restore();
   });
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
-  if (icons.every(iconReady)) bubbleCache.set(key, t); // redraw later if an icon was still loading
+  bubbleCache.set(key, t);
   return t;
 }
 function tagSprite() {
@@ -144,7 +154,7 @@ export class Service {
     // everyone has their own hands. Actions run "as" a player: this.hands points at that player's hands
     // while it runs, and at yours the rest of the time (for labels and what you see you're holding).
     this.me = 'local'; this.handsBy = { local: [] }; this.hands = this.handsBy.local; this.actor = this.me;
-    this.role = 'solo'; this.net = null; // co-op: 'host' runs the diner, 'guest' mirrors it
+    this.role = 'solo'; this.net = null; // co-op: 'host' runs the shop, 'guest' mirrors it
     this.posOf = () => this.player.pos;   // where a player is (co-op swaps this in)
     this.counterItems = []; // things set down on a counter
     this.nextItemId = 1;
@@ -165,7 +175,7 @@ export class Service {
   model(key, build) { return this.models[key] || (this.models[key] = build()); }
   heldModel(h) { return h.type === 'tub' || h.type === 'clean' ? tubModel(h.mugs, h.plates, h.type === 'clean') : this.dishModel(h.type); }
   dishModel(type) {
-    if (type === 'coffee' || type === 'mug' || type === 'mugDirty') return this.model(type, () => mugModel(type === 'coffee' ? 'coffee' : type === 'mug' ? 'empty' : 'dirty'));
+    if (type === 'tea' || type === 'mug' || type === 'mugDirty') return this.model(type, () => mugModel(type === 'tea' ? 'coffee' : type === 'mug' ? 'empty' : 'dirty'));
     return this.model(type, () => plateModel(type === 'plate' ? null : type === 'plateDirty' ? 'dirty' : type));
   }
 
@@ -201,23 +211,23 @@ export class Service {
   }
   makeOrder() {
     const r = Math.random(), items = [];
-    if (r < 0.75) items.push('coffee');
+    if (r < 0.75) items.push('tea');
     const food = Math.random();
-    if (food < 0.3) items.push('pancakes'); else if (food < 0.5) items.push('pie'); else if (food < 0.68) items.push('burger');
-    if (!items.length) items.push('coffee');
+    if (food < 0.3) items.push('yakitori'); else if (food < 0.5) items.push('sushi'); else if (food < 0.68) items.push('gyoza');
+    if (!items.length) items.push('tea');
     return items.map((kind) => ({ kind, done: false }));
   }
   bubbleKey(q) {
     const s = q.svc;
     if (s.phase === 'order') return '!';
     if (s.phase === 'food') return s.items.filter((i) => !i.done).map((i) => i.kind).join(',');
-    if (s.phase === 'pay') return '$';
+    if (s.phase === 'pay') return '¥';
     return null;
   }
   seatLabel(seat) {
     if (seat.kind === 'stool') return 'the counter';
-    if (seat.kind === 'booth') return seat.z < 1.5 && seat.x > 1 ? 'a front booth' : 'a window booth';
-    if (seat.z < 0) return 'the glass room';
+    if (seat.kind === 'booth') return seat.z < 1.5 && seat.x > 1 ? 'a booth by the shoji' : 'a window booth';
+    if (seat.z < 0) return 'the veranda';
     return 'a table';
   }
 
@@ -243,7 +253,7 @@ export class Service {
   dirtyDishes(seat) {
     const grp = this.dishGroup(seat);
     for (const d of seat.dishes || []) {
-      const dirty = d.type === 'coffee' || d.type === 'mug' ? 'mugDirty' : 'plateDirty';
+      const dirty = d.type === 'tea' || d.type === 'mug' ? 'mugDirty' : 'plateDirty';
       grp.remove(d.mesh);
       d.type = dirty; d.mesh = this.dishModel(dirty).mesh(this.litMat, this.emitMat);
       const [x, y, z] = this.spot(seat, seat.dishes.indexOf(d) % 2);
@@ -266,7 +276,7 @@ export class Service {
         b.visible = !!key;
         if (key && b.userData.key !== key) { b.material.map = bubbleTex(key); b.material.needsUpdate = true; b.userData.key = key; b.scale.set(0.24 + key.split(',').length * 0.13, 0.21, 1); }
         b.position.y = q.state === 'sit' || q.state === 'sitting' ? (q.seat ? q.seat.y - q.pos.y : 0.5) + 1.0 : 2.0;
-        if (key === '!' || key === '$') b.position.y += Math.sin(performance.now() / 260) * 0.03;
+        if (key === '!' || key === '¥') b.position.y += Math.sin(performance.now() / 260) * 0.03;
       }
     }
     // cooking
@@ -340,7 +350,7 @@ export class Service {
   bill(q) {
     const sub = q.svc.items.filter((i) => i.done).reduce((a, i) => a + MENU[i.kind].price, 0);
     const mood = Math.max(0.05, 0.25 - 0.1 * (q.svc.orderWait / 60) - 0.05 * (q.svc.foodWait / 90));
-    return { sub, tip: Math.round(sub * mood * 4) / 4 };
+    return { sub, tip: Math.round(sub * mood / 10) * 10 };
   }
 
   // ------------------------------------------------ hands
@@ -371,7 +381,7 @@ export class Service {
     if (h.type === 'mug') this.stock.mugs++;
     else if (h.type === 'plate') this.stock.plates++;
     else if (h.type === 'clean') { this.rack.mugs += h.mugs; this.rack.plates += h.plates; this.say('put the clean dishes back on the rack'); }
-    else { if (h.type === 'coffee') this.sink.mugs++; else this.sink.plates++; this.say(`tossed the ${MENU[h.type] ? MENU[h.type].name.toLowerCase() : h.type}`); }
+    else { if (h.type === 'tea') this.sink.mugs++; else this.sink.plates++; this.say(`tossed the ${MENU[h.type] ? MENU[h.type].name.toLowerCase() : h.type}`); }
     this.sfx('clickSound');
     this.redrawHands();
   }
@@ -382,13 +392,13 @@ export class Service {
       const tag = tagSprite(); tag.position.set(x, 1.75, z - 0.3); this.scene.add(tag); tag.visible = false;
       return { label, kind, x, z, cook, burn: 30, state: 'idle', t: 0, tag, redraw: 0 };
     };
-    this.stations = [mk('Pancakes', 'pancakes', 9.65, 15.3, 10), mk('Pancakes', 'pancakes', 10.65, 15.3, 10), mk('Burger', 'burger', 8.1, 15.3, 13)];
+    this.stations = [mk('Yakitori', 'yakitori', 9.65, 15.3, 10), mk('Yakitori', 'yakitori', 10.65, 15.3, 10), mk('Gyoza', 'gyoza', 8.1, 15.3, 13)];
     this.washTag = tagSprite(); this.washTag.position.set(5.65, 1.65, 12.3); this.washTag.visible = false; this.scene.add(this.washTag);
   }
   setWater(on) { if (!this.sinkWater) this.sinkWater = this.audio.water([5.5, 0.9, 12.3]); if (this.sinkWater) this.sinkWater.on = on; }
 
   // ------------------------------------------------ what you can click
-  // everything you can do, run by whoever owns the diner (you, or the co-op host) as the player who clicked
+  // everything you can do, run by whoever owns the shop (you, or the co-op host) as the player who clicked
   actions() {
     const T = (t) => this.say(t);
     const takePlate = () => {
@@ -400,18 +410,18 @@ export class Service {
     return {
       mug: () => {
         if (this.has('clean')) return this.restock();
-        if (this.stock.mugs <= 0) return T('no clean mugs — wash some in the kitchen');
+        if (this.stock.mugs <= 0) return T('no clean cups — wash some in the kitchen');
         if (this.handsFree < 1) return T(this.fullMsg());
         this.stock.mugs--; this.hold({ type: 'mug' }); this.sfx('clickSound');
       },
       plate: takePlate,
       urn: () => {
-        if (!this.has('mug')) return T('grab a clean mug from the back bar first');
-        this.takeHand('mug'); this.hold({ type: 'coffee' }); this.sfx('pour');
+        if (!this.has('mug')) return T('grab a clean cup from the shelf first');
+        this.takeHand('mug'); this.hold({ type: 'tea' }); this.sfx('pour');
       },
-      pie: () => {
+      sushi: () => {
         if (!this.has('plate')) return T('grab a clean plate first');
-        this.takeHand('plate'); this.hold({ type: 'pie' }); this.sfx('clickSound');
+        this.takeHand('plate'); this.hold({ type: 'sushi' }); this.sfx('clickSound');
       },
       station: (i) => {
         const st = this.stations[i]; if (!st) return;
@@ -424,7 +434,7 @@ export class Service {
       sink: () => {
         if (this.has('tub')) { const t = this.takeHand('tub'); this.sink.mugs += t.mugs; this.sink.plates += t.plates; this.sfx('clickSound'); return; }
         const food = this.hands.find((h) => MENU[h.type]);
-        if (food) { this.takeHand(food.type); if (food.type === 'coffee') this.sink.mugs++; else this.sink.plates++; return; }
+        if (food) { this.takeHand(food.type); if (food.type === 'tea') this.sink.mugs++; else this.sink.plates++; return; }
         const n = this.sink.mugs + this.sink.plates;
         if (!n) return T('nothing to wash');
         if (this.washing) return T('already washing');
@@ -457,21 +467,21 @@ export class Service {
       const n = this.dirtySeat.dishes.length;
       return this.hands.length && !this.has('tub') ? 'Hands full' : `Bus the table (${n} dish${n > 1 ? 'es' : ''})`;
     }, () => this.request('bus', this.crowd.seats.indexOf(this.dirtySeat)), () => this.pickDirty(), { highlight: () => this.dirtySeat.dishGroup });
-    // mugs hanging along the back bar
-    I.add([9.0, 2.05, 9.75, 4.2, 0.18, 0.16], () => (this.has('clean') ? 'Restock mugs & plates' : `Take a clean mug (${this.stock.mugs} left)`), R('mug'), null, shape('mugs'));
+    // tea cups along the shelf behind the counter
+    I.add([8.9, 2.45, 9.8, 4.0, 0.12, 0.18], () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean cup (${this.stock.mugs} left)`), R('mug'), null, shape('mugs'));
     // plate stacks (two by the urns, one at the end of the back bar, two in the kitchen under the pass)
-    const plateLabel = () => (this.has('clean') ? 'Restock mugs & plates' : `Take a clean plate (${this.stock.plates} left)`);
+    const plateLabel = () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean plate (${this.stock.plates} left)`);
     I.add([10.35, 1.2, 9.7, 0.35, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesA'));
     I.add([13.0, 1.2, 9.7, 0.2, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesB'));
     I.add([12.6, 1.1, 10.55, 0.32, 0.24, 0.2], plateLabel, R('plate'), null, shape('platesK'));
-    // coffee urns
-    I.add([7.6, 1.45, 9.65, 0.55, 0.45, 0.25], () => (this.has('mug') ? 'Pour a coffee' : 'Coffee urn (grab a clean mug)'), R('urn'), null, shape('urns'));
-    // pie rack on the counter
-    I.add([12.6, 1.4, 7.45, 0.25, 0.35, 0.22], () => (this.has('plate') ? 'Plate a slice of pie' : 'Pie (grab a clean plate)'), R('pie'), null, shape('pie'));
+    // tea urns
+    I.add([7.6, 1.45, 9.65, 0.55, 0.45, 0.25], () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn'), null, shape('urns'));
+    // the sushi case on the counter
+    I.add([12.55, 1.25, 7.45, 0.42, 0.2, 0.2], () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi'), null, shape('sushi'));
     // griddles + broiler
     this.stations.forEach((st, i) => {
-      I.add([st.x, 1.15, st.z, st.kind === 'burger' ? 0.44 : 0.48, 0.25, 0.42], () => {
-        if (st.state === 'idle') return st.kind === 'burger' ? 'Throw a patty on the broiler' : 'Pour pancake batter';
+      I.add([st.x, 1.15, st.z, st.kind === 'gyoza' ? 0.44 : 0.48, 0.25, 0.42], () => {
+        if (st.state === 'idle') return st.kind === 'gyoza' ? 'Fry a batch of gyoza' : 'Lay skewers on the grill';
         if (st.state === 'cooking') return `${st.label} cooking… ${Math.round(st.t / st.cook * 100)}%`;
         if (st.state === 'ready') return this.has('plate') ? `Plate the ${st.label.toLowerCase()}` : `${st.label} ready — grab a clean plate`;
         return 'Scrape off the burnt one';
@@ -489,14 +499,14 @@ export class Service {
     // dish rack: carry the clean ones back out
     I.add([5.5, 1.0, 13.3, 0.32, 0.2, 0.3], () => {
       const n = this.rack.mugs + this.rack.plates;
-      return n ? `Take the clean dishes (${this.rack.mugs} mugs, ${this.rack.plates} plates)` : 'Dish rack (empty)';
+      return n ? `Take the clean dishes (${this.rack.mugs} cups, ${this.rack.plates} plates)` : 'Dish rack (empty)';
     }, R('rack'), null, shape('dishRack'));
     // the register
     I.add([3.4, 1.25, 7.45, 0.24, 0.22, 0.22], () => {
       const q = this.queue[0];
       if (!q || !q.svc || q.svc.phase !== 'pay') return 'Register (nobody waiting)';
       const b = this.bill(q);
-      return `Ring up ${q.svc.name} — $${b.sub.toFixed(2)}`;
+      return `Ring up ${q.svc.name} — ${yen(b.sub)}`;
     }, R('register'), null, shape('register'));
     // set things down on the bar counter, back bar or kitchen counters
     I.add(() => this.counterBox, () => `Set down the ${this.itemLabel(this.hands[this.hands.length - 1])}`,
@@ -518,7 +528,7 @@ export class Service {
   }
   itemLabel(h) {
     if (!h) return '';
-    return h.type === 'tub' ? 'bus tub' : h.type === 'clean' ? 'clean dishes' : h.type === 'mug' ? 'clean mug' : h.type === 'plate' ? 'clean plate' : MENU[h.type].name.toLowerCase();
+    return h.type === 'tub' ? 'bus tub' : h.type === 'clean' ? 'clean dishes' : h.type === 'mug' ? 'clean cup' : h.type === 'plate' ? 'clean plate' : MENU[h.type].name.toLowerCase();
   }
   // where the reticle meets a counter top (only while carrying something)
   pickCounter() {
@@ -588,7 +598,7 @@ export class Service {
   restock() {
     const c = this.takeHand('clean');
     this.stock.mugs += c.mugs; this.stock.plates += c.plates;
-    this.say(`restocked ${c.mugs} mugs and ${c.plates} plates`); this.sfx('clickSound');
+    this.say(`restocked ${c.mugs} cups and ${c.plates} plates`); this.sfx('clickSound');
   }
   bus(seat) {
     if (this.hands.length && !this.has('tub')) return this.say('your hands are full');
@@ -605,8 +615,8 @@ export class Service {
     const b = this.bill(q);
     this.money += b.sub + b.tip; this.tips += b.tip; this.served++;
     this.sfxAll('kaching');
-    this.pop(b.tip > 0 ? `+$${b.tip.toFixed(2)} tip!` : `+$${b.sub.toFixed(2)}`);
-    this.say(`rang up ${q.svc.name} · $${(b.sub + b.tip).toFixed(2)}`);
+    this.pop(b.tip > 0 ? `+${yen(b.tip)} tip!` : `+${yen(b.sub)}`);
+    this.say(`${q.svc.name}: gochisōsama deshita! · ${yen(b.sub + b.tip)}`);
     q.svc.phase = 'gone';
     this.queue.shift();
     this.crowd.leave(q);
@@ -656,7 +666,7 @@ export class Service {
       this.takeHand(item.kind); item.done = true;
       this.place(q.seat, item.kind);
       this.sfx('clickSound');
-      if (s.items.every((i) => i.done)) { s.phase = 'eat'; s.t = 25 + Math.random() * 20; this.say('thank you, hon'); }
+      if (s.items.every((i) => i.done)) { s.phase = 'eat'; s.t = 25 + Math.random() * 20; this.say('itadakimasu!'); }
     }
   }
   pickDirty() {
@@ -674,7 +684,7 @@ export class Service {
     return !!best;
   }
 
-  // ------------------------------------------------ co-op: the host packs up the diner, guests unpack it
+  // ------------------------------------------------ co-op: the host packs up the shop, guests unpack it
   snapshot() {
     const r2 = (v) => Math.round(v * 100) / 100, r3 = (v) => Math.round(v * 1000) / 1000;
     const hand = (h) => [h.type, h.slot, h.mugs || 0, h.plates || 0];
@@ -725,13 +735,13 @@ export class Service {
     [this.money, this.tips, this.served, this.walkouts, this.washed, this.burnt] = d.m;
     [this.handCap, this.washTime, this.patience] = d.perks;
   }
-  // switch this game into co-op: you're `id`, and either run the diner ('host') or mirror it ('guest')
+  // switch this game into co-op: you're `id`, and either run the shop ('host') or mirror it ('guest')
   goCoop(net, role) {
     this.net = net; this.role = role;
     this.handsBy = { [net.id]: this.handsBy[this.me] || [] };
     this.me = this.actor = net.id; this.hands = this.handsBy[this.me];
     if (role === 'guest') {
-      // the host's diner replaces ours
+      // the host's shop replaces ours
       this.resetForShift();
       for (const seat of this.crowd.seats) { seat._key = undefined; seat.occupant = null; }
       this.crowd.clearAll(); this.crowd.puppet = true;
@@ -772,7 +782,7 @@ export class Service {
     }
     const rows = Object.keys(MENU).filter((k) => want[k]).map((k) =>
       `<div class="line"><div class="tile"><img src="${ICON_SRC(k)}" alt="${MENU[k].name}"></div><span class="n">×${want[k]}</span></div>`).join('');
-    const tags = (ordering ? `<span class="tag ord">! ${ordering}</span>` : '') + (paying ? `<span class="tag pay">$ ${paying}</span>` : '');
+    const tags = (ordering ? `<span class="tag ord">! ${ordering}</span>` : '') + (paying ? `<span class="tag pay">¥ ${paying}</span>` : '');
     const html = rows || tags ? `<div class="ttl hand">orders</div>${rows}${rows && tags ? '<div class="rule"></div>' : ''}${tags ? `<div class="tags">${tags}</div>` : ''}` : '';
     if (force || u.orders._html !== html) { u.orders.innerHTML = html; u.orders._html = html; }
   }

@@ -1,4 +1,4 @@
-// Co-op connection: a websocket to this game's room on the relay. The host's game is the real diner;
+// Co-op connection: a websocket to this game's room on the relay. The host's game is the real shop;
 // everyone else sends what they click to the host and mirrors what the host sends back.
 
 // the relay lives at /api/room on the deployed site; locally `wrangler dev` runs it on port 8787

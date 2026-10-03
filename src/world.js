@@ -77,7 +77,7 @@ export function buildWorld(W) {
   const P = {
     snow: [C('#eef3fb', 0, 0.025), C('#e6edf8', 0, 0.025), C('#f4f7fc', 0, 0.02), C('#dde6f3', 0, 0.03)],
     snowShade: C('#cfdaea', 0, 0.03), ice: C('#bcd8ee', 0, 0.04), earth: C('#2e241c', 0, 0.08),
-    flag: [C('#6e7076', 0, 0.07), C('#7c7d82', 0, 0.07), C('#5f6268', 0, 0.06), C('#868890', 0, 0.06)],
+    flag: [C('#9a9ca2', 0, 0.06), C('#a6a8ae', 0, 0.06), C('#8e9096', 0, 0.06), C('#b0b2b8', 0, 0.05)],
     stone: C('#8a8b8e', 0, 0.06), stoneD: C('#5c5e63', 0, 0.06), stoneL: C('#a4a5a8', 0, 0.05), moss: C('#4a5a3a', 0, 0.1),
     yaki: [C('#1f1a17', 0, 0.06), C('#28211c', 0, 0.06)], timber: C('#3a2416', 0, 0.06), timberD: C('#2a190f', 0, 0.05),
     plaster: [C('#e8dfcc', 0, 0.035), C('#ddd2bb', 0, 0.035)], plasterD: C('#c4b89e', 0, 0.04),
@@ -89,7 +89,7 @@ export function buildWorld(W) {
     steel: C('#9aa0a6', 0, 0.05), steelD: C('#6f747a', 0, 0.05), chrome: C('#c4c9cf', 0, 0.04), black: C('#121214', 0, 0.04),
     heat: C('#ff7a2a', 4, 0.05), beam: C('#2a1a10', 0, 0.06), crown: C('#24160c', 0, 0.05),
     shoji: C('#ffd9a0', 1.15, 0.05), shojiDim: C('#e8c890', 0.55, 0.05), shojiDark: C('#2a2a34', 0, 0.06), lattice: C('#3a2414', 0, 0.04),
-    lantern: C('#ffc684', 2.2, 0.04), lanternRed: C('#ff5a38', 2.4, 0.05), kanbanInk: C('#ffe2b0', 2.6, 0.04),
+    lantern: C('#ffc684', 2.2, 0.04), lanternRed: C('#ff5a38', 2.4, 0.05), kanbanInk: C('#ffe2b0', 1.5, 0.04),
     vermilion: C('#c8402a', 0, 0.05), vermilionD: C('#9a2e1e', 0, 0.05),
     bark: C('#3a2a1e', 0, 0.08), needles: [C('#1e3a2a', 0, 0.1), C('#24452f', 0, 0.1), C('#1a3224', 0, 0.09), C('#2b4d35', 0, 0.1)],
     wood: [C('#6a4a30', 0, 0.08), C('#5a3e28', 0, 0.08)], log: C('#8a6a48', 0, 0.06), logEnd: C('#c8a070', 0, 0.06),
@@ -113,7 +113,7 @@ export function buildWorld(W) {
     const row = z >> 2, off = (row & 1) * 2, cx = (x + off) >> 2;
     const seam = ((x + off) & 3) === 0 || (z & 3) === 0;
     const h = hash01(cx, row, 17);
-    G.set(x, top, z, seam ? (h > 0.4 ? P.snow[3] : P.stoneD) : h > 0.86 ? P.snow[1] : P.flag[Math.floor(h * 3.999)]);
+    G.set(x, top, z, seam ? (h > 0.3 ? P.snow[3] : P.stone) : h > 0.8 ? P.snow[1] : P.flag[Math.floor(h * 3.999)]);
   }
   // drifts: soft mounds off the path, deeper against walls (never taller than a step, so everyone can wade through)
   const inFoot = (px, pz) => (px > -0.5 && px < 16.5 && pz > -3.75 && pz < 16) || (px > 20.75 && px < 27.25 && pz > 2.75 && pz < 9.25);
@@ -259,7 +259,7 @@ export function buildWorld(W) {
       if (z > Z(-3.875) && hash01(x, 7, z) > 0.25) G.set(x, yr + 2, z, snowAt(x + 3, z));
       if (z === Z(-4.0)) {
         G.set(x, yr - 2, z, P.timberD);
-        if (hash01(x, 3, 1) > 0.72) { const n = 1 + Math.floor(hash01(x, 4, 1) * 3); for (let i = 0; i < n; i++) if (x % 3) G.set(x, yr - 3 - i, z, P.ice); }
+        if (hash01(x, 3, 1) > 0.8 && x % 3) { G.set(x, yr - 3, z, P.ice); if (hash01(x, 4, 1) > 0.6) G.set(x, yr - 4, z, P.ice); }
       }
       if (x === X(-0.5) || x === X(16.5) - 1) G.set(x, yr - 2, z, P.timberD);
     }
@@ -440,8 +440,8 @@ export function buildWorld(W) {
   meta.lights.push({ pos: [11.0, 2.45, 3.9], color: 0xffb070, intensity: 6, distance: 8, name: 'chandB' });
   meta.lights.push({ pos: [6.0, 2.2, 1.1], color: 0xffc890, intensity: 4, distance: 6, name: 'boothsFront' });
   meta.lights.push({ pos: [1.0, 2.2, 5.3], color: 0xffc890, intensity: 4, distance: 6, name: 'boothsWest' });
-  meta.lights.push({ pos: [5.5, 2.4, 7.8], color: 0xffc898, intensity: 5, distance: 7, name: 'counterL' });
-  meta.lights.push({ pos: [10.5, 2.4, 7.8], color: 0xffc898, intensity: 5, distance: 7, name: 'counterR' });
+  meta.lights.push({ pos: [5.5, 2.4, 7.8], color: 0xffc898, intensity: 3.6, distance: 7, name: 'counterL' });
+  meta.lights.push({ pos: [10.5, 2.4, 7.8], color: 0xffc898, intensity: 3.6, distance: 7, name: 'counterR' });
 
   // ------------------------------------------------------------ upstairs (the apartment) and the big roof
   const upper = (u, y) => {

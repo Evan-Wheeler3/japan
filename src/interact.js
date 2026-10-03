@@ -73,15 +73,17 @@ export class Interactions {
 }
 
 // A hinged door that swings away from whoever opens it. Positive angle swings toward plusDir.
+// With `slide` set, it's a sliding door instead: it runs `slide` metres toward -x into its pocket.
 export class Door {
-  constructor(mesh, { hinge, base = 0, plusDir, max = 1.55, block, bell = false }) {
-    Object.assign(this, { mesh, hinge, base, plusDir, max, block, bell });
+  constructor(mesh, { hinge, base = 0, plusDir, max = 1.55, block, bell = false, slide = 0 }) {
+    Object.assign(this, { mesh, hinge, base, plusDir, max, block, bell, slide });
     this.a = 0; this.target = 0; this.wasNear = false; this.openFor = 0; this.onAutoClose = null;
     this.width = Math.max(block[1] - block[0], block[3] - block[2]);
     this.center = { x: (block[0] + block[1]) / 2, z: (block[2] + block[3]) / 2 };
   }
   // clickable volume: the doorway plus wherever the panel has swung to, so it works from both sides
   box() {
+    if (this.slide) { const [x0, x1, z0, z1] = this.block; return [(x0 + x1) / 2, 1.3, (z0 + z1) / 2, (x1 - x0) / 2 + 0.1, 1.05, (z1 - z0) / 2 + 0.18]; }
     const ang = this.base + this.a, ex = this.hinge.x + Math.cos(ang) * this.width, ez = this.hinge.z - Math.sin(ang) * this.width;
     const [x0, x1, z0, z1] = this.block, pad = 0.18;
     const minX = Math.min(x0, this.hinge.x, ex) - pad, maxX = Math.max(x1, this.hinge.x, ex) + pad;
@@ -92,6 +94,7 @@ export class Door {
   toggle(p) {
     if (this.target !== 0) { this.target = 0; return 'close'; }
     this.wasNear = false; this.openFor = 0;
+    if (this.slide) { this.target = this.max; return 'open'; }
     const side = (p.x - this.hinge.x) * this.plusDir[0] + (p.z - this.hinge.z) * this.plusDir[1];
     this.target = side < 0 ? this.max : -this.max; // swing away from the player
     return 'open';
@@ -113,7 +116,8 @@ export class Door {
       }
     }
     this.a += (this.target - this.a) * Math.min(1, dt * (this.target ? 4 : 2.2));
-    this.mesh.rotation.y = this.base + this.a;
+    if (this.slide) this.mesh.position.x = this.hinge.x - Math.abs(this.a) / this.max * this.slide;
+    else this.mesh.rotation.y = this.base + this.a;
   }
   // closed doors are solid
   blocks(x, y, z) {

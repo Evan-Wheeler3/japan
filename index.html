@@ -6,9 +6,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Cozy Diner" />
+  <meta name="apple-mobile-web-app-title" content="Yoake" />
   <meta name="theme-color" content="#05060a" />
-  <title>My Cozy Diner</title>
+  <title>Yoake</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Fredoka:wght@500;600&family=Monoton&family=Nunito:wght@600;700&display=swap" rel="stylesheet" />
@@ -128,13 +128,18 @@
     .keys > span { display: flex; align-items: center; gap: 6px; }
 
     /* ---------------------------------------------------------------- closed for the night */
-    #summary { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 28px; color: var(--cream);
-      font-family: Fredoka, sans-serif; background: radial-gradient(ellipse at 50% 45%, rgba(255,190,110,.12), rgba(10,5,2,.5) 75%), rgba(10,5,2,.42); padding: 16px; box-sizing: border-box; }
+    #summary { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: flex-end; gap: 20px; color: var(--cream);
+      font-family: Fredoka, sans-serif; background: linear-gradient(180deg, rgba(10,5,2,0) 20%, rgba(10,5,2,.6) 100%); padding: 16px 16px 6vh; box-sizing: border-box; text-shadow: 0 2px 12px rgba(20,8,4,.55); }
     body.summary #summary { display: flex; }
     body.summary #overlay { display: none; }
     body.summary #toast, body.summary #pop { display: none; }
     #summary .actions { margin-top: 0; justify-content: center; }
     #summary .when { font-size: 28px; color: var(--label); text-align: center; }
+    /* the night's card waits for the sun to come up behind it */
+    body.summary #summary { animation: sumIn 2.4s ease 4.5s both; }
+    body.summary #summary > * { animation: sumRise 1.2s ease 5s both; }
+    @keyframes sumIn { from { opacity: 0; } }
+    @keyframes sumRise { from { opacity: 0; transform: translateY(12px); } }
     #summary .closed { font-size: clamp(42px, 5vw, 58px); word-spacing: .3em; text-align: center; }
     #summary .stars { font-size: 30px; color: var(--amber); letter-spacing: 4px; text-shadow: 0 0 12px rgba(240,180,90,.6); text-align: center; }
     #summary .stars i { color: rgba(255,236,210,.25); font-style: normal; text-shadow: none; }
@@ -150,7 +155,7 @@
     #summary .unlock b { display: block; font: 500 21px Fredoka, sans-serif; color: var(--glow); }
     #summary .unlock span { font: 600 15px Nunito, sans-serif; color: var(--label); }
 
-    /* ---------------------------------------------------------------- in the diner */
+    /* ---------------------------------------------------------------- in the shop */
     .hud { position: fixed; opacity: 0; transition: opacity .6s ease; pointer-events: none; color: var(--cream); font-family: Fredoka, sans-serif; }
     body.playing #orders, body.playing #schedule, body.playing #intro { opacity: 1; }
     #orders { left: 28px; top: 28px; width: 176px; box-sizing: border-box; padding: 14px 14px 12px; border-radius: 24px; display: flex; flex-direction: column; gap: 6px; }
@@ -263,7 +268,7 @@
   <div id="schedule" class="hud"></div>
   <div id="pop" class="hud hand"></div>
   <div id="toast" class="hud glass"></div>
-  <div id="intro" class="hud glass">look at things and click to use them · customers with a <b>!</b> want to order</div>
+  <div id="intro" class="hud glass">look at things and click to use them · guests with a <b>!</b> want to order</div>
   <div id="overlay"><div class="shade"></div><div id="screen"></div></div>
   <div id="summary"></div>
   <script type="module" src="src/main.js"></script>

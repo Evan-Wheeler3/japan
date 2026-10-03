@@ -1,5 +1,5 @@
 // Deployed as the Pages site's _worker.js: serves the game files, and hands /api/room
-// websockets to the co-op relay (a Durable Object in the my-cozy-diner-relay worker).
+// websockets to the co-op relay (a Durable Object in the yoake-relay worker).
 export default {
   fetch(req, env) {
     const url = new URL(req.url);

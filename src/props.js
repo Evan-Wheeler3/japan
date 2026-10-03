@@ -297,11 +297,11 @@ function lanternStrand(len, withLantern, seed) {
   const sw = withLantern ? 5 : 3;
   const h = len + (withLantern ? 7 : 0);
   const m = new Model(sw, h, 3, 1 / 32, [sw / 2, h, 1.5]);
-  const wire = C('#2a2620', 0, 0.02), led = C('#ffd590', 2.6, 0.06);
+  const wire = C('#2a2620', 0, 0.02), led = C('#ffd590', 1.5, 0.06);
   const cx = Math.floor(sw / 2);
   for (let y = 0; y < len; y++) m.set(cx, h - 1 - y, 1, (y + seed) % 5 === 0 ? led : wire);
   if (withLantern) {
-    const paper = seed % 3 === 0 ? C('#ff6a3a', 2.0, 0.05) : C('#ffd49a', 1.8, 0.05);
+    const paper = seed % 3 === 0 ? C('#ff6a3a', 1.2, 0.05) : C('#ffd49a', 1.1, 0.05);
     m.box(0, 1, 0, 5, 6, 3, paper); m.box(1, 0, 1, 4, 1, 2, K.black); m.box(1, 6, 1, 4, 7, 2, K.black);
   }
   return m;
@@ -309,7 +309,7 @@ function lanternStrand(len, withLantern, seed) {
 const strands = [0, 1, 2, 3, 4, 5].map((i) => memo(() => lanternStrand(14 + i * 7, i % 2 === 0 || i === 5, i)));
 const topString = memo(() => {
   const m = new Model(64, 1, 1, 1 / 32, [32, 1, 0.5]);
-  for (let x = 0; x < 64; x++) m.set(x, 0, 0, x % 4 === 0 ? C('#ffd590', 2.6, 0.06) : C('#2a2620', 0, 0.02));
+  for (let x = 0; x < 64; x++) m.set(x, 0, 0, x % 4 === 0 ? C('#ffd590', 1.5, 0.06) : C('#2a2620', 0, 0.02));
   return m;
 });
 

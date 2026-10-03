@@ -1,8 +1,12 @@
-# My Cozy Diner
+# Yoake (夜明け)
 
-A voxel NYC diner at night, in the rain. For now it's just the place: walk around, sit with the vibes.
+A cozy voxel night shift in a little Japanese shop on a snowy cliff above the sea. You keep it open from
+10 PM until dawn: pour green tea, make salmon nigiri, grill yakitori and fry gyoza, then bus the tables,
+wash up and restock the cups and plates. When the last guest leaves, the sun comes up over Mt Fuji across the bay.
 
-The layout is loosely based on the Chelsea Square Diner (23rd St & 9th Ave): a corner diner with a deep glass conservatory on the sidewalk, sage booths against an etched-glass partition, a long white counter with swivel chairs, porcelain chandeliers, mugs hanging from the beams, and a wall of signed photos.
+Built on **My Cozy Diner**, a friend's voxel diner game, used with permission: the voxel engine, lighting,
+customers, shift loop, menus, co-op and touch controls are theirs. This version swaps the rainy NYC diner
+for the snowy shop, the food, the people, the sounds and the sunrise.
 
 ## Run
 
@@ -10,25 +14,48 @@ The layout is loosely based on the Chelsea Square Diner (23rd St & 9th Ave): a c
 python3 serve.py
 ```
 
-Then open http://localhost:8517. It needs a local server because the game is split into ES modules. `serve.py` disables caching so edits show up on reload.
+Then open http://localhost:8517. It needs a local server because the game is split into ES modules (no build
+step; three.js loads from a CDN). `serve.py` disables caching so edits show up on reload.
 
 Controls: **WASD** walk · mouse look · **Shift** walk faster · **click** use things · **Q** put down what you're holding · **M** radio · **Esc** pause.
+On a phone: left thumb walks, drag on the right to look, tap to use.
 
-You work the night shift: customers with a **!** want to order. Make coffee at the urns (grab a mug from the back bar), pie from the counter rack, pancakes on the griddle and burgers on the broiler (grab a plate). Serve, ring them up at the register when they show **$**, then bus the tables, wash up at the dish station and restock the mugs and plates.
+## How a night goes
+
+Guests with a **!** want to order: click them. Then make what they asked for:
+
+| Dish | How |
+|---|---|
+| Green tea | take a clean cup from the shelf behind the counter, pour at a tea urn |
+| Salmon nigiri | take a clean plate, use the sushi case on the counter |
+| Yakitori | lay skewers on a charcoal grill in the kitchen, plate them when they're ready (don't let them burn) |
+| Gyoza | fry a batch on the teppan in the kitchen, plate them when they're ready |
+
+Serve it, and when they're done they line up at the register (**¥**). Carry dirty dishes to the sink in the
+kitchen, stay there while they wash, then take the clean ones from the rack back to the shelf. You can set
+anything down on a counter. Each night you finish unlocks a perk.
 
 ## Layout
 
 | File | What it is |
 |---|---|
 | `src/voxel.js` | Palette, voxel grid, face-culled mesher with baked AO, `Model` (props) and `PropBatch` (merged static props), 5×7 pixel font |
-| `src/world.js` | The 1/8 m voxel world: street, sidewalks, the diner shell, its neighbors and signs. `L` holds the shared layout numbers |
-| `src/props.js` | Finer-scale prop models (1/16 and 1/32 m): furniture, Tiffany lamps, star lights, the cat, cars, street furniture, and where they're placed |
-| `src/effects.js` | Sky, rain, splashes, rainy glass shader, wet-street reflections, steam, backdrop city, post FX |
-| `src/audio.js` | Fully synthesized sound: rain (muffled indoors), room tone, a generative jukebox, thunder, tire hiss, door bell, footsteps |
+| `src/world.js` | The 1/8 m voxel world: the snowy lot, the shop and its upstairs, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
+| `src/props.js` | Finer-scale prop models: furniture, lanterns, the sushi case, kitchen gear, signs, the cat, the vending machine, and where they're placed |
+| `src/effects.js` | Night-to-dawn sky, snowfall, frosted glass, steam, the cliff, the sea, the hills and Mt Fuji, post FX |
+| `src/audio.js` | Fully synthesized sound: wind, the sea, room tone, a generative koto radio, the door chime, snowy footsteps |
 | `src/player.js` | First-person walker with voxel collision and step-up |
-| `src/interact.js` | Click-to-use raycasting and hinged doors |
-| `src/npc.js` | Customers: voxel people, walk/sit animation, nav grid + A*, the crowd |
-| `src/service.js` | The shift: orders, cooking stations, carrying, serving, paying, dishes, HUD |
-| `src/main.js` | Boot, lights, and the living bits: traffic and signals, door, fans, the clock (shows real local time), lightning |
+| `src/interact.js` | Click-to-use raycasting, hinged and sliding doors |
+| `src/npc.js` | Guests: voxel people, walk/sit animation, nav grid + A*, the crowd |
+| `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
+| `src/shift.js` | The clock (10 PM → 6 AM), rushes, the dawn, the stats card, perks |
+| `src/main.js` | Boot, lights, the sunrise at the end of the night, the loop |
+| `src/menu.js`, `src/coop.js`, `src/net.js`, `src/touch.js` | Menus, online co-op (up to 4), touch controls |
+| `server/` | The co-op relay (a Cloudflare Durable Object) and the Pages worker; see `deploy.sh` |
+| `docs/BLUEPRINT.md` | The original design blueprint |
 
-Add `#dev` to the URL to skip the title overlay. `window.__diner` exposes the scene, camera and player for debugging.
+Add `#dev` to the URL to skip the title overlay. `window.__yoake` exposes the scene, camera, player and the
+night for debugging.
+
+Co-op needs the relay deployed to your own Cloudflare account (`deploy.sh`, plus a binding from the Pages
+project to the `yoake-relay` worker's `Room` Durable Object). Solo play needs nothing but the local server.

@@ -1,10 +1,11 @@
-// The night shift: a clock that runs from opening to closing, customers arriving in waves,
-// a stats card when the last table leaves, and a new perk for each shift you finish.
+// The night shift: a clock that runs from opening until dawn, customers arriving in waves,
+// the sun coming up over Fuji when the last table leaves, a stats card and a new perk for each night.
 
-const START_HOUR = 22, HOURS = 5;        // 10 PM to 3 AM
-const SEC_PER_HOUR = 60;                 // a five-minute shift
-const LAST_CALL = HOURS * 60 - 40;       // no new customers in the last 40 minutes
-const WAVE_NAMES = ['the late movie lets out', 'nurses on their break', 'the night bus pulls in', 'the bars close', 'cabbies on their break', 'the early bakers'];
+export const START_HOUR = 22, HOURS = 8; // 10 PM until 6 AM, when the sun comes up
+const SEC_PER_HOUR = 40;                 // a five-and-a-bit-minute night
+const LAST_CALL = HOURS * 60 - 50;       // no new customers in the last 50 minutes
+const WAVE_NAMES = ['the last ferry docks', 'the ski lodge closes', 'the onsen lets out', 'the night boats come in',
+  'the snowplow crew takes a break', 'the first train crew'];
 
 // perks you earn by finishing a shift (index = shift number just finished - 1)
 export const UNLOCKS = [
@@ -41,6 +42,8 @@ export class Shift {
   get range() { return `${hourText(START_HOUR)} – ${hourText(START_HOUR + HOURS)}`; }
   // game minutes since opening, for the wall clock too
   get minutes() { return this.t; }
+  // how far toward sunrise the sky is: stays night until the small hours, then lightens toward 6 AM
+  get dawn() { return Math.min(0.9, Math.max(0, (this.t - (HOURS - 3) * 60) / (3 * 60)) ** 1.4 * 0.9); }
 
   start(n) {
     this.n = n; this.t = 0; this.active = true; this.closing = false;
@@ -48,14 +51,14 @@ export class Shift {
     const s = this.service;
     this.snap = { money: s.money, tips: s.tips, served: s.served, walkouts: s.walkouts, washed: s.washed, burnt: s.burnt };
     // waves get more frequent and bigger each shift
-    const count = Math.min(5, 2 + n), first = 6, last = LAST_CALL - 45;
+    const count = Math.min(5, 2 + n), first = 8, last = LAST_CALL - 50;
     this.waves = Array.from({ length: count }, (_, i) => ({
       at: first + (count > 1 ? i * (last - first) / (count - 1) : 0),
       size: Math.min(9, 2 + Math.floor(n / 2) + i),
       name: WAVE_NAMES[(i + n - 1) % WAVE_NAMES.length],
     }));
     this.pending = []; this.waveIdx = 0;
-    this.service.sayAll(`Shift ${n} · ${this.range}`);
+    this.service.sayAll(`Night ${n} · ${this.range}`);
     this.draw(true);
     if (this.onStart) this.onStart(n);
   }
@@ -82,7 +85,7 @@ export class Shift {
     while (this.pending.length && this.t >= this.pending[0]) { this.pending.shift(); this.crowd.arrive(); }
     if (this.t >= HOURS * 60) {
       this.t = HOURS * 60;
-      if (!this.closing) { this.closing = true; this.pending = []; this.service.sayAll('closing time — finish up the last tables'); }
+      if (!this.closing) { this.closing = true; this.pending = []; this.service.sayAll('the sky is getting light — finish up the last tables'); }
       if (this.activeCustomers() === 0) this.end();
     }
     this.draw();
@@ -96,9 +99,9 @@ export class Shift {
     let status, calm = true;
     if (this.closing) status = `closing · ${this.activeCustomers()} still here`;
     else if (this.pending.length) { status = `rush on · ${this.pending.length} more coming`; calm = false; }
-    else if (this.t >= LAST_CALL) status = 'last call · no more walk-ins';
+    else if (this.t >= LAST_CALL) status = 'last orders · no more walk-ins';
     else if (next) status = `next rush ~${clockText(next.at).toLowerCase()}`;
-    else status = 'quiet till close';
+    else status = 'quiet till dawn';
     this.t = Math.min(this.t, HOURS * 60);
     const frac = this.t / (HOURS * 60), [hm, ap] = clockText(this.t).split(' ');
     const html = `<div class="time glass"><b>${hm}</b><span>${ap.toLowerCase()}</span></div>` +

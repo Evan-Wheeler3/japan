@@ -1,14 +1,14 @@
-// Every full-screen menu, in the Lamplight style: the diner itself is the backdrop and the menu sits in a
+// Every full-screen menu, in the Lamplight style: the shop itself is the backdrop and the menu sits in a
 // warm column on the left. Main menu, your look, settings, hosting/joining co-op, pause, and "come on in".
 // Your character, settings and a few lifetime stats are remembered on this device.
 import * as THREE from 'three';
 import { Person, LOOK_OPTIONS, randomLook } from './npc.js';
 
-const KEY = 'cozyDiner.profile';
+const KEY = 'yoake.profile';
 const HAIR_STYLES = [[0, 'short'], [1, 'swept back'], [2, 'long'], [4, 'bun'], [3, 'bald']];
 const SCARVES = [['#a82a2a', 'red scarf'], ['#2a5a8a', 'blue scarf'], ['#e8e0d0', 'cream scarf'], ['#d8a030', 'gold scarf']];
-const NAMES = ['Mel', 'Flo', 'Vera', 'Alice', 'Joe', 'Sam', 'Lou', 'Dot', 'Hank', 'Rosie'];
-const DEFAULT_SETTINGS = { radio: 0.7, rain: 0.8, look: 0.5 };
+const NAMES = ['Hana', 'Yuki', 'Ren', 'Sora', 'Kaito', 'Mei', 'Haru', 'Aoi', 'Kenji', 'Emi'];
+const DEFAULT_SETTINGS = { radio: 0.7, wind: 0.8, look: 0.5 };
 
 const rand = () => { let seed = Math.random() * 1e9; return () => ((seed = (seed * 16807) % 2147483647) / 2147483647); };
 export function loadProfile() {
@@ -82,24 +82,24 @@ export class Menu {
       : `<div class="keys glass"><span><kbd>WASD</kbd>walk</span><span><kbd>shift</kbd>hurry</span><span><kbd>click</kbd>use</span><span><kbd>Q</kbd>put away</span><span><kbd>M</kbd>radio</span></div>`;
     let html = '';
     if (s === 'loading') {
-      html = `<div class="col"><div><div class="neon title">MY COZY<br>DINER</div><div class="hand tagline">open all night · it's raining</div></div>
-        <div class="loading">warming up the coffee…</div></div>`;
+      html = `<div class="col"><div><div class="neon amber title">YOAKE</div><div class="hand tagline">夜明け · open until dawn · it's snowing</div></div>
+        <div class="loading">putting the kettle on…</div></div>`;
     } else if (s === 'main') {
       const st = p.stats;
       html = `<div class="col">
-        <div><div class="neon title">MY COZY<br>DINER</div><div class="hand tagline">open all night · it's raining</div></div>
+        <div><div class="neon amber title">YOAKE</div><div class="hand tagline">夜明け · open until dawn · it's snowing</div></div>
         ${this.notice ? `<div class="err">${esc(this.notice)}</div>` : ''}
-        <div style="margin-top:auto">${items([['solo', 'come in from the rain', true, true], ['host', 'open with friends'], ['join', 'join a friend'], ['settings', 'settings']])}</div>
+        <div style="margin-top:auto">${items([['solo', 'come in from the snow', true, true], ['host', 'open with friends'], ['join', 'join a friend'], ['settings', 'settings']])}</div>
         <div class="tip">${this.touch ? (innerHeight > innerWidth ? 'tip · turn your phone sideways for the best view' : 'tip · push the stick all the way to hurry') : 'tip · press <kbd>M</kbd> anytime for the radio'}</div>
       </div>
       <button class="me-card glass" data-act="custom"><div class="pv"></div><div>
         <div class="nm">${esc(p.name)}</div>
-        <div class="st">${st.shifts ? `${st.shifts} shift${st.shifts > 1 ? 's' : ''} worked · $${Math.round(st.tips)} in tips` : 'first night on the job'}</div>
+        <div class="st">${st.shifts ? `${st.shifts} night${st.shifts > 1 ? 's' : ''} worked · ¥${Math.round(st.tips).toLocaleString('en-US')} in tips` : 'first night on the job'}</div>
         <div class="ch">change my look</div></div></button>`;
     } else if (s === 'settings') {
       html = `<div class="col">
         <div><div class="hand tagline">make yourself at home</div><div style="font:500 44px Fredoka">settings</div></div>
-        <div class="sliders glass">${slider('radio', 'radio')}${slider('rain', 'rain')}${slider('look', 'mouse look')}</div>
+        <div class="sliders glass">${slider('radio', 'radio')}${slider('wind', 'wind & sea')}${slider('look', 'mouse look')}</div>
         <div class="actions"><button class="pill-btn" data-act="back">done</button></div></div>`;
     } else if (s === 'custom') {
       const sw = (k, list) => list.map((c) => `<button class="sw${L[k] === c ? ' on' : ''}" style="background:${c}" data-k="${k}" data-v='${JSON.stringify(c)}' aria-label="${c}"></button>`).join('');
@@ -140,20 +140,20 @@ export class Menu {
         <div style="display:flex;flex-direction:column;gap:10px"><div class="lbl">${this.isHost ? 'your code' : 'game code'}</div>
           <div class="neon amber code">${esc(this.code)}</div>
           ${this.isHost ? `<div style="display:flex;gap:10px"><button class="chip" data-act="copyCode">${this.copied === 'code' ? 'copied!' : 'copy code'}</button><button class="chip" data-act="copyLink">${this.copied === 'link' ? 'copied!' : 'copy link'}</button></div>` : ''}</div>
-        <div style="display:flex;flex-direction:column;gap:12px"><div class="lbl">on shift tonight · ${players.length} of 4</div><div class="people">${rows}${empty}</div></div>
-        <div class="actions">${this.isHost ? '<button class="pill-btn" data-act="start">start the shift</button>' : '<button class="pill-btn" disabled>waiting for the host…</button>'}
+        <div style="display:flex;flex-direction:column;gap:12px"><div class="lbl">working tonight · ${players.length} of 4</div><div class="people">${rows}${empty}</div></div>
+        <div class="actions">${this.isHost ? '<button class="pill-btn" data-act="start">open the shop</button>' : '<button class="pill-btn" disabled>waiting for the host…</button>'}
           <button class="text-btn" data-act="closeUp">${this.isHost ? 'close up' : 'head home'}</button></div></div>`;
     } else if (s === 'pause') {
       const sub = this.pausePanel;
       html = `<div class="col">
-        <div><div class="hand tagline">${esc(this.clock || '')} · ${this.coop ? 'the diner keeps going' : 'the room will wait'}</div>
+        <div><div class="hand tagline">${esc(this.clock || '')} · ${this.coop ? 'the shop keeps going' : 'the snow will wait'}</div>
         <div style="font:500 44px Fredoka">${this.coop ? 'on a break' : 'paused'}</div></div>
-        ${items([['resume', 'step back in', !sub], ['sound', 'sound', sub === 'sound'], ['settings', 'settings', sub === 'settings'], ['quit', this.coop && this.isHost ? 'close the diner' : 'head home']])}
-        ${sub === 'sound' ? `<div class="sliders glass">${slider('radio', 'radio')}${slider('rain', 'rain')}</div>` : ''}
+        ${items([['resume', 'step back in', !sub], ['sound', 'sound', sub === 'sound'], ['settings', 'settings', sub === 'settings'], ['quit', this.coop && this.isHost ? 'close the shop' : 'head home']])}
+        ${sub === 'sound' ? `<div class="sliders glass">${slider('radio', 'radio')}${slider('wind', 'wind & sea')}</div>` : ''}
         ${sub === 'settings' ? `<div class="sliders glass">${slider('look', 'mouse look')}</div>` : ''}
       </div>${keys}`;
     } else if (s === 'ready') {
-      html = `<div class="col"><div><div class="hand tagline">${esc(this.readyNote || 'the diner is open')}</div><div style="font:500 44px Fredoka">${esc(this.readyTitle || 'clock in')}</div></div>
+      html = `<div class="col"><div><div class="hand tagline">${esc(this.readyNote || 'the shop is open')}</div><div style="font:500 44px Fredoka">${esc(this.readyTitle || 'clock in')}</div></div>
         ${items([['enter', this.readyItem || 'come on in', true, true]])}</div>${keys}`;
     }
     this.root.innerHTML = html;
