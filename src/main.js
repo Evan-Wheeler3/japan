@@ -215,7 +215,11 @@ async function boot() {
     $('intro').textContent = 'left thumb walks · drag on the right to look · tap to use things';
   }
   interactions.attach(outline);
-  addEventListener('mousedown', (e) => { if (player.locked && e.button === 0) interactions.click(); });
+  addEventListener('mousedown', (e) => {
+    if (!player.locked) return;
+    if (moving && e.button === 2) { endMove(false); return; }
+    if (e.button === 0) interactions.click();
+  });
   for (const [di, [d, name]] of [
     [frontDoor, 'door'],
     [kitchenDoor, 'kitchen door'],
@@ -254,7 +258,7 @@ async function boot() {
   const cans = ['a hot can of royal milk tea', 'hot corn soup. somehow perfect.', 'a hot can of coffee. it warms your hands.', 'hot lemon. a little treat.'];
   interactions.add([17.0, 1.2, -2.95, 0.45, 0.6, 0.12], () => 'Buy a hot drink · ¥130', () => {
     if (cashBox() < 130) { toast('the cash box is empty. maybe after tonight.'); audio.rattle(); return; }
-    save.yen -= 130; writeSave(save);
+    if (!save.devYen) { save.yen -= 130; writeSave(save); }
     audio.vend(); toast(cans[Math.floor(Math.random() * cans.length)]);
   });
   interactions.add([12.3, 1.12, -3.0, 0.28, 0.16, 0.16], () => 'Pet the cat', () => { audio.purr(); toast('she stretches one paw. purrrr.'); });
@@ -268,7 +272,7 @@ async function boot() {
   const service = new Service({ scene, camera, crowd, audio, interactions, toast, litMat, emitMat, player, batch,
     ui: { orders: $('orders') } });
   service.onPop = pop;
-  addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && player.locked) service.request('drop'); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && player.locked && !moving) service.request('drop'); });
 
   // ---------------------------------------------------------------- the end of the night: the sun comes up over Fuji
   // The view drifts out onto the snowy path in front of the shop and turns to the bay while the sky
@@ -303,10 +307,87 @@ async function boot() {
   arcade.hi = { ...(save.hi || {}) };
   arcade.onHi = (id, score) => { save.hi = { ...(save.hi || {}), [id]: score }; writeSave(save); };
   arcade.onSfx = (kind) => audio.chip(kind);
-  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast, arcade,
+  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast, arcade, touch: !!touchUI, layout: save.place,
     addSeat: (seat) => addSitSpot(seat, 'Sit by the fire', 'warm hands. the kettle ticks. · walk to stand up'),
-    addLamp: (l) => { const r = { ...l, mul: 1, v: new THREE.Vector3(...l.pos) }; lamps.push(r); named[l.name] = r; },
-    addSteam: (src) => { const st = makeSteam([src]); scene.add(st); homeSteam.push(st); } });
+    addLamp: (l) => { const r = { ...l, mul: 1, v: new THREE.Vector3(...l.pos) }; lamps.push(r); named[l.name] = r; return r; },
+    addSteam: (src) => { const st = makeSteam([src]); scene.add(st); homeSteam.push(st); return st; } });
+  home.onMove = (p) => startMove(p);
+  service.layout = home.layout;
+  // a piece set down somewhere new: keep it (the host's game stores it for everyone)
+  service.onPlace = (key, x, z, rot) => {
+    home.moveTo(key, x, z, rot);
+    service.layout = home.layout;
+    if (!coop || coop.isHost) { save.place = { ...home.layout }; writeSave(save); }
+  };
+  service.onLayout = (lay) => home.applyLayout(lay);
+
+  // ---- moving furniture upstairs: look at a piece, F (or click a piece with nothing to do) to pick it up;
+  // it follows your gaze across the floor; R or the wheel turns it; click sets it down; Esc puts it back.
+  let moving = null;
+  const footMat = new THREE.MeshBasicMaterial({ color: 0x60ff90, transparent: true, opacity: 0.35, depthWrite: false });
+  const foot = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), footMat); foot.rotation.x = -Math.PI / 2; foot.visible = false; foot.renderOrder = 8; scene.add(foot);
+  const startMove = (p) => {
+    if (moving || !p || player.pos.y < 3 || player.seated) return;
+    home.unmark(p);
+    moving = { p, from: [p.x, p.z, p.rot], x: p.x, z: p.z, rot: p.rot, ok: true };
+    interactions.clear(); audio.clickSound();
+  };
+  const endMove = (commit) => {
+    if (!moving) return;
+    const m = moving; moving = null; foot.visible = false;
+    if (commit && m.ok) {
+      home.pose(m.p, ...m.from); home.mark(m.p); // the real move goes through the host
+      service.request('placePiece', m.p.key, m.x, m.z, m.rot);
+      if (coop && !coop.isHost) service.onPlace(m.p.key, m.x, m.z, m.rot); // show it at once; the host's copy follows
+      audio.doorSound(false, true);
+    } else { home.pose(m.p, ...m.from); home.mark(m.p); }
+  };
+  const updateMove = () => {
+    const m = moving;
+    if (player.pos.y < 3 || !player.locked) { endMove(false); return; }
+    const o = camera.getWorldPosition(new THREE.Vector3()), d = camera.getWorldDirection(new THREE.Vector3());
+    if (d.y < -0.05) {
+      const t = (3.75 - o.y) / d.y;
+      if (t > 0 && t < 6) { m.x = Math.round((o.x + d.x * t) * 8) / 8; m.z = Math.round((o.z + d.z * t) * 8) / 8; }
+    }
+    m.ok = home.fits(m.p, m.x, m.z, m.rot, player.pos);
+    home.pose(m.p, m.x, m.z, m.rot);
+    const [x0, x1, z0, z1] = home.rect(m.p, m.x, m.z, m.rot);
+    foot.visible = true; foot.position.set((x0 + x1) / 2, 3.77, (z0 + z1) / 2); foot.scale.set(x1 - x0 + 0.16, z1 - z0 + 0.16, 1);
+    footMat.color.setHex(m.ok ? 0x60ff90 : 0xff5050);
+    const hint = $('hint'), txt = hint.querySelector('.txt') || hint;
+    const msg = m.ok ? `set down ${m.p.spec.name} · R to turn · Esc to put it back` : `no room there · R to turn · Esc to put it back`;
+    if (txt.textContent !== msg) txt.textContent = msg;
+    hint.classList.add('show'); $('reticle').classList.toggle('active', m.ok);
+  };
+  addEventListener('keydown', (e) => {
+    if (!player.locked || arcadeOpen) return;
+    if (e.code === 'KeyF') { if (moving) endMove(true); else if (interactions.hover && interactions.hover.piece) startMove(interactions.hover.piece); }
+    if (moving && e.code === 'KeyR') moving.rot = (moving.rot + 1) % 4;
+    if (moving && e.code === 'KeyQ') endMove(false);
+  });
+  addEventListener('wheel', (e) => { if (moving) moving.rot = (moving.rot + (e.deltaY > 0 ? 1 : 3)) % 4; }, { passive: true });
+  // while you carry a piece, a click (or a tap) sets it down instead of using things
+  { const use = interactions.click.bind(interactions); interactions.click = () => (moving ? endMove(true) : use()); }
+  // phones: buttons to pick up, turn and put back
+  if (touchUI) {
+    const bar = $('touchbar'), mk = (label, fn) => { const b = document.createElement('button'); b.className = 'glass'; b.textContent = label; b.style.display = 'none';
+      b.addEventListener('touchend', (e) => { e.preventDefault(); fn(); }); bar.prepend(b); return b; };
+    const bMove = mk('move', () => startMove(interactions.hover && interactions.hover.piece));
+    const bTurn = mk('turn', () => { if (moving) moving.rot = (moving.rot + 1) % 4; });
+    const bBack = mk('put back', () => endMove(false));
+    touchUI.extra = () => {
+      bMove.style.display = !moving && interactions.hover && interactions.hover.piece ? '' : 'none';
+      bTurn.style.display = bBack.style.display = moving ? '' : 'none';
+    };
+  }
+  // dev: a cash box that never runs out (the ` key, or the switch in settings)
+  const setDevYen = (on) => {
+    save.devYen = on; writeSave(save); menu.devYen = on;
+    toast(on ? 'dev · infinite yen on' : 'dev · infinite yen off');
+  };
+  menu.devYen = !!save.devYen;
+  addEventListener('keydown', (e) => { if (e.code === 'Backquote' && !arcadeOpen) setDevYen(!save.devYen); });
   const applyAll = () => {
     applyUpgrades(service, service.owned); home.sync(service.owned);
     arcade.owned = ownedGames(service.owned);
@@ -369,8 +450,10 @@ async function boot() {
     setTimeout(() => fade(false), 3800);
   };
   // what's in the cash box: the saved yen plus what tonight has taken so far (a co-op guest sees the host's)
+  const INFINITE = 999999999; // what the dev switch puts in the cash box
   const cashBox = () => {
     if (coop && !coop.isHost) return service.cashBox || 0;
+    if (save.devYen) return INFINITE;
     const tonight = shift.snap && (shift.active || shift.closing) ? service.money - shift.snap.money : 0;
     return save.yen + tonight;
   };
@@ -383,7 +466,8 @@ async function boot() {
   const buyItem = (id) => {
     const it = itemById(id);
     if (!it || service.owned.includes(id) || (it.needs && !service.owned.includes(it.needs)) || cashBox() < it.price) return;
-    save.yen -= it.price; service.owned.push(id); save.owned = [...service.owned]; writeSave(save);
+    if (!save.devYen) save.yen -= it.price;
+    service.owned.push(id); save.owned = [...service.owned]; writeSave(save);
     applyAll(); audio.kaching();
     service.sayAll(it.kind === 'shop' ? `${it.name.toLowerCase()}: ready tonight` : `${it.name.toLowerCase()}: delivered upstairs`);
   };
@@ -497,6 +581,7 @@ async function boot() {
       menu.show('catalog', { catalog: catalogData() });
     },
     onNewGame: () => { clearSave(); location.reload(); },
+    onDevYen: () => { setDevYen(!save.devYen); menu.show(menu.screen); },
   };
   // the shop is built: off the loading screen and onto the main menu (or straight to a friend's code from a shared link)
   let notice = null;
@@ -511,9 +596,9 @@ async function boot() {
   }
   // home: the cushions round the kotatsu (and the hearth, once you have one) are yours alone
   function addSitSpot(seat, label, note) {
-    interactions.add([seat.x, seat.y - 0.15, seat.z, 0.3, 0.15, 0.3], () => label, () => {
+    return interactions.add(() => [seat.x, seat.y - 0.15, seat.z, 0.3, 0.15, 0.3], () => label, () => {
       player.sitOn(seat); audio.clickSound(); toast(note);
-    }, () => !seat.occupant && !player.seated);
+    }, () => !seat.occupant && !player.seated && !moving);
   }
   for (const seat of batch.homeSeats) addSitSpot(seat, 'Sit at the kotatsu', 'toes under the quilt. warm. · walk to stand up');
   interactions.add([3.0, 3.95, 13.0, 0.5, 0.2, 1.0], () => 'Lie down for a minute', () => {
@@ -589,7 +674,9 @@ async function boot() {
     if (coop) coop.update(dt);
     const agents = [player.pos, ...crowd.positions(), ...crowd.others];
     for (const d of doors) d.update(dt, coop && !coop.isHost ? null : agents); // guests: the host decides when doors close
-    if (player.locked) interactions.update();
+    if (moving) updateMove();
+    else if (player.locked) interactions.update();
+    if (touchUI && touchUI.extra) touchUI.extra();
     if (touchUI) touchUI.update();
     for (const w of waters) { w.mesh.visible = w.h && w.h.on; if (w.mesh.visible) w.mesh.scale.x = 0.8 + Math.random() * 0.4; }
 
@@ -621,7 +708,7 @@ async function boot() {
       purseT = 0.5;
       const cash = cashBox();
       if (!coop || coop.isHost) service.cashBox = cash;
-      const txt = `¥${Math.round(cash).toLocaleString('en-US')}`;
+      const txt = cash >= INFINITE ? '¥∞ · dev' : `¥${Math.round(cash).toLocaleString('en-US')}`;
       if (arcadeOpen) { const h = $('arcade').querySelector('.hint'); if (h.textContent !== arcade.hint) h.textContent = arcade.hint; }
       if ($('purse').textContent !== txt) $('purse').textContent = txt;
     }

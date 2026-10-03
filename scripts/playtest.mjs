@@ -56,7 +56,14 @@ try {
     return { early, owned: d.service.owned, menu: [...d.service.menuKinds], speed: d.service.belt.speed, placed: [...d.home.placed], games: d.arcade.owned, yen: d.save.yen };
   });
   check(st.early === 0, 'a level-two upgrade waits for level one');
+
   check(st.owned.length === 13 && st.menu.includes('ramen') && st.speed > 0.8 && st.placed.includes('irori') && st.games.length === 4, `bought ${st.owned.join(', ')} (¥${st.yen} left)`);
+
+  // ---- dev: the ` key toggles a cash box that never runs out
+  await page.keyboard.press('Backquote');
+  st = await page.evaluate(() => { const d = window.__yoake, before = d.save.yen; d.menu.h.onBuy('bonsai'); return { dev: d.save.devYen, spent: before - d.save.yen, owned: d.service.owned.includes('bonsai') }; });
+  await page.keyboard.press('Backquote');
+  check(st.dev && st.spent === 0 && st.owned && !(await page.evaluate(() => window.__yoake.save.devYen)), 'the dev switch buys for free and toggles back off');
 
   // ---- the Fami-Com: pick up the controller, play Sushi Catch, set a high score, put it down
   await page.evaluate(() => window.__yoake.home.onPlay());
@@ -76,6 +83,15 @@ try {
   check(st.game === 'sushi' && st.score > 0 && st.hi === st.score, `Sushi Catch played: ${st.score} points, saved as the high score`);
   await page.keyboard.press('Escape');
   check(await page.evaluate(() => !document.body.classList.contains('arcade')), 'Esc puts the controller down');
+
+  // ---- moving furniture: the bonsai goes somewhere new (and the hearth won't fit on the kotatsu)
+  st = await page.evaluate(() => {
+    const d = window.__yoake, p = d.home.pieces.get('bonsai'), irori = d.home.pieces.get('irori');
+    const blocked = d.home.fits(irori, 4.5, 4.5, 0);
+    d.service.request('placePiece', 'bonsai', 6.5, 2.5, 1);
+    return { blocked, at: [p.x, p.z, p.rot], solid: d.world.solid(6.5, 3.95, 2.5), oldClear: !d.world.solid(1.4, 3.95, 0.75), saved: d.save.place && d.save.place.bonsai };
+  });
+  check(!st.blocked && st.at.join() === '6.5,2.5,1' && st.solid && st.oldClear && st.saved, 'furniture moves, takes its collision with it, and the spot is saved');
 
   // ---- open the shop and work the night
   await page.evaluate(() => {
@@ -155,6 +171,8 @@ try {
   await page.click('#screen [data-act="solo"]');
   st = await page.evaluate(() => { const d = window.__yoake; return { n: d.shift.n, hands: d.service.handCap, placed: [...d.home.placed], menu: [...d.service.menuKinds] }; });
   check(st.n === 2 && st.hands === 2 && st.placed.includes('irori') && st.placed.includes('famicom') && st.menu.includes('tempura'), "night 2 starts with last night's perk and everything you bought");
+  st = await page.evaluate(() => { const p = window.__yoake.home.pieces.get('bonsai'); return [p.x, p.z, p.rot].join(); });
+  check(st === '6.5,2.5,1', 'the bonsai is still where you put it');
 
   if (errors.length) throw new Error(`page errors:\n${errors.join('\n')}`);
   console.log('PLAYTEST PASSED');

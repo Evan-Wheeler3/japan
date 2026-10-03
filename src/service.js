@@ -490,6 +490,7 @@ export class Service {
       },
       openShop: () => { if (this.onOpenShop) this.onOpenShop(); },
       buy: (id) => { if (this.onBuy) this.onBuy(id); },
+      placePiece: (key, x, z, rot) => { if (this.onPlace) this.onPlace(key, x, z, rot); },
       station: (i) => {
         const st = this.stations[i]; if (!st) return;
         if (st.state === 'idle') { st.state = 'cooking'; st.t = 0; this.sfx('sizzleBurst'); }
@@ -814,6 +815,7 @@ export class Service {
       belt: this.belt.snapshot(),
       own: this.owned,
       cash: Math.round(this.cashBox || 0),
+      lay: this.layout || {},
     };
   }
   applySnapshot(d) {
@@ -852,6 +854,7 @@ export class Service {
     if (d.belt) this.belt.applySnapshot(d.belt);
     if (d.own && d.own.length !== this.owned.length && this.onOwned) this.onOwned(d.own);
     if (d.cash !== undefined) this.cashBox = d.cash;
+    if (d.lay && JSON.stringify(d.lay) !== this._lay) { this._lay = JSON.stringify(d.lay); if (this.onLayout) this.onLayout(d.lay); }
   }
   // switch this game into co-op: you're `id`, and either run the shop ('host') or mirror it ('guest')
   goCoop(net, role) {

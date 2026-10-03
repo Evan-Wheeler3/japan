@@ -100,6 +100,7 @@ export class Menu {
       html = `<div class="col">
         <div><div class="hand tagline">make yourself at home</div><div style="font:500 44px Fredoka">settings</div></div>
         <div class="sliders glass">${slider('radio', 'radio')}${slider('wind', 'wind & sea')}${slider('look', 'mouse look')}</div>
+        <div class="row chips"><button class="chip${this.devYen ? ' on' : ''}" data-act="devYen">dev · infinite yen ${this.devYen ? 'on' : 'off'}</button></div>
         <div class="actions"><button class="pill-btn" data-act="back">done</button>
           <button class="text-btn" data-act="newGame">${this.confirmNew ? 'click again to erase your progress' : 'start a new game'}</button></div></div>`;
     } else if (s === 'custom') {
@@ -151,7 +152,8 @@ export class Menu {
         <div style="font:500 44px Fredoka">${this.coop ? 'on a break' : 'paused'}</div></div>
         ${items([['resume', 'step back in', !sub], ['sound', 'sound', sub === 'sound'], ['settings', 'settings', sub === 'settings'], ['quit', this.coop && this.isHost ? 'close the shop' : 'head home']])}
         ${sub === 'sound' ? `<div class="sliders glass">${slider('radio', 'radio')}${slider('wind', 'wind & sea')}</div>` : ''}
-        ${sub === 'settings' ? `<div class="sliders glass">${slider('look', 'mouse look')}</div>` : ''}
+        ${sub === 'settings' ? `<div class="sliders glass">${slider('look', 'mouse look')}</div>
+          <div class="row chips"><button class="chip${this.devYen ? ' on' : ''}" data-act="devYen">dev · infinite yen ${this.devYen ? 'on' : 'off'}</button></div>` : ''}
       </div>${keys}`;
     } else if (s === 'catalog') {
       const c = this.catalog || { yen: 0, items: [] };
@@ -220,6 +222,7 @@ export class Menu {
       clearTimeout(this._copyT); this._copyT = setTimeout(() => { if (this.screen === 'lobby') this.show('lobby', { copied: null }); }, 1600);
     } else if (a === 'resume' || a === 'enter') this.h.onResume();
     else if (a === 'quit') this.h.onQuit();
+    else if (a === 'devYen') this.h.onDevYen();
     else if (a.startsWith('buy:')) this.h.onBuy(a.slice(4));
     else if (a === 'newGame') { if (this.confirmNew) this.h.onNewGame(); else this.show('settings', { confirmNew: true }); }
   }

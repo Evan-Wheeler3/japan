@@ -69,7 +69,17 @@ The **catalog** on the kotatsu sells, for the yen in your cash box:
   *Daruma Break* (breakout with daruma dolls). Click the console to play: arrow keys or WASD, space, Esc to put
   the controller down. High scores are saved. The game shows on the TV in the room too.
 
-In co-op everyone can order from the catalog; it all comes out of the shop's one cash box.
+**Rearranging:** anything you bought that stands on the apartment floor can be moved. Look at it and press
+**F** (or click it, if it has nothing else to do) to pick it up; it follows your gaze across the floor. **R** or
+the mouse wheel turns it, a click sets it down where the outline is green, **Esc** or right-click puts it back.
+On a phone, use the move / turn / put back buttons. Things on the walls (the lanterns, the print) stay put.
+Where everything stands is saved.
+
+In co-op everyone can order from the catalog; it all comes out of the shop's one cash box, and everyone
+shares one arrangement of the apartment.
+
+**Dev switch:** the **`** key (or "dev · infinite yen" in settings) toggles a cash box that never runs out, for
+testing. It's remembered until you switch it off.
 
 The vending machine outside takes ¥130 from the cash box for a hot drink.
 

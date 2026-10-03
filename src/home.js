@@ -185,57 +185,162 @@ const famicom = () => {
   return m;
 };
 
-// where each item goes, and what you can do with it
-const PLACE = {
+// Things that hang on walls (and the shop's heaters) stay where they're put.
+const FIXED = {
   lanterns: (h) => { h.put(lanternString(), 4.5, 6.35, 0.45, 0); h.put(lanternString(), 4.5, 6.35, 9.85, 0); },
-  plants: (h) => { h.put(plant(false), 8.7, F2, 9.4, 0); h.put(plant(true), 14.9, F2, 0.8, 0); },
-  bonsai: (h) => { h.put(bonsai(), 1.4, F2, 0.75, 0); h.act([1.4, F2 + 0.4, 0.75, 0.25, 0.25, 0.2], 'Trim the bonsai', () => { h.audio.clickSound(); h.toast('snip. one needle out of place, now in place.'); }); },
   print: (h) => { h.put(bigPrint(), 0.27, F2 + 1.2, 13.0, 3); },
-  catbed: (h) => { h.put(catBed(), 7.6, F2, 1.3, 0); h.act([7.6, F2 + 0.15, 1.3, 0.25, 0.15, 0.22], 'Pet the black cat', () => { h.audio.purr(); h.toast('kuro opens one yellow eye, and closes it again.'); }); },
-  fishtank: (h) => { h.put(fishtank(), 0.6, F2, 2.6, 3); h.act([0.6, F2 + 0.65, 2.6, 0.2, 0.25, 0.4], 'Feed the goldfish', () => { h.audio.clickSound(); h.toast('two goldfish race to the top. they are always hungry.'); }); },
-  record: (h) => {
-    h.put(recordPlayer(), 8.65, F2, 6.0, 1);
-    h.recordPos = new THREE.Vector3(8.65, F2 + 0.5, 6.0);
-    h.act([8.65, F2 + 0.45, 6.0, 0.25, 0.1, 0.4], () => (h.recordOn ? 'Lift the needle' : 'Put a record on'), () => { h.recordOn = !h.recordOn; h.audio.clickSound(); });
-  },
-  telescope: (h) => {
-    h.put(telescope(), 5.75, F2, 1.0, 0);
-    h.act([5.75, F2 + 1.2, 0.75, 0.15, 0.2, 0.25], 'Look through the telescope', () => h.onTelescope && h.onTelescope());
-  },
-  irori: (h) => {
-    h.put(irori(), 12.5, F2, 5.5, 0, false);
-    h.put(hangingKettle(), 12.5, 6.6, 5.5, 0, false);
-    for (const [x, z, rot] of [[11.55, 5.5, 1], [13.45, 5.5, 3], [12.5, 6.45, 2]]) {
-      h.put(zabuton(), x, F2, z, 0, false);
-      h.seat({ x, z, y: F2 + 0.3, yaw: rot * Math.PI / 2 + Math.PI, kind: 'cushion', app: [x + (x - 12.5) * 0.9, z + (z - 5.5) * 0.9], floorY: F2 });
-    }
-    h.lamp({ pos: [12.5, F2 + 0.4, 5.5], color: 0xff7a30, intensity: 4, distance: 6, name: 'irori' });
-    h.steam({ pos: [12.5, F2 + 0.6, 5.5], size: 0.35 });
-  },
   heaters: (h) => { h.put(heater(), 0.65, 0.25, 9.6, 1); h.put(heater(), 15.35, 0.25, 4.9, 3); },
-  crt: (h) => {
-    h.put(crt(), 7.7, F2, 4.5, 1);
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.5), new THREE.MeshBasicMaterial({ map: h.arcade.texture }));
-    scr.position.set(7.7 - 12 / 32 + 1 / 16 - 0.008, F2 + 11 / 16, 4.5); scr.rotation.y = -Math.PI / 2; h.scene.add(scr); // over the glass
-    h.act([7.7, F2 + 0.75, 4.5, 0.38, 0.4, 0.5], () => (h.tvOn ? 'Turn the TV off' : 'Turn the TV on'), () => h.onTV && h.onTV());
-  },
-  famicom: (h) => {
-    h.put(famicom(), 7.1, F2, 4.5, 1, false);
-    h.act([7.1, F2 + 0.05, 4.5, 0.22, 0.08, 0.38], 'Play the Fami-Com', () => h.onPlay && h.onPlay());
-  },
 };
+
+// Everything that stands on the apartment floor is a piece you can pick up and move (F), turn (R) and
+// set down again. Each is described around its own origin: `at` is [x, z, quarter turns] for where it
+// first goes, `foot` its half size on the floor, and parts, things to do, seats and lights sit relative
+// to it. Boxes are [x, y, z, half x, half y, half z] in the piece's own frame.
+const PIECES = [
+  { key: 'bonsai', item: 'bonsai', name: 'the bonsai', at: [1.4, 0.75, 0], foot: [0.25, 0.18], parts: [{ model: bonsai }],
+    acts: [{ box: [0, 0.4, 0, 0.25, 0.25, 0.2], label: 'Trim the bonsai', fn: (h) => { h.audio.clickSound(); h.toast('snip. one needle out of place, now in place.'); } }] },
+  { key: 'plant1', item: 'plants', name: 'the monstera', at: [8.7, 9.4, 0], foot: [0.2, 0.2], parts: [{ model: () => plant(false) }] },
+  { key: 'plant2', item: 'plants', name: 'the fern', at: [14.9, 0.8, 0], foot: [0.2, 0.2], parts: [{ model: () => plant(true) }] },
+  { key: 'catbed', item: 'catbed', name: 'the cat bed', at: [7.6, 1.3, 0], foot: [0.22, 0.19], parts: [{ model: catBed, collide: false }],
+    acts: [{ box: [0, 0.15, 0, 0.25, 0.15, 0.22], label: 'Pet the black cat', fn: (h) => { h.audio.purr(); h.toast('kuro opens one yellow eye, and closes it again.'); } }] },
+  { key: 'fishtank', item: 'fishtank', name: 'the goldfish tank', at: [0.6, 2.6, 3], foot: [0.375, 0.19], parts: [{ model: fishtank }],
+    acts: [{ box: [0, 0.65, 0, 0.4, 0.25, 0.2], label: 'Feed the goldfish', fn: (h) => { h.audio.clickSound(); h.toast('two goldfish race to the top. they are always hungry.'); } }] },
+  { key: 'record', item: 'record', name: 'the record player', at: [8.65, 6.0, 1], foot: [0.375, 0.25], parts: [{ model: recordPlayer }], sound: [0, 0.5, 0],
+    acts: [{ box: [0, 0.45, 0, 0.4, 0.1, 0.25], label: (h) => (h.recordOn ? 'Lift the needle' : 'Put a record on'), fn: (h) => { h.recordOn = !h.recordOn; h.audio.clickSound(); } }] },
+  { key: 'telescope', item: 'telescope', name: 'the telescope', at: [5.75, 1.0, 0], foot: [0.18, 0.38], parts: [{ model: telescope }],
+    acts: [{ box: [0, 1.2, -0.25, 0.15, 0.2, 0.25], label: 'Look through the telescope', fn: (h) => h.onTelescope && h.onTelescope() }] },
+  { key: 'irori', item: 'irori', name: 'the hearth', at: [12.5, 5.5, 0], foot: [1.2, 1.2],
+    parts: [{ model: irori, collide: false }, { model: hangingKettle, y: 6.6 - F2, collide: false },
+      { model: zabuton, x: -0.95, collide: false }, { model: zabuton, x: 0.95, collide: false }, { model: zabuton, z: 0.95, collide: false }],
+    seats: [{ x: -0.95, z: 0, yaw: Math.PI * 1.5 }, { x: 0.95, z: 0, yaw: Math.PI / 2 }, { x: 0, z: 0.95, yaw: 0 }],
+    lamp: { x: 0, y: 0.4, z: 0, color: 0xff7a30, intensity: 4, distance: 6, name: 'irori' }, steam: { x: 0, y: 0.6, z: 0, size: 0.35 } },
+  { key: 'crt', item: 'crt', name: 'the TV', at: [7.7, 4.5, 1], foot: [0.5, 0.38], parts: [{ model: crt }], screen: true,
+    acts: [{ box: [0, 0.75, 0, 0.5, 0.4, 0.38], label: (h) => (h.tvOn ? 'Turn the TV off' : 'Turn the TV on'), fn: (h) => h.onTV && h.onTV() }] },
+  { key: 'famicom', item: 'famicom', name: 'the Fami-Com', at: [7.1, 4.5, 1], foot: [0.38, 0.25], parts: [{ model: famicom, collide: false }],
+    acts: [{ box: [0, 0.05, 0, 0.38, 0.08, 0.22], label: 'Play the Fami-Com', fn: (h) => h.onPlay && h.onPlay() }] },
+];
+// floor you can't put things on: the kotatsu, the futon, the doorway out, the gap in the fusuma
+const NO_GO = [[3.2, 5.8, 3.2, 5.8], [2.4, 3.6, 11.9, 14.1], [14.1, 15.8, 11.6, 14.1], [3.3, 4.95, 9.55, 10.65]];
+const ROOM = { x0: 0.3, x1: 15.7, z0: 0.3, z1: 15.7 };
+
+// rotate a local (x, z) by quarter turns, the same way three.js turns an object about y
+const turn = (x, z, rot) => { const a = rot * Math.PI / 2, c = Math.round(Math.cos(a)), s = Math.round(Math.sin(a)); return [x * c + z * s, -x * s + z * c]; };
 
 // Places the things you own into the world, once each.
 export class Home {
-  constructor(o) { Object.assign(this, o); this.placed = new Set(); this.recordOn = false; }
+  constructor(o) {
+    Object.assign(this, o);
+    this.placed = new Set(); this.recordOn = false;
+    this.pieces = new Map();   // key → piece
+    this.layout = { ...(o.layout || {}) }; // key → [x, z, rot], what's been moved (saved)
+    this.recordPos = new THREE.Vector3(); this.models = new Map();
+  }
   put(model, x, y, z, rot, collide = true) {
     const b = new PropBatch(collide ? this.world : null);
     b.add(model, x, y, z, rot, collide);
     this.scene.add(b.build(this.litMat, this.emitMat));
   }
-  act(box, label, fn) { this.interactions.add(box, typeof label === 'function' ? label : () => label, fn); }
-  seat(s) { this.addSeat(s); }
-  lamp(l) { this.addLamp(l); }
-  steam(s) { this.addSteam(s); }
-  sync(owned) { for (const id of owned) if (!this.placed.has(id) && PLACE[id]) { this.placed.add(id); PLACE[id](this); } }
+  model(fn) { if (!this.models.has(fn)) this.models.set(fn, fn()); return this.models.get(fn); }
+  sync(owned) {
+    for (const id of owned) {
+      if (this.placed.has(id)) continue;
+      this.placed.add(id);
+      if (FIXED[id]) FIXED[id](this);
+      for (const spec of PIECES) if (spec.item === id) this.makePiece(spec);
+    }
+  }
+
+  // ---------------------------------------------------------------- pieces
+  makePiece(spec) {
+    const p = { spec, key: spec.key, root: new THREE.Group(), cells: [], seats: [], parts: [] };
+    for (const part of spec.parts) {
+      const m = this.model(part.model), g = m.mesh(this.litMat, this.emitMat);
+      g.position.set(part.x || 0, part.y || 0, part.z || 0); g.rotation.y = (part.rot || 0) * Math.PI / 2;
+      p.root.add(g); p.parts.push({ m, g, collide: part.collide !== false });
+    }
+    if (spec.screen) { // the TV's picture: the console's canvas, over the glass
+      const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.5), new THREE.MeshBasicMaterial({ map: this.arcade.texture }));
+      scr.position.set(0, 11 / 16, -12 / 32 + 1 / 16 - 0.008); scr.rotation.y = Math.PI; p.root.add(scr);
+    }
+    this.scene.add(p.root);
+    const move = this.touch ? '' : ' · F to move';
+    const boxOf = (b) => () => {
+      const [dx, dz] = turn(b[0], b[2], p.rot), odd = p.rot & 1;
+      return [p.x + dx, F2 + b[1], p.z + dz, odd ? b[5] : b[3], b[4], odd ? b[3] : b[5]];
+    };
+    for (const a of spec.acts || []) {
+      const it = this.interactions.add(boxOf(a.box), () => (typeof a.label === 'function' ? a.label(this) : a.label) + move, () => a.fn(this));
+      it.piece = p;
+    }
+    if (!spec.acts) { // nothing to do with it but look at it: clicking picks it up
+      const it = this.interactions.add(boxOf([0, 0.35, 0, spec.foot[0], 0.35, spec.foot[1]]), () => `${spec.name[0].toUpperCase()}${spec.name.slice(1)} · click to move`, () => this.onMove && this.onMove(p));
+      it.piece = p;
+    }
+    for (const s of spec.seats || []) {
+      const seat = { kind: 'cushion', y: F2 + 0.3, floorY: F2, local: s, x: 0, z: 0, yaw: 0, app: [0, 0] };
+      p.seats.push(seat);
+      const it = this.addSeat(seat); if (it) it.piece = p;
+    }
+    if (spec.lamp) p.lamp = this.addLamp({ ...spec.lamp, pos: [0, 0, 0] });
+    if (spec.steam) { p.steam = this.addSteam({ pos: [0, 0, 0], size: spec.steam.size }); }
+    const at = this.layout[spec.key] || spec.at;
+    this.pose(p, at[0], at[1], at[2]);
+    this.mark(p);
+    this.pieces.set(spec.key, p);
+    return p;
+  }
+  // put a piece (and everything that hangs off it) at x, z turned rot quarter turns
+  pose(p, x, z, rot) {
+    p.x = x; p.z = z; p.rot = ((rot % 4) + 4) % 4;
+    p.root.position.set(x, F2, z); p.root.rotation.y = p.rot * Math.PI / 2;
+    for (const seat of p.seats) {
+      const [dx, dz] = turn(seat.local.x, seat.local.z, p.rot);
+      seat.x = x + dx; seat.z = z + dz; seat.yaw = seat.local.yaw + p.rot * Math.PI / 2; seat.app = [x + dx * 1.9, z + dz * 1.9];
+    }
+    const at = (o) => { const [dx, dz] = turn(o.x, o.z, p.rot); return [x + dx, F2 + o.y, z + dz]; };
+    if (p.lamp) p.lamp.v.set(...at(p.spec.lamp));
+    if (p.steam) p.steam.position.set(...at(p.spec.steam));
+    if (p.spec.sound) this.recordPos.set(...at({ x: p.spec.sound[0], y: p.spec.sound[1], z: p.spec.sound[2] }));
+  }
+  // what it takes up in the voxel world, so you (and only you) bump into it
+  mark(p) {
+    p.root.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    for (const part of p.parts) {
+      if (!part.collide) continue;
+      const s = part.m.scale, pv = part.m.pivot;
+      part.m.forEach((vx, vy, vz) => {
+        v.set((vx + 0.5 - pv[0]) * s, (vy + 0.5 - pv[1]) * s, (vz + 0.5 - pv[2]) * s).applyMatrix4(part.g.matrixWorld);
+        const i = this.world.cell(v.x, v.y, v.z);
+        if (i >= 0 && !this.world.col[i]) { this.world.col[i] = 1; p.cells.push(i); }
+      });
+    }
+  }
+  unmark(p) { for (const i of p.cells) this.world.col[i] = 0; p.cells = []; }
+  // the floor it would cover at x, z, rot: [x0, x1, z0, z1]
+  rect(p, x, z, rot) { const [hx, hz] = rot & 1 ? [p.spec.foot[1], p.spec.foot[0]] : p.spec.foot; return [x - hx, x + hx, z - hz, z + hz]; }
+  // can it go there? Inside the apartment, clear of walls, furniture, the other pieces, the doorway and you.
+  fits(p, x, z, rot, who) {
+    const [x0, x1, z0, z1] = this.rect(p, x, z, rot);
+    if (x0 < ROOM.x0 || x1 > ROOM.x1 || z0 < ROOM.z0 || z1 > ROOM.z1) return false;
+    const hit = (r) => x0 < r[1] && x1 > r[0] && z0 < r[3] && z1 > r[2];
+    if (NO_GO.some(hit)) return false;
+    for (const q of this.pieces.values()) if (q !== p && hit(this.rect(q, q.x, q.z, q.rot))) return false;
+    if (who && who.x > x0 - 0.25 && who.x < x1 + 0.25 && who.z > z0 - 0.25 && who.z < z1 + 0.25) return false;
+    for (let px = x0 + 0.03; px <= x1; px += 0.1) for (let pz = z0 + 0.03; pz <= z1; pz += 0.1)
+      for (const y of [0.2, 0.7, 1.3]) if (this.world.solid(px, F2 + y, pz)) return false;
+    return true;
+  }
+  // move a piece for good (and remember where)
+  moveTo(key, x, z, rot) {
+    const p = this.pieces.get(key); if (!p) { this.layout[key] = [x, z, rot]; return; }
+    this.unmark(p); this.pose(p, x, z, rot); this.mark(p);
+    this.layout[key] = [x, z, p.rot];
+  }
+  applyLayout(lay) {
+    for (const [key, [x, z, rot]] of Object.entries(lay || {})) {
+      const cur = this.layout[key];
+      if (!cur || cur[0] !== x || cur[1] !== z || cur[2] !== rot) this.moveTo(key, x, z, rot);
+    }
+  }
 }
