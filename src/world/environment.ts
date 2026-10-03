@@ -76,6 +76,9 @@ export class Environment {
   private readonly oceanBase: Float32Array;
   private readonly snowMat: THREE.ShaderMaterial;
   private readonly fog: THREE.FogExp2;
+  private readonly oceanMat: THREE.MeshStandardMaterial;
+  private readonly clouds: Clouds;
+  private readonly mist: Mist;
   private readonly sunDir = new THREE.Vector3();
 
   constructor(scene: THREE.Scene) {
@@ -162,7 +165,8 @@ export class Environment {
     const oceanGeo = new THREE.PlaneGeometry(4200, 3400, 70, 56);
     oceanGeo.rotateX(-Math.PI / 2);
     oceanGeo.translate(0, OCEAN_Y, -1500);
-    this.ocean = new THREE.Mesh(oceanGeo, new THREE.MeshStandardMaterial({ color: 0x0f2a4c, roughness: 0.6, metalness: 0, flatShading: true }));
+    this.oceanMat = new THREE.MeshStandardMaterial({ color: 0x0d2238, roughness: 0.92, metalness: 0, flatShading: true });
+    this.ocean = new THREE.Mesh(oceanGeo, this.oceanMat);
     this.oceanBase = Float32Array.from(oceanGeo.attributes.position.array as Float32Array);
     this.group.add(this.ocean);
 
@@ -173,6 +177,11 @@ export class Environment {
     // ---- Snowfall ----
     this.snowMat = buildSnowMaterial();
     this.group.add(buildSnow(this.snowMat));
+
+    this.clouds = new Clouds();
+    this.group.add(this.clouds.group);
+    this.mist = new Mist();
+    this.group.add(this.mist.group);
 
     scene.add(this.group);
   }
@@ -187,10 +196,19 @@ export class Environment {
     sunDirection(skyT, this.sunDir);
     this.skyMat.uniforms.sunDir.value.copy(this.sunDir);
 
-    this.fog.color.copy(s.horizon).lerp(tmpA.copy(s.top), 0.35);
-    this.fog.density = THREE.MathUtils.lerp(0.00034, 0.0003, sunUp);
+    // Snowy haze: thick at night (more with heavier snow), lifting as the sun comes up.
+    const haze = THREE.MathUtils.lerp(0.55 + snowIntensity * 0.45, 0.28, sunUp);
+    this.fog.color.copy(s.horizon).lerp(tmpA.copy(s.top), 0.3).lerp(tmpB.set(0x5a6680), 0.22 * (1 - sunUp));
+    this.fog.density = 0.0042 * haze;
+    // Distant mountains are fog-exempt; fade them toward the haze colour by hand so Fuji stays a ghost.
+    const far = THREE.MathUtils.lerp(0.72, 0.3, sunUp) * (0.8 + snowIntensity * 0.2);
+    landMaterial.color.setScalar(1 - far);
+    landMaterial.emissive.copy(this.fog.color).multiplyScalar(far);
+    this.oceanMat.roughness = THREE.MathUtils.lerp(0.92, 0.5, sunUp);
+    this.clouds.update(time, s, this.sunDir, sunUp, snowIntensity, camera);
+    this.mist.update(time, this.fog.color, sunUp, snowIntensity, camera);
 
-    this.starsMat.opacity = THREE.MathUtils.clamp(1 - skyT * 3.2, 0, 1);
+    this.starsMat.opacity = THREE.MathUtils.clamp(1 - skyT * 3.2, 0, 1) * (1 - snowIntensity * 0.6);
     (this.moon.material as THREE.MeshBasicMaterial).opacity = THREE.MathUtils.clamp(1 - skyT * 2, 0, 1);
 
     this.hemi.color.copy(s.hemiSky);
@@ -257,7 +275,7 @@ function colorByHeight(geo: THREE.BufferGeometry, snowLine: number, rock: number
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 }
 
-const landMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+const landMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, fog: false });
 
 function buildFuji(): THREE.Object3D {
   // Classic concave Fuji profile (radius vs normalised height), terraced for the voxel look.
@@ -460,4 +478,96 @@ function buildSnow(material: THREE.ShaderMaterial): THREE.Points {
   const points = new THREE.Points(geo, material);
   points.frustumCulled = false;
   return points;
+}
+
+function softTexture(seed: number, blobs: number, size = 128): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size / 2;
+  const ctx = c.getContext('2d')!;
+  const rng = new Rng(seed);
+  for (let i = 0; i < blobs; i++) {
+    const x = rng.range(0.2, 0.8) * c.width;
+    const y = rng.range(0.35, 0.65) * c.height;
+    const r = rng.range(0.12, 0.3) * c.width;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(255,255,255,0.55)');
+    g.addColorStop(0.6, 'rgba(255,255,255,0.18)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, c.width, c.height);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** A deck of soft cloud billboards over the sea: dark and heavy at night, lit from below at dawn. */
+class Clouds {
+  readonly group = new THREE.Group();
+  private readonly mats: THREE.SpriteMaterial[] = [];
+  private readonly sprites: { s: THREE.Sprite; dir: THREE.Vector3; drift: number }[] = [];
+  private readonly tmp = new THREE.Color();
+
+  constructor() {
+    const rng = new Rng(41);
+    for (let i = 0; i < 4; i++) this.mats.push(new THREE.SpriteMaterial({ map: softTexture(100 + i, 9), transparent: true, depthWrite: false, fog: false }));
+    for (let i = 0; i < 34; i++) {
+      const az = rng.range(-1.6, 1.6);
+      const el = rng.range(0.035, 0.2);
+      const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+      const s = new THREE.Sprite(this.mats[i % this.mats.length]);
+      const w = rng.range(700, 1500);
+      s.scale.set(w, w * rng.range(0.28, 0.45), 1);
+      s.position.copy(dir).multiplyScalar(rng.range(2000, 2600));
+      s.renderOrder = -5;
+      this.group.add(s);
+      this.sprites.push({ s, dir, drift: rng.range(0.6, 1.4) });
+    }
+  }
+
+  update(time: number, sky: { top: THREE.Color; horizon: THREE.Color; glow: THREE.Color }, sunDir: THREE.Vector3, sunUp: number, snow: number, camera: THREE.Camera): void {
+    const night = this.tmp.set(0x1a2034).lerp(sky.top, 0.35);
+    const lit = new THREE.Color().copy(sky.glow).lerp(new THREE.Color(0xffc8a0), 0.35);
+    for (const m of this.mats) {
+      m.color.copy(night).lerp(lit, sunUp * 0.85);
+      m.opacity = THREE.MathUtils.lerp(0.55 + snow * 0.4, 0.75, sunUp);
+    }
+    for (const c of this.sprites) {
+      const toward = Math.max(0, c.dir.dot(sunDir));
+      c.s.material.rotation = 0;
+      c.s.position.x += Math.sin(time * 0.01 * c.drift) * 0.05;
+      c.s.scale.y = c.s.scale.x * 0.36 * (1 + toward * sunUp * 0.15);
+    }
+    this.group.position.copy(camera.position);
+  }
+}
+
+/** Low drifting snow-haze billboards around the plateau: makes the night feel thick and soft. */
+class Mist {
+  readonly group = new THREE.Group();
+  private readonly mat: THREE.SpriteMaterial;
+  private readonly sprites: { s: THREE.Sprite; base: THREE.Vector3; speed: number }[] = [];
+
+  constructor() {
+    this.mat = new THREE.SpriteMaterial({ map: softTexture(7, 6), transparent: true, depthWrite: false, fog: true });
+    const rng = new Rng(77);
+    for (let i = 0; i < 46; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const r = rng.range(16, 90);
+      const base = new THREE.Vector3(Math.sin(a) * r, rng.range(-6, 10), Math.cos(a) * r - 10);
+      const s = new THREE.Sprite(this.mat);
+      const w = rng.range(30, 70);
+      s.scale.set(w, w * 0.35, 1);
+      s.position.copy(base);
+      this.group.add(s);
+      this.sprites.push({ s, base, speed: rng.range(0.4, 1.2) });
+    }
+  }
+
+  update(time: number, fogColor: THREE.Color, sunUp: number, snow: number, _camera: THREE.Camera): void {
+    this.mat.color.copy(fogColor).lerp(new THREE.Color(0x9aa6c0), 0.35 * (1 - sunUp));
+    this.mat.opacity = (0.16 + snow * 0.18) * (1 - sunUp * 0.7);
+    for (const m of this.sprites) m.s.position.set(m.base.x + Math.sin(time * 0.05 * m.speed) * 6, m.base.y, m.base.z + time * 0.3 * m.speed - Math.floor((time * 0.3 * m.speed) / 40) * 40);
+  }
 }

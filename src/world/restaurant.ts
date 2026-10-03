@@ -28,6 +28,7 @@ import {
   WINDOW_Y,
 } from './layout';
 import { signTexture } from './materials';
+import { makeGlowPool } from './stations';
 import * as P from './props';
 import { F } from './props';
 import { C, PAL } from './voxel/palette';
@@ -550,6 +551,39 @@ export function buildRestaurant(): RestaurantBuild {
   props.add(P.snowman(), -1.8, 0, 8.5, 0.5);
   props.add(P.pottedPlant(2, 1.5), 8.2, 0, 5.4);
 
+  // ---------- Warm glow: halos around lanterns, light pools on the snow ----------
+  const halo = (x: number, y: number, z: number, size: number, opacity: number, color = 0xffa860) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(), color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sp.position.set(x, y, z);
+    sp.scale.setScalar(size);
+    root.add(sp);
+  };
+  const pool = (x: number, y: number, z: number, w: number, d: number, opacity: number) => {
+    const m = makeGlowPool(x, y, z, w, d);
+    const mat = m.material as THREE.MeshBasicMaterial;
+    mat.opacity = opacity;
+    mat.color.set(0xffa050);
+    root.add(m);
+  };
+  for (const [x, z] of hanging) halo(x, DINING.height - 0.75, z, 1.1, 0.22);
+  for (const [x, z] of [
+    [-7.4, -1.6],
+    [-5.0, 1.9],
+  ])
+    halo(x, KITCHEN.height - 0.65, z, 1.0, 0.2);
+  halo(-8.35, UP + 0.4, -4.25, 1.3, 0.3, 0xffb070);
+  for (const x of [FRONT_DOOR.minX - 0.45, FRONT_DOOR.maxX + 0.45]) halo(x, 2.6, DINING.maxZ + 0.6, 1.8, 0.45, 0xff6a40);
+  for (const x of [-1.6, 1.5, 4.0]) halo(x, 2.55, DINING.minZ - 0.3, 1.8, 0.4);
+  for (const [x, z] of toros) {
+    halo((x + 0.5) * S, 0.95, (z + 0.5) * S, 1.6, 0.5);
+    pool((x + 0.5) * S, 0.02, (z + 0.5) * S, 2.6, 2.6, 0.3);
+  }
+  for (const w of DINING_WINDOWS_SOUTH) pool((w.a + w.b) / 2, 0.02, DINING.maxZ + 1.3, w.b - w.a + 1.2, 2.4, 0.32);
+  for (const w of DINING_WINDOWS_NORTH) pool((w.a + w.b) / 2, 0.15, DINING.minZ - 1.4, w.b - w.a + 1.2, 2.6, 0.32);
+  for (const w of DINING_WINDOWS_EAST) pool(DINING.maxX + 1.3, 0.02, (w.a + w.b) / 2, 2.4, w.b - w.a + 1.2, 0.3);
+  pool((FRONT_DOOR.minX + FRONT_DOOR.maxX) / 2, 0.02, DINING.maxZ + 1.6, 3.2, 3.2, 0.45);
+  pool((KITCHEN_WINDOW_NORTH.a + KITCHEN_WINDOW_NORTH.b) / 2, 0.02, KITCHEN.minZ - 1.2, 3.2, 2.2, 0.25);
+
   // ---------- Mesh the architecture ----------
   const dense = vox.toDense();
   snowCover(dense);
@@ -610,6 +644,22 @@ export function buildRestaurant(): RestaurantBuild {
   root.add(menuBoard);
   addCanvasDecor(root);
   return { group: root, blockers, colliders, surfaces, lights, menuBoard };
+}
+
+let haloTex: THREE.Texture | null = null;
+function haloTexture(): THREE.Texture {
+  if (haloTex) return haloTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.35)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  haloTex = new THREE.CanvasTexture(c);
+  return haloTex;
 }
 
 export function menuBoardTexture(lines: { name: string; price: number }[]): THREE.Texture {
