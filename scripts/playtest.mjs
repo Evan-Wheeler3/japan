@@ -71,9 +71,11 @@ try {
     d.interactions.items.find((it) => { try { return it.label() === 'Bow at the shrine'; } catch { return false; } }).act();
   });
   const yen0 = await page.evaluate(() => window.__yoake.save.yen);
-  await bowAt(); await page.waitForTimeout(5000);
+  // the bow runs on real time inside the frame loop; a slow CI renderer takes longer than 4.4 s to get there
+  const bowDone = async () => { await page.waitForTimeout(500); await page.waitForFunction(() => !window.__yoake.player.frozen, null, { timeout: 60000 }); await page.waitForTimeout(300); };
+  await bowAt(); await bowDone();
   const yen1 = await page.evaluate(() => window.__yoake.save.yen);
-  await bowAt(); await page.waitForTimeout(5000);
+  await bowAt(); await bowDone();
   st = await page.evaluate(() => { const d = window.__yoake; return { yen: d.save.yen, x: d.player.pos.x, free: !d.player.frozen, clear: !d.player.blocked(-6.4, 3.0, 0.125) }; });
   check(yen1 === yen0 + 100 && st.yen === yen1 && st.free && st.clear && st.x < -6, `bowing at the shrine leaves ¥100, once a day (¥${yen0} → ¥${yen1} → ¥${st.yen})`);
 
