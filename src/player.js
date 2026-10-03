@@ -21,8 +21,9 @@ export class Player {
     addEventListener('blur', () => { this.keys = {}; });
     document.addEventListener('mousemove', (e) => {
       if (!this.locked) return;
-      this.yaw -= e.movementX * this.sens;
-      this.pitch = THREE.MathUtils.clamp(this.pitch - e.movementY * this.sens, -1.35, 1.35);
+      const k = this.sens * (this.sensMul ?? 1);
+      this.yaw -= e.movementX * k;
+      this.pitch = THREE.MathUtils.clamp(this.pitch - e.movementY * k, -1.35, 1.35);
     });
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === dom; });
   }

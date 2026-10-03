@@ -8,7 +8,8 @@ import { Ambience } from './audio.js';
 import { Interactions, Door } from './interact.js';
 import { Crowd } from './npc.js';
 import { Service } from './service.js';
-import { Shift, clockText, START_HOUR } from './shift.js';
+import { Shift, clockText, START_HOUR, UNLOCKS } from './shift.js';
+import { loadSave, writeSave, clearSave, CATALOG, itemById, applyUpgrades, Home } from './home.js';
 import { Menu } from './menu.js';
 import { Net, newCode } from './net.js';
 import { Coop } from './coop.js';
@@ -164,14 +165,15 @@ async function boot() {
   const overlay = $('overlay');
   const dev = location.hash === '#dev';
   if (dev) overlay.classList.add('hidden');
-  let arrived = false, paused = false, net = null, coop = null, introShown = false;
+  let arrived = false, paused = false, net = null, coop = null, introShown = false, catalogOpen = false;
   // step into the shop (or back in after a pause); must run from a click, for pointer lock
   const enter = () => {
     audio.start();
     if (!arrived) {
       arrived = true;
       audio.clickSound();
-      if (!coop || coop.isHost) shift.start(1);
+      if (!coop || coop.isHost) beginNight(save.night);
+      else wakeUp();
     }
     lock();
   };
@@ -189,7 +191,8 @@ async function boot() {
     overlay.classList.toggle('hidden', locked);
     document.body.classList.toggle('playing', locked);
     if (!locked) interactions.clear();
-    if (!locked && arrived && !document.body.classList.contains('summary'))
+    if (!locked && catalogOpen) menu.show('catalog', { catalog: catalogData() });
+    else if (!locked && arrived && !document.body.classList.contains('summary'))
       menu.show('pause', { clock: clockText(shift.minutes).toLowerCase(), coop: !!coop, isHost: !!(coop && coop.isHost), pausePanel: null });
     // full pause once you've come in (solo only: in co-op the shop keeps going for everyone else)
     paused = arrived && !locked && !coop && !dev && !sunrise;
@@ -247,7 +250,11 @@ async function boot() {
     audio.musicOn = !audio.musicOn; audio.clickSound(); toast(audio.musicOn ? 'radio on' : 'radio off');
   });
   const cans = ['a hot can of royal milk tea', 'hot corn soup. somehow perfect.', 'a hot can of coffee. it warms your hands.', 'hot lemon. a little treat.'];
-  interactions.add([17.0, 1.2, -2.95, 0.45, 0.6, 0.12], () => 'Buy a hot drink · ¥130', () => { audio.vend(); toast(cans[Math.floor(Math.random() * cans.length)]); });
+  interactions.add([17.0, 1.2, -2.95, 0.45, 0.6, 0.12], () => 'Buy a hot drink · ¥130', () => {
+    if (save.yen < 130) { toast('the cash box is empty. maybe after tonight.'); audio.rattle(); return; }
+    save.yen -= 130; writeSave(save);
+    audio.vend(); toast(cans[Math.floor(Math.random() * cans.length)]);
+  });
   interactions.add([12.3, 1.12, -3.0, 0.28, 0.16, 0.16], () => 'Pet the cat', () => { audio.purr(); toast('she stretches one paw. purrrr.'); });
   interactions.add([1.0, 1.2, 15.65, 0.65, 1.0, 0.15], () => 'Back door', () => { audio.rattle(); toast("it's snowed shut. the front door it is."); });
   interactions.add([15.68, 1.25, 11.6, 0.12, 1.0, 0.62], () => 'Walk-in cooler', () => { audio.rattle(); toast("brr. it's colder outside anyway."); });
@@ -264,21 +271,79 @@ async function boot() {
   // ---------------------------------------------------------------- the end of the night: the sun comes up over Fuji
   // The view drifts out onto the snowy path in front of the shop and turns to the bay while the sky
   // lightens; the night's card fades in over it.
+  // The screen fades to black, then opens on the path by the front door and drifts out toward the bay.
   let sunrise = null;
+  const fade = (on, caption = '') => {
+    $('fade').classList.toggle('on', on);
+    const cap = $('fade').querySelector('.cap'); cap.textContent = caption; cap.classList.toggle('show', !!caption);
+  };
+  const lookAtBay = (from) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(from, new THREE.Vector3(FUJI.x * 0.5 + 40, 22, FUJI.z * 0.5), new THREE.Vector3(0, 1, 0)));
   const sunriseStart = () => {
     if (sunrise) return;
-    const from = camera.position.clone(), fromQ = camera.quaternion.clone();
-    const to = new THREE.Vector3(6.0, 1.75, -7.4);
-    // face the bay, between Fuji and the rising sun (camera convention: looking down -z)
-    const look = new THREE.Matrix4().lookAt(to, new THREE.Vector3(FUJI.x * 0.5 + 40, 22, FUJI.z * 0.5), new THREE.Vector3(0, 1, 0));
-    sunrise = { t: 0, t0: performance.now(), from, fromQ, to, toQ: new THREE.Quaternion().setFromRotationMatrix(look), dawn0: dawn };
+    const from = new THREE.Vector3(13.4, 1.75, -4.9), to = new THREE.Vector3(6.0, 1.75, -7.4);
+    sunrise = { t: 0, t0: performance.now(), from, fromQ: lookAtBay(from), to, toQ: lookAtBay(to), dawn0: dawn, cut: false };
+    fade(true);
   };
   const sunriseEnd = () => {
     sunrise = null;
-    // back behind the counter for the next night
-    player.pos.set(15.3, L.floor, 9.45); player.yaw = 0.82; player.pitch = 0.03; player.vel.set(0, 0, 0);
     if (player.seated) player.standUp();
   };
+
+  // ---------------------------------------------------------------- life between nights
+  // You wake upstairs each evening; the shop stays closed until you turn the sign by the front door.
+  // At dawn you go up to bed and sleep through the short winter day. Progress, yen and what you've
+  // bought from the catalog are saved on this device.
+  const save = loadSave();
+  service.owned = [...save.owned];
+  const homeSteam = [];
+  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast,
+    addSeat: (seat) => addSitSpot(seat, 'Sit by the fire', 'warm hands. the kettle ticks. · walk to stand up'),
+    addLamp: (l) => { const r = { ...l, mul: 1, v: new THREE.Vector3(...l.pos) }; lamps.push(r); named[l.name] = r; },
+    addSteam: (src) => { const st = makeSteam([src]); scene.add(st); homeSteam.push(st); } });
+  const applyAll = () => { applyUpgrades(service, service.owned); home.sync(service.owned); };
+  service.onOwned = (list) => { service.owned = [...list]; applyAll(); };
+  applyAll();
+  service.onOpenShop = () => { if (shift.openShop()) { audio.doorBell(); } };
+  const WAKE = { x: 4.6, z: 12.6, yaw: 0.19 };
+  const wakeUp = () => {
+    if (player.seated) player.standUp();
+    const k = coop && net ? Math.max(0, net.players.findIndex((p) => p.id === net.id)) : 0;
+    player.pos.set(WAKE.x + k * 0.7, 3.75, WAKE.z); player.yaw = WAKE.yaw; player.pitch = -0.05; player.vel.set(0, 0, 0);
+    $('intro').classList.remove('gone');
+    $('intro').innerHTML = 'evening. go down and turn the sign by the front door to <b>OPEN</b> · the catalog is on the kotatsu';
+    setTimeout(() => $('intro').classList.add('gone'), 12000);
+  };
+  const beginNight = (n) => {
+    for (let i = 0; i < n - 1; i++) if (UNLOCKS[i]) UNLOCKS[i].apply(service); // perks from the nights before
+    shift.start(n);
+    applyAll();
+    wakeUp();
+  };
+  // after the night's card: sleep, and wake to the next evening
+  const sleepUntil = (n) => {
+    fade(true, 'you sleep through the short winter day…');
+    setTimeout(() => {
+      sunriseEnd();
+      document.body.classList.remove('summary');
+      dawn = 0.3;
+      if (!coop || coop.isHost) beginNight(n); else wakeUp();
+    }, 1600);
+    setTimeout(() => fade(false), 3800);
+  };
+  const catalogData = () => ({
+    yen: save.yen, locked: !!(coop && !coop.isHost),
+    note: coop && !coop.isHost ? 'only the owner of the shop can order from the catalog' : '',
+    items: CATALOG.map((c) => ({ ...c, owned: service.owned.includes(c.id) })),
+  });
+  const openCatalog = () => { catalogOpen = true; unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false); };
+  interactions.add([4.85, 4.28, 4.6, 0.16, 0.06, 0.2], () => 'Read the catalog', openCatalog);
+
+  // the OPEN / CLOSED sign in the veranda window by the door
+  const signOpen = Props.openSign().mesh(litMat, emitMat), signClosed = Props.closedSign().mesh(litMat, emitMat);
+  for (const m of [signOpen, signClosed]) { m.position.set(14.9, 1.55, -3.07); scene.add(m); }
+  interactions.add([14.9, 1.7, -3.05, 0.32, 0.2, 0.14], () => (shift.waiting ? 'Turn the sign to OPEN' : shift.active ? 'Open until dawn' : 'Closed'), () => {
+    if (shift.waiting) { service.request('openShop'); audio.clickSound(); }
+  });
 
   // nights: waves of customers, a clock with sunrise in sight, and a stats card between nights
   const money = (v) => `¥${Math.round(v).toLocaleString('en-US')}`;
@@ -296,22 +361,24 @@ async function boot() {
         <div class="stat glass"><b>${money(r.tips)}</b><span>in tips</span></div></div>
       ${extra ? `<div class="small">${extra}</div>` : ''}
       ${r.unlock ? `<div class="unlock"><div class="ic">✦</div><div><b>new: ${r.unlock.name.toLowerCase()}</b><span>${r.unlock.text}</span></div></div>` : ''}
-      <div class="actions">${canStart ? '<button class="pill-btn" data-act="again">open up again tonight</button>' : '<button class="pill-btn" disabled>waiting for the host…</button>'}
-        <button class="text-btn" data-act="home">${coop && coop.isHost ? 'close the shop' : 'head home to sleep'}</button></div>`;
+      ${!coop || coop.isHost ? `<div class="small">${money(save.yen)} in the cash box · the catalog is on the kotatsu upstairs</div>` : ''}
+      <div class="actions">${canStart ? '<button class="pill-btn" data-act="again">go up to bed</button>' : '<button class="pill-btn" disabled>waiting for the host…</button>'}
+        <button class="text-btn" data-act="home">${coop && coop.isHost ? 'close the shop' : 'back to the title'}</button></div>`;
     const again = $('summary').querySelector('[data-act="again"]');
-    if (again) again.onclick = () => { sunriseEnd(); shift.start(r.n + 1); lock(); };
+    if (again) again.onclick = () => { lock(); sleepUntil(r.n + 1); };
     $('summary').querySelector('[data-act="home"]').onclick = quit;
     document.body.classList.add('summary');
     audio.kaching();
     unlock();
   };
   const shift = new Shift({ service, crowd, audio, toast, ui: { schedule: $('schedule') }, onEnd: (r) => {
+    save.night = r.n + 1; save.yen += r.earned; save.owned = [...service.owned]; writeSave(save);
     if (coop) net.send({ t: 'summary', r: { ...r, unlock: r.unlock && { name: r.unlock.name, text: r.unlock.text } } });
     showSummary(r, true);
   } });
   shift.players = () => (coop && net ? Math.max(1, net.players.length) : 1);
   shift.onStart = (n) => { if (coop && coop.isHost) net.send({ t: 'shiftStart', n }); };
-  if (dev) shift.start(1);
+  if (dev) { shift.start(1); shift.openShop(); }
 
   // ---------------------------------------------------------------- main menu + co-op
   const leaveWith = (why) => { try { sessionStorage.setItem('yoake.notice', why); } catch {} location.reload(); };
@@ -319,11 +386,14 @@ async function boot() {
     if (coop) return;
     coop = new Coop({ net, service, crowd, shift, player, scene, litMat, emitMat, doors, audio, toast,
       onSummary: (r) => showSummary(r, false),
-      onShiftStart: (n) => { if (sunrise) sunriseEnd(); document.body.classList.remove('summary'); if (!player.locked && n > 1) menu.show('ready', { readyNote: `night ${n} · ${shift.range.toLowerCase()}`, readyTitle: 'back to work', readyItem: 'come in' }); },
+      onShiftStart: (n) => {
+        if (sunrise) sunriseEnd();
+        if (document.body.classList.contains('summary')) { document.body.classList.remove('summary'); wakeUp(); fade(false); }
+        if (!player.locked && n > 1) menu.show('ready', { readyNote: `night ${n} · ${shift.range.toLowerCase()}`, readyTitle: 'another night', readyItem: 'get up' });
+      },
       onHostLeft: (why) => leaveWith(why) });
-    // everyone starts behind the counter by the kitchen door, in a row
-    const k = Math.max(0, net.players.findIndex((p) => p.id === net.id));
-    player.pos.z -= k * 0.6;
+    // everyone wakes up upstairs, side by side
+    wakeUp();
     if (!net.isHost) menu.show('ready', { readyNote: `${net.nameOf(net.players.find((p) => p.host)?.id)} opened up`, readyTitle: 'the shop is open', readyItem: 'come in' });
   };
   const sentBegin = new Set();
@@ -365,35 +435,49 @@ async function boot() {
       beginCoop(); enter();
     },
     onCloseUp: quit,
-    onResume: () => enter(),
     onQuit: quit,
     onSettings: applySettings,
+    onResume: () => { catalogOpen = false; enter(); },
+    onBuy: (id) => {
+      const it = itemById(id);
+      if (!it || (coop && !coop.isHost) || service.owned.includes(id) || save.yen < it.price) return;
+      save.yen -= it.price; service.owned.push(id); save.owned = [...service.owned]; writeSave(save);
+      applyAll(); audio.kaching();
+      toast(it.kind === 'shop' ? `${it.name.toLowerCase()}: ready tonight` : `${it.name.toLowerCase()}: delivered upstairs`);
+      menu.show('catalog', { catalog: catalogData() });
+    },
+    onNewGame: () => { clearSave(); location.reload(); },
   };
   // the shop is built: off the loading screen and onto the main menu (or straight to a friend's code from a shared link)
   let notice = null;
   try { notice = sessionStorage.getItem('yoake.notice'); sessionStorage.removeItem('yoake.notice'); } catch {}
   const joinCode = (new URLSearchParams(location.search).get('join') || '').toUpperCase();
   if (joinCode) { history.replaceState(null, '', location.pathname); menu.show('join', { code: joinCode, notice: null }); }
-  else menu.show('main', { notice });
+  else { menu.saveInfo = { night: save.night }; menu.show('main', { notice }); }
   for (const seat of batch.seats) {
     interactions.add([seat.x, seat.y - 0.1, seat.z, 0.24, 0.3, 0.24], () => 'Sit down', () => {
       player.sitOn(seat); audio.clickSound(); toast('take a load off · walk to stand up');
     }, () => !seat.occupant && !player.seated);
   }
-  // home: the cushions round the kotatsu are yours alone (guests never come upstairs)
-  for (const seat of batch.homeSeats) {
-    interactions.add([seat.x, seat.y - 0.15, seat.z, 0.3, 0.15, 0.3], () => 'Sit at the kotatsu', () => {
-      player.sitOn(seat); audio.clickSound(); toast('toes under the quilt. warm. · walk to stand up');
+  // home: the cushions round the kotatsu (and the hearth, once you have one) are yours alone
+  function addSitSpot(seat, label, note) {
+    interactions.add([seat.x, seat.y - 0.15, seat.z, 0.3, 0.15, 0.3], () => label, () => {
+      player.sitOn(seat); audio.clickSound(); toast(note);
     }, () => !seat.occupant && !player.seated);
   }
+  for (const seat of batch.homeSeats) addSitSpot(seat, 'Sit at the kotatsu', 'toes under the quilt. warm. · walk to stand up');
   interactions.add([3.0, 3.95, 13.0, 0.5, 0.2, 1.0], () => 'Lie down for a minute', () => {
-    audio.purr(); toast(shift.active ? 'just a minute… then back down to the shop.' : 'the futon is still warm.');
+    audio.purr(); toast(shift.waiting ? "you're wide awake. the shop is waiting." : shift.active ? 'just a minute… then back down to the shop.' : 'the futon is still warm.');
   });
   interactions.add([12.25, 4.8, 15.1, 0.2, 0.15, 0.22], () => 'Put the kettle on', () => { audio.pour(); toast('a cup of hojicha, just for you.'); });
   interactions.add([1.2, 4.2, 11.0, 0.22, 0.45, 0.22], () => 'Andon lamp', () => { const l = named.aptBed; l.mul = l.mul > 0.5 ? 0.15 : 1; audio.clickSound(); });
 
+  // the telescope at the front window: a long look at Fuji until you move
+  let zoom = false;
+  home.onTelescope = () => { zoom = true; toast('Fuji, close enough to touch · walk to step back'); };
+
   // ---------------------------------------------------------------- loop
-  let indoor = 1, last = performance.now(), time = 0, dawn = 0;
+  let indoor = 1, last = performance.now(), time = 0, dawn = 0, purseT = 0;
   const radioPos = new THREE.Vector3(6.2, 1.2, 9.75); // the radio on the back bar
   const sunV = new THREE.Vector3(), haze = new THREE.Color(), wind = new THREE.Vector2();
   const mats = backdrop.userData.mats;
@@ -459,16 +543,32 @@ async function boot() {
     // dawn: the clock brings the sky up to the edge of sunrise; the sunrise itself plays out at the end of the night
     if (sunrise) {
       sunrise.t = (now - sunrise.t0) / 1000; // wall-clock, so a slow frame never stalls the sunrise
-      const k = THREE.MathUtils.smootherstep(sunrise.t, 0, 5.5);
-      camera.position.lerpVectors(sunrise.from, sunrise.to, k);
-      camera.position.y += Math.sin(Math.min(1, sunrise.t / 5.5) * Math.PI) * 0.8;
-      camera.quaternion.slerpQuaternions(sunrise.fromQ, sunrise.toQ, k);
-      camera.position.x += Math.sin(time * 0.15) * 0.15 * k;
-      dawn = THREE.MathUtils.lerp(sunrise.dawn0, 1, THREE.MathUtils.smoothstep(sunrise.t, 0.5, 14));
+      if (!sunrise.cut && sunrise.t > 1.0) { sunrise.cut = true; fade(false); }  // behind the fade: cut outside
+      if (sunrise.cut) {
+        const u = sunrise.t - 1.0, k = THREE.MathUtils.smootherstep(u, 0, 7);
+        camera.position.lerpVectors(sunrise.from, sunrise.to, k);
+        camera.position.y += Math.sin(Math.min(1, u / 7) * Math.PI) * 0.6;
+        camera.quaternion.slerpQuaternions(sunrise.fromQ, sunrise.toQ, k);
+        camera.position.x += Math.sin(time * 0.15) * 0.15 * k;
+      }
+      dawn = THREE.MathUtils.lerp(sunrise.dawn0, 1, THREE.MathUtils.smoothstep(sunrise.t, 1.0, 14));
     } else {
       dawn += ((shift.active || shift.closing ? shift.dawn : 0) - dawn) * Math.min(1, dt * 0.5);
     }
     setDawn(dawn);
+
+    // the sign, the cash box, the telescope
+    signOpen.visible = shift.active && !shift.waiting; signClosed.visible = !signOpen.visible;
+    if ((purseT -= dt) < 0) {
+      purseT = 0.5;
+      const tonight = shift.snap && (shift.active || shift.closing) ? service.money - shift.snap.money : 0;
+      const txt = `¥${Math.round(save.yen + tonight).toLocaleString('en-US')}`;
+      if ($('purse').textContent !== txt) $('purse').textContent = txt;
+    }
+    if (zoom && (player.keys.KeyW || player.keys.KeyA || player.keys.KeyS || player.keys.KeyD || Math.hypot(player.stick.x, player.stick.y) > 0.4 || !player.locked)) zoom = false;
+    const fov = zoom ? 14 : 68;
+    if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); }
+    player.sensMul = zoom ? 0.2 : 1;
 
     // gusts of wind carry the snow sideways now and then
     const gust = Math.max(0, Math.sin(time * 0.13) * Math.sin(time * 0.31 + 1.3));
@@ -489,17 +589,18 @@ async function boot() {
     glassMat.uniforms.time.value = time;
     sky.material.uniforms.time.value = time;
     mats[mats.length - 1].uniforms.time.value = time; // the sea
+    for (const st of homeSteam) { st.material.uniforms.time.value = time; st.material.uniforms.scale.value = innerHeight * renderer.getPixelRatio(); }
     grade.uniforms.time.value = time;
 
     audio.update(dt, {
-      indoor, listener: camera.position, musicDist: camera.position.distanceTo(radioPos), sizzleDist: Math.hypot(p.x - 10.15, p.z - 15.2), gust, dawn,
+      indoor, listener: camera.position, musicDist: Math.min(camera.position.distanceTo(radioPos), home.recordOn ? camera.position.distanceTo(home.recordPos) : Infinity), sizzleDist: Math.hypot(p.x - 10.15, p.z - 15.2), gust, dawn,
     });
 
     if (innerWidth && innerHeight) composer.render(dt);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
-  window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu,
+  window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home,
     get coop() { return coop; }, get net() { return net; }, get dawn() { return dawn; }, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
 }
 

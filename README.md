@@ -22,6 +22,9 @@ On a phone: left thumb walks, drag on the right to look, tap to use.
 
 ## How a night goes
 
+You wake upstairs in the evening. The shop stays closed until you go down and turn the sign by the front
+door to **OPEN**, so take your time: sit at the kotatsu, read the catalog, look out at the bay.
+
 Guests with a **!** want to order: click them. Then make what they asked for:
 
 | Dish | How |
@@ -30,18 +33,38 @@ Guests with a **!** want to order: click them. Then make what they asked for:
 | Salmon nigiri | take a clean plate, use the sushi case on the back counter by the pass |
 | Yakitori | lay skewers on a charcoal grill in the kitchen, plate them when they're ready (don't let them burn) |
 | Gyoza | fry a batch on the teppan in the kitchen, plate them when they're ready |
+| Onigiri *(catalog)* | take a clean plate, press them at the rice cookers on the back counter |
+| Tempura *(catalog)* | drop a batch in the fryers in the kitchen, plate it when it's ready |
+| Miso ramen *(catalog)* | start a bowl on the stove in the kitchen; it takes a while |
 
 Serve it by hand, or set it on the **sushi belt**: it starts on the plating station in the kitchen, slips
 through a hatch and runs down the middle of the counter, and guests on the stools lift off whatever they ordered
-as it passes. Anything nobody takes goes back round; you can take it off again.
+as it passes. Anything nobody takes goes back round; you can take it off again. The orders panel counts
+dishes already on the belt, so it only asks for what still needs making.
 
 When guests are done they line up at the register (**¥**). Carry dirty dishes to the sink in the kitchen, stay
 there while they wash, then take the clean ones from the rack back to the shelf. You can set anything down on
 a counter. Each night you finish unlocks a perk.
 
-You live upstairs. Go out the front door and round the east side of the shop, up the wooden stair: there's a
-tatami room with a kotatsu (sit and warm your feet), a window over the bay, a futon behind the fusuma, and a
+At 6 AM the last guests leave and the sun comes up over Fuji. Then go up to bed: you sleep through the short
+winter day and wake for the next night. Your night, your yen, your perks and everything you've bought are
+saved in this browser ("start a new game" in settings wipes it).
+
+## Between nights
+
+You live upstairs: out the front door, round the east side of the shop and up the wooden stair. There's a
+tatami room with a kotatsu (sit and warm your feet), windows over the bay, a futon behind the fusuma and a
 kettle on the hob.
+
+The **catalog** on the kotatsu sells, for the yen in your cash box:
+
+- **for the shop:** onigiri, tempura and miso ramen for the menu; a stronger belt motor; binchotan charcoal
+  (faster yakitori and gyoza); more cups and plates; kerosene heaters (guests wait longer).
+- **for home:** paper lanterns, houseplants, a bonsai, a big woodblock print, a cat bed (a black cat moves
+  in), a goldfish tank, a record player, a brass telescope at the front window (look at Fuji up close), and an
+  irori hearth to sit by.
+
+The vending machine outside takes ¥130 from the cash box for a hot drink.
 
 ## Layout
 
@@ -57,11 +80,22 @@ kettle on the hob.
 | `src/npc.js` | Guests: voxel people, walk/sit animation, nav grid + A*, the crowd |
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen to the counter, the plates riding it |
+| `src/home.js` | The save file, the catalog, what each upgrade does, and the things you can buy for the apartment |
 | `src/shift.js` | The clock (10 PM → 6 AM), rushes, the dawn, the stats card, perks |
 | `src/main.js` | Boot, the lamp pool (the nearest lamps get real lights), the sunrise at the end of the night, the loop |
 | `src/menu.js`, `src/coop.js`, `src/net.js`, `src/touch.js` | Menus, online co-op (up to 4), touch controls |
 | `server/` | The co-op relay (a Cloudflare Durable Object) and the Pages worker; see `deploy.sh` |
 | `docs/BLUEPRINT.md` | The original design blueprint |
+
+## Testing and hosting
+
+`npm install && npm run playtest` runs a bot through the whole loop in a headless browser: wake upstairs, buy
+from the catalog, open, work a full night (every dish, the belt, washing up), sleep, wake for night 2, reload
+and check the save. Set `CHROME_PATH` if Playwright can't find a Chromium.
+
+`.github/workflows/pages.yml` publishes the game to GitHub Pages on every push and runs the playtest. Turn it
+on once in the repository's Settings → Pages → Source: **GitHub Actions**; the site is then at
+`https://<your-user>.github.io/<repo>/`. That link is for solo play.
 
 Add `#dev` to the URL to skip the title overlay. `window.__yoake` exposes the scene, camera, player and the
 night for debugging.

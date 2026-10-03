@@ -29,6 +29,7 @@ export class Belt {
     }
     this.length = s;
     this.offset = 0;
+    this.speed = BELT_SPEED; // the catalog's stronger motor raises this
     this.root = new THREE.Group(); scene.add(this.root);
     // the belt: a dark channel with bright steel guards, and slats that crawl along it
     const chMat = new THREE.MeshLambertMaterial({ color: 0x2a2c30 }), guardMat = new THREE.MeshLambertMaterial({ color: 0xb8bec6 });
@@ -94,7 +95,7 @@ export class Belt {
   }
 
   update(dt) {
-    const ds = BELT_SPEED * dt;
+    const ds = this.speed * dt;
     this.offset = (this.offset + ds) % 0.09;
     for (const p of this.plates) { p.s = (p.s + ds) % this.length; this.place(p); }
     let i = 0;

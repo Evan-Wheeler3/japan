@@ -289,7 +289,8 @@ function glowSign(lines, scale, border) {
   return m;
 }
 const warmInk = C('#ffd9a0', 3.5, 0.03), redInk = C('#ff6a40', 3.5, 0.03), hinokiEdge = C('#d8b07c', 0.4, 0.04);
-const openSign = memo(() => glowSign([{ text: 'OPEN', color: warmInk }], 1 / 32, hinokiEdge));
+export const openSign = memo(() => glowSign([{ text: 'OPEN', color: warmInk }], 1 / 32, hinokiEdge));
+export const closedSign = memo(() => glowSign([{ text: 'CLOSED', color: C('#b8a890', 0.25, 0.03) }], 1 / 32, C('#5a3a20', 0, 0.04)));
 const sakeSign = memo(() => glowSign([{ text: 'SAKE', color: redInk }], 1 / 32, 0));
 
 // warm string lights along the veranda glass, ending in tiny lanterns
@@ -487,7 +488,7 @@ const darumaRow = memo(() => {
   return m;
 });
 // a basket of mikan oranges on the counter
-const mikan = memo(() => {
+export const mikan = memo(() => {
   const m = new Model(10, 8, 10, 1 / 32);
   m.cyl(5, 5, 4.6, 0, 3, (x, y) => ((x + y) & 1 ? C('#8a6a3a', 0, 0.06) : C('#6a4a2a', 0, 0.06)));
   const o = [C('#f08a20', 0, 0.06), C('#e87a18', 0, 0.06)];
@@ -513,7 +514,7 @@ const radio = memo(() => {
   return m;
 });
 // a little kotatsu-style space heater for the veranda (kerosene, glowing grille)
-const heater = memo(() => {
+export const heater = memo(() => {
   const m = new Model(8, 10, 6, 1 / 16);
   m.box(0, 0, 0, 8, 10, 6, C('#d8d0c0', 0, 0.03)); m.box(1, 2, 0, 7, 8, 1, (x, y) => (y & 1 ? C('#ff7a30', 2.2, 0.06) : K.black));
   m.box(0, 9, 0, 8, 10, 6, C('#a8a090', 0, 0.03)); m.set(6, 9, 1, C('#40ff60', 2, 0.02));
@@ -689,6 +690,12 @@ const sacks = memo(() => {
 
 
 // ---------------------------------------------------------------- the apartment upstairs
+// the mail-order catalog lying on the kotatsu
+const catalogBook = memo(() => {
+  const m = new Model(8, 2, 10, 1 / 32);
+  m.box(0, 0, 0, 8, 2, 10, (x, y) => (y === 1 ? (x < 4 ? C('#c83a2a', 0, 0.04) : C('#f0e8d8', 0, 0.03)) : C('#e8e0d0', 0, 0.03)));
+  return m;
+});
 // kotatsu: a low table over a heater, wrapped in a quilt (glows faintly where the quilt meets the floor)
 export const kotatsu = memo(() => {
   const m = new Model(18, 8, 18, 1 / 16);
@@ -798,7 +805,6 @@ export function placeProps(batch) {
   for (const x of [1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 15.0]) batch.add(topString(), x, 2.6, -3.09, 0, false);
   batch.add(acUnit(), 4.6, 2.62, -0.12, 0, false); batch.add(acUnit(), 10.9, 2.62, -0.12, 0, false);
   batch.add(cat(), 12.3, 1.0, -3.0, 0, false);
-  batch.add(openSign(), 14.9, 1.55, -3.07, 0, false);
   batch.add(umbrellaStand(), 14.45, F, -0.5);
   batch.add(heater(), 15.4, F, -0.5);
 
@@ -841,7 +847,7 @@ export function placeProps(batch) {
   // back bar: tea urns, rice cookers, tins, the shelf of cups, menu boards, sake on the fridge
   const BT = 1.0;
   batch.add(urn(), 7.3, BT, 9.65, 0, false, 'urns'); batch.add(urn(), 7.9, BT, 9.65, 0, false, 'urns');
-  batch.add(riceCooker(), 8.8, BT, 9.7, 0, false); batch.add(riceCooker(), 9.3, BT, 9.7, 0, false);
+  batch.add(riceCooker(), 8.8, BT, 9.7, 0, false, 'rice'); batch.add(riceCooker(), 9.3, BT, 9.7, 0, false, 'rice');
   batch.add(teaTins(), 5.5, BT, 9.75, 0, false);
   batch.add(sushiCase(), 11.9, BT, 9.62, 0, false, 'sushi');
   batch.add(plates(), 10.2, BT, 9.7, 0, false, 'platesA'); batch.add(plates(), 10.5, BT, 9.7, 0, false, 'platesA'); batch.add(plates(), 13.0, BT, 9.7, 0, false, 'platesB');
@@ -878,10 +884,10 @@ export function placeProps(batch) {
 
   // kitchen: the cook line along the back wall under the hood
   const KL = 15.31;
-  batch.add(fryer(), 6.45, F, KL, 0); batch.add(fryer(), 7.1, F, KL, 0);
+  batch.add(fryer(), 6.45, F, KL, 0, true, 'fry'); batch.add(fryer(), 7.1, F, KL, 0, true, 'fry');
   batch.add(gyozaTeppan(), 8.1, F, KL, 0, true, 'grill8.1');
   batch.add(yakitoriGrill(), 9.65, F, KL, 0, true, 'grill9.65'); batch.add(yakitoriGrill(), 10.65, F, KL, 0, true, 'grill10.65');
-  batch.add(range(), 12.0, F, KL, 0); batch.add(range(), 13.6, F, KL, 0);
+  batch.add(range(), 12.0, F, KL, 0, true, 'ramen'); batch.add(range(), 13.6, F, KL, 0);
   batch.add(hangingPans(), 10.4, 2.24, 14.2, 0, false);
   batch.add(prepStuff(), 9.5, 0.875, 12.4, 0, false);
   batch.add(sacks(), 9.5, 0.5, 12.4, 0, false);
@@ -920,7 +926,8 @@ export function placeProps(batch) {
     batch.add(zabuton(), x, F2, z, 0, false);
     home.push({ x, z, y: F2 + 0.3, yaw: rot * Math.PI / 2 + Math.PI, kind: 'cushion', app: [x + (x - 4.5) * 0.9, z + (z - 4.5) * 0.9], floorY: F2 });
   }
-  batch.add(mikan(), 4.5, F2 + 0.5, 4.5, 0, false);
+  batch.add(mikan(), 4.3, F2 + 0.5, 4.5, 0, false);
+  batch.add(catalogBook(), 4.85, F2 + 0.5, 4.6, 0, false); // the mail-order catalog
   batch.add(bookshelf(), 0.65, F2, 7.0, 3);
   batch.add(radio(), 0.6, F2 + 1.0, 7.0, 3, false);
   batch.add(pothos(), 8.6, F2, 1.0, 0, false);

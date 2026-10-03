@@ -89,7 +89,7 @@ export class Menu {
       html = `<div class="col">
         <div><div class="neon amber title">YOAKE</div><div class="hand tagline">夜明け · open until dawn · it's snowing</div></div>
         ${this.notice ? `<div class="err">${esc(this.notice)}</div>` : ''}
-        <div style="margin-top:auto">${items([['solo', 'come in from the snow', true, true], ['host', 'open with friends'], ['join', 'join a friend'], ['settings', 'settings']])}</div>
+        <div style="margin-top:auto">${items([['solo', this.saveInfo && this.saveInfo.night > 1 ? `carry on · night ${this.saveInfo.night}` : 'come in from the snow', true, true], ['host', 'open with friends'], ['join', 'join a friend'], ['settings', 'settings']])}</div>
         <div class="tip">${this.touch ? (innerHeight > innerWidth ? 'tip · turn your phone sideways for the best view' : 'tip · push the stick all the way to hurry') : 'tip · press <kbd>M</kbd> anytime for the radio'}</div>
       </div>
       <button class="me-card glass" data-act="custom"><div class="pv"></div><div>
@@ -100,7 +100,8 @@ export class Menu {
       html = `<div class="col">
         <div><div class="hand tagline">make yourself at home</div><div style="font:500 44px Fredoka">settings</div></div>
         <div class="sliders glass">${slider('radio', 'radio')}${slider('wind', 'wind & sea')}${slider('look', 'mouse look')}</div>
-        <div class="actions"><button class="pill-btn" data-act="back">done</button></div></div>`;
+        <div class="actions"><button class="pill-btn" data-act="back">done</button>
+          <button class="text-btn" data-act="newGame">${this.confirmNew ? 'click again to erase your progress' : 'start a new game'}</button></div></div>`;
     } else if (s === 'custom') {
       const sw = (k, list) => list.map((c) => `<button class="sw${L[k] === c ? ' on' : ''}" style="background:${c}" data-k="${k}" data-v='${JSON.stringify(c)}' aria-label="${c}"></button>`).join('');
       const chip = (k, v, label, on = L[k] === v) => `<button class="chip${on ? ' on' : ''}" data-k="${k}" data-v='${JSON.stringify(v)}'>${label}</button>`;
@@ -152,6 +153,18 @@ export class Menu {
         ${sub === 'sound' ? `<div class="sliders glass">${slider('radio', 'radio')}${slider('wind', 'wind & sea')}</div>` : ''}
         ${sub === 'settings' ? `<div class="sliders glass">${slider('look', 'mouse look')}</div>` : ''}
       </div>${keys}`;
+    } else if (s === 'catalog') {
+      const c = this.catalog || { yen: 0, items: [] };
+      const row = (it) => `<div class="buy"><div class="what"><b>${esc(it.name)}</b><span>${esc(it.text)}</span></div>
+        <button class="chip${it.owned ? ' on' : ''}" data-act="buy:${it.id}" ${it.owned || it.price > c.yen || c.locked ? 'disabled' : ''}>${it.owned ? 'yours' : `¥${it.price.toLocaleString('en-US')}`}</button></div>`;
+      html = `<div class="col"><div><div class="hand tagline">mail order · delivered by morning</div><div style="font:500 44px Fredoka">the catalog</div></div>
+        <div class="purse-big">¥${Math.round(c.yen).toLocaleString('en-US')}<span>in the cash box</span></div>
+        ${c.note ? `<div class="err">${esc(c.note)}</div>` : ''}
+        ${items([['resume', 'put it down', true]])}</div>
+        <div class="look glass catalog"><div class="scroll">
+          <section><div class="lbl">for the shop</div>${c.items.filter((i) => i.kind === 'shop').map(row).join('')}</section>
+          <section><div class="lbl">for home</div>${c.items.filter((i) => i.kind === 'home').map(row).join('')}</section>
+        </div></div>`;
     } else if (s === 'ready') {
       html = `<div class="col"><div><div class="hand tagline">${esc(this.readyNote || 'the shop is open')}</div><div style="font:500 44px Fredoka">${esc(this.readyTitle || 'clock in')}</div></div>
         ${items([['enter', this.readyItem || 'come on in', true, true]])}</div>${keys}`;
@@ -189,7 +202,7 @@ export class Menu {
     else if (a === 'settings' && this.screen === 'pause') this.show('pause', { pausePanel: this.pausePanel === 'settings' ? null : 'settings' });
     else if (a === 'settings') go('settings');
     else if (a === 'custom') go('custom');
-    else if (a === 'back') go('main');
+    else if (a === 'back') go('main', { confirmNew: false });
     else if (a === 'turnL') this.turn--;
     else if (a === 'turnR') this.turn++;
     else if (a === 'surprise') { this.profile.look = { ...randomLook(rand()), hat: Math.random() < 0.3 ? Math.floor(Math.random() * 2) : -1 }; this.save(); this.rebuildPreview(); this.render(); }
@@ -206,5 +219,7 @@ export class Menu {
       clearTimeout(this._copyT); this._copyT = setTimeout(() => { if (this.screen === 'lobby') this.show('lobby', { copied: null }); }, 1600);
     } else if (a === 'resume' || a === 'enter') this.h.onResume();
     else if (a === 'quit') this.h.onQuit();
+    else if (a.startsWith('buy:')) this.h.onBuy(a.slice(4));
+    else if (a === 'newGame') { if (this.confirmNew) this.h.onNewGame(); else this.show('settings', { confirmNew: true }); }
   }
 }

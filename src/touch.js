@@ -55,7 +55,7 @@ export class TouchControls {
         this.player.stick.x = dx / STICK_R; this.player.stick.y = dy / STICK_R;
         this.knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
       } else if (t.identifier === this.lookId) {
-        const k = this.player.sens * 2.5, p = this.player;
+        const k = this.player.sens * (this.player.sensMul ?? 1) * 2.5, p = this.player;
         p.yaw -= (t.clientX - this.lx) * k;
         p.pitch = Math.max(-1.35, Math.min(1.35, p.pitch - (t.clientY - this.ly) * k));
         this.lx = t.clientX; this.ly = t.clientY;

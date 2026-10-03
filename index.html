@@ -127,6 +127,25 @@
       padding: 12px 20px; border-radius: 999px; font: 500 15px Fredoka, sans-serif; color: var(--ink); max-width: calc(100vw - 32px); box-sizing: border-box; }
     .keys > span { display: flex; align-items: center; gap: 6px; }
 
+    /* catalog: things to buy between nights */
+    .purse-big { font: 500 40px Fredoka, sans-serif; color: var(--glow); display: flex; align-items: baseline; gap: 10px; }
+    .purse-big span { font: 700 15px Nunito, sans-serif; color: var(--muted); }
+    .look.catalog { width: min(560px, calc(100vw - 32px)); }
+    .buy { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid rgba(255,220,170,.1); }
+    .buy .what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .buy .what b { font: 500 19px Fredoka, sans-serif; color: var(--cream); }
+    .buy .what span { font: 600 14px Nunito, sans-serif; color: var(--muted); }
+    .buy .chip { flex-shrink: 0; min-width: 84px; font-variant-numeric: tabular-nums; }
+    .buy .chip[disabled] { opacity: .5; cursor: default; }
+    .buy .chip.on[disabled] { opacity: 1; }
+
+    /* ---------------------------------------------------------------- the fade between scenes (sunrise, sleep) */
+    #fade { position: fixed; inset: 0; background: #05060a; opacity: 0; pointer-events: none; transition: opacity .9s ease; z-index: 50;
+      display: flex; align-items: center; justify-content: center; }
+    #fade.on { opacity: 1; }
+    #fade .cap { font: 600 30px Caveat, cursive; color: var(--label); opacity: 0; transition: opacity 1.2s ease .3s; }
+    #fade.on .cap.show { opacity: 1; }
+
     /* ---------------------------------------------------------------- closed for the night */
     #summary { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: flex-end; gap: 20px; color: var(--cream);
       font-family: Fredoka, sans-serif; background: linear-gradient(180deg, rgba(10,5,2,0) 20%, rgba(10,5,2,.6) 100%); padding: 16px 16px 6vh; box-sizing: border-box; text-shadow: 0 2px 12px rgba(20,8,4,.55); }
@@ -157,7 +176,8 @@
 
     /* ---------------------------------------------------------------- in the shop */
     .hud { position: fixed; opacity: 0; transition: opacity .6s ease; pointer-events: none; color: var(--cream); font-family: Fredoka, sans-serif; }
-    body.playing #orders, body.playing #schedule, body.playing #intro { opacity: 1; }
+    body.playing #orders, body.playing #schedule, body.playing #intro, body.playing #purse { opacity: 1; }
+    #purse { right: 28px; top: 132px; padding: 6px 16px; border-radius: 999px; font: 500 18px Fredoka, sans-serif; color: var(--glow); font-variant-numeric: tabular-nums; }
     #orders { left: 28px; top: 28px; width: 176px; box-sizing: border-box; padding: 14px 14px 12px; border-radius: 24px; display: flex; flex-direction: column; gap: 6px; }
     #orders:empty { display: none; }
     #orders .ttl { font-size: 22px; color: var(--label); line-height: 1; padding-left: 2px; }
@@ -165,6 +185,8 @@
     #orders .tile { width: 44px; height: 44px; border-radius: 14px; background: rgba(255,236,210,.10); display: flex; align-items: center; justify-content: center; }
     #orders .tile img { width: 34px; height: 34px; image-rendering: pixelated; }
     #orders .n { font: 500 21px Fredoka, sans-serif; }
+    #orders .line.done { opacity: .55; }
+    #orders .belt { font: 700 13px Nunito, sans-serif; color: var(--amber); white-space: nowrap; }
     #orders .rule { height: 1px; background: rgba(255,220,170,.16); margin: 4px 2px; }
     #orders .tags { display: flex; gap: 8px; }
     #orders .tag { border-radius: 999px; padding: 3px 12px; font: 600 16px Fredoka, sans-serif; }
@@ -230,6 +252,7 @@
       #schedule .time b { font-size: 21px; }
       #schedule .bar { width: 140px; }
       #schedule .status { font-size: 18px; }
+      #purse { right: max(12px, env(safe-area-inset-right)); top: 96px; font-size: 15px; }
       #pop { right: 20px; top: 110px; font-size: 24px; }
       #toast { top: auto; bottom: 76px; font-size: 14px; max-width: calc(100vw - 40px); }
       #hint { font-size: 15px; }
@@ -271,6 +294,8 @@
   <div id="intro" class="hud glass">look at things and click to use them · guests with a <b>!</b> want to order</div>
   <div id="overlay"><div class="shade"></div><div id="screen"></div></div>
   <div id="summary"></div>
+  <div id="purse" class="hud glass"></div>
+  <div id="fade"><div class="cap"></div></div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

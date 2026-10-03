@@ -30,11 +30,11 @@ export class Shift {
     crowd.auto = false;
   }
   snapshot() {
-    return { n: this.n, t: Math.round(this.t * 10) / 10, active: this.active, closing: this.closing, p: this.pending.length, w: this.waveIdx,
+    return { n: this.n, t: Math.round(this.t * 10) / 10, active: this.active, closing: this.closing, waiting: this.waiting, p: this.pending.length, w: this.waveIdx,
       waves: this.waves.map((w) => [w.at, w.size, w.name]) };
   }
   applySnapshot(d) {
-    this.n = d.n; this.t = d.t; this.active = d.active; this.closing = d.closing; this.waveIdx = d.w;
+    this.n = d.n; this.t = d.t; this.active = d.active; this.closing = d.closing; this.waiting = d.waiting; this.waveIdx = d.w;
     this.pending = new Array(d.p).fill(0);
     this.waves = d.waves.map(([at, size, name]) => ({ at, size, name }));
     this.draw();
@@ -45,9 +45,11 @@ export class Shift {
   // how far toward sunrise the sky is: stays night until the small hours, then lightens toward 6 AM
   get dawn() { return Math.min(0.9, Math.max(0, (this.t - (HOURS - 3) * 60) / (3 * 60)) ** 1.4 * 0.9); }
 
+  // A night begins with the shop closed: nothing happens (and the clock waits at 10 PM) until someone
+  // turns the sign by the front door to OPEN.
   start(n) {
-    this.n = n; this.t = 0; this.active = true; this.closing = false;
-    if (n > 1) this.service.resetForShift();
+    this.n = n; this.t = 0; this.active = true; this.closing = false; this.waiting = true;
+    this.service.resetForShift();
     const s = this.service;
     this.snap = { money: s.money, tips: s.tips, served: s.served, walkouts: s.walkouts, washed: s.washed, burnt: s.burnt };
     // waves get more frequent and bigger each shift
@@ -58,9 +60,16 @@ export class Shift {
       name: WAVE_NAMES[(i + n - 1) % WAVE_NAMES.length],
     }));
     this.pending = []; this.waveIdx = 0;
-    this.service.sayAll(`Night ${n} · ${this.range}`);
     this.draw(true);
     if (this.onStart) this.onStart(n);
+  }
+  openShop() {
+    if (!this.active || !this.waiting) return false;
+    this.waiting = false;
+    this.service.sayAll(`Night ${this.n} · open until dawn`);
+    this.service.sfxAll('doorBell');
+    this.draw(true);
+    return true;
   }
 
   activeCustomers() {
@@ -68,8 +77,9 @@ export class Shift {
   }
 
   update(dt) {
-    if (this.puppet) { this.t += this.active && !this.closing ? dt * 60 / SEC_PER_HOUR : 0; this.draw(); return; }
+    if (this.puppet) { this.t += this.active && !this.closing && !this.waiting ? dt * 60 / SEC_PER_HOUR : 0; this.draw(); return; }
     if (!this.active) return;
+    if (this.waiting) { this.draw(); return; }
     this.t += dt * 60 / SEC_PER_HOUR;
     const w = this.waves[this.waveIdx];
     if (w && this.t >= w.at) {
@@ -97,7 +107,8 @@ export class Shift {
     this.redraw = 10;
     const next = this.waves[this.waveIdx];
     let status, calm = true;
-    if (this.closing) status = `closing · ${this.activeCustomers()} still here`;
+    if (this.waiting) status = 'closed · turn the sign by the door to open';
+    else if (this.closing) status = `closing · ${this.activeCustomers()} still here`;
     else if (this.pending.length) { status = `rush on · ${this.pending.length} more coming`; calm = false; }
     else if (this.t >= LAST_CALL) status = 'last orders · no more walk-ins';
     else if (next) status = `next rush ~${clockText(next.at).toLowerCase()}`;
