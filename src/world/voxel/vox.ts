@@ -248,17 +248,19 @@ function sample(grid: DenseGrid, p: number[], u: number, du: number, v: number, 
 export const solidMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.92, metalness: 0 });
 
 /**
- * Point lights cast no shadows, so lights inside the restaurant would shine through the roof and walls.
- * Voxel surfaces outside the interior box ignore lights flagged as interior (flags follow scene order).
+ * Point lights cast no shadows, so a lantern in one room would light the next room, the floor
+ * above and the roof. Each indoor light only lights voxel surfaces inside its own room box;
+ * outdoor lights under the eaves don't reach above the eave line. Flags follow scene order.
  */
+const MAX_ROOMS = 3;
 export const lightMask = {
-  pointInterior: { value: new Array<number>(16).fill(0) },
+  pointRoom: { value: new Array<number>(16).fill(-1) },
   pointCeiling: { value: new Array<number>(16).fill(1e5) },
-  interiorMin: { value: new THREE.Vector3() },
-  interiorMax: { value: new THREE.Vector3() },
+  roomMin: { value: Array.from({ length: MAX_ROOMS }, () => new THREE.Vector3(1e5, 1e5, 1e5)) },
+  roomMax: { value: Array.from({ length: MAX_ROOMS }, () => new THREE.Vector3(-1e5, -1e5, -1e5)) },
 };
 
-function applyInteriorLightMask(m: THREE.Material): void {
+function applyRoomLightMask(m: THREE.Material): void {
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, lightMask);
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWorldPosI;').replace(
@@ -275,13 +277,20 @@ function applyInteriorLightMask(m: THREE.Material): void {
         '#include <common>',
         `#include <common>
       varying vec3 vWorldPosI;
-      uniform float pointInterior[ 16 ];
+      uniform float pointRoom[ 16 ];
       uniform float pointCeiling[ 16 ];
-      uniform vec3 interiorMin;
-      uniform vec3 interiorMax;
+      uniform vec3 roomMin[ ${MAX_ROOMS} ];
+      uniform vec3 roomMax[ ${MAX_ROOMS} ];
       float pointMask( const in int i ) {
-        bool inside = all( greaterThanEqual( vWorldPosI, interiorMin ) ) && all( lessThanEqual( vWorldPosI, interiorMax ) );
-        return ( ( pointInterior[ i ] > 0.5 && !inside ) || vWorldPosI.y > pointCeiling[ i ] ) ? 0.0 : 1.0;
+        if ( vWorldPosI.y > pointCeiling[ i ] ) return 0.0;
+        float r = pointRoom[ i ];
+        if ( r < -0.5 ) return 1.0;
+        for ( int k = 0; k < ${MAX_ROOMS}; k ++ ) {
+          if ( abs( float( k ) - r ) < 0.5 ) {
+            return ( all( greaterThanEqual( vWorldPosI, roomMin[ k ] ) ) && all( lessThanEqual( vWorldPosI, roomMax[ k ] ) ) ) ? 1.0 : 0.0;
+          }
+        }
+        return 1.0;
       }`,
       )
       .replace(
@@ -292,35 +301,39 @@ function applyInteriorLightMask(m: THREE.Material): void {
         ),
       );
   };
-  m.customProgramCacheKey = () => 'voxel-interior-mask';
+  m.customProgramCacheKey = () => 'voxel-room-mask';
 }
 
-applyInteriorLightMask(solidMaterial);
+applyRoomLightMask(solidMaterial);
+
+export const glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
 
 /**
- * Flags each point light (in scene traversal order, matching the renderer) as inside the box or not.
- * Outdoor lights below `eave` don't reach surfaces above it (the roof).
+ * Assigns each point light (in scene traversal order, matching the renderer) to the room box
+ * containing it. Outdoor lights below `eave` don't reach surfaces above it.
  */
-export function updateLightMask(scene: THREE.Object3D, interior: THREE.Box3, eave: number): void {
-  lightMask.interiorMin.value.copy(interior.min);
-  lightMask.interiorMax.value.copy(interior.max);
-  const flags = lightMask.pointInterior.value;
+export function updateLightMask(scene: THREE.Object3D, rooms: THREE.Box3[], eave: number): void {
+  rooms.slice(0, MAX_ROOMS).forEach((b, k) => {
+    lightMask.roomMin.value[k].copy(b.min);
+    lightMask.roomMax.value[k].copy(b.max);
+  });
+  const roomOf = lightMask.pointRoom.value;
   const ceilings = lightMask.pointCeiling.value;
-  flags.fill(0);
+  roomOf.fill(-1);
   ceilings.fill(1e5);
   let i = 0;
   const p = new THREE.Vector3();
   scene.traverseVisible((o) => {
     if (!(o instanceof THREE.PointLight)) return;
-    if (i < flags.length) {
-      const inside = interior.containsPoint(o.getWorldPosition(p));
-      flags[i] = inside ? 1 : 0;
-      if (!inside && p.y < eave) ceilings[i] = eave;
+    if (i < roomOf.length) {
+      o.getWorldPosition(p);
+      const k = rooms.findIndex((b) => b.containsPoint(p));
+      roomOf[i] = k;
+      if (k < 0 && p.y < eave) ceilings[i] = eave;
     }
     i++;
   });
 }
-export const glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
 
 /** Meshes a builder into a ready-to-add group (solid + glow meshes). */
 export function voxGroup(vox: Vox, size: number, pivot: [number, number, number] = [0, 0, 0], glowMat: THREE.Material = glowMaterial): THREE.Group {

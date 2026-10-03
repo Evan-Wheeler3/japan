@@ -51,6 +51,8 @@ export const C = {
   stone: PAL.add(0x6b6d73, 0.08),
   stoneL: PAL.add(0x8c8e94, 0.07),
   stoneD: PAL.add(0x4c4e55, 0.08),
+  slate: PAL.add(0x4a4644, 0.06),
+  slate2: PAL.add(0x534e4b, 0.06),
   roof: PAL.add(0x30353e, 0.05),
   roof2: PAL.add(0x262a32, 0.05),
   snow: PAL.add(0xf0f4fb, 0.025),

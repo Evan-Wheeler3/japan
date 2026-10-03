@@ -7,14 +7,27 @@ import { satisfactionFor, tipFor } from '../sim/economy';
 import { Figure } from './figure';
 import type { Interactable, Prompt } from './interaction';
 import { disposeGroup, makeItemMesh } from './items';
-import { AISLE_X, DOORWAY, ENTRY, OUTSIDE, SEAT_HEIGHT, SEAT_OFFSET, TABLE_SIZE } from './layout';
+import {
+  AISLE_NORTH_Z,
+  AISLE_SOUTH_Z,
+  DOORWAY,
+  EAST_AISLE_X,
+  ENTRY,
+  ISLAND,
+  OUTSIDE,
+  SEAT_HEIGHT,
+  SEAT_OFFSET,
+  STOOL_HEIGHT,
+  TABLE_SIZE,
+  type SpotDef,
+} from './layout';
 import * as P from './props';
 import { C } from './voxel/palette';
 import { cachedModel, modelGroup } from './voxel/vox';
 
 const WALK_SPEED = 1.35;
 const ORDER_DELAY = 2.5;
-
+const BELT_REACH = 0.14;
 const FUR = 1 / 16;
 const CUSHIONS = [C.red, C.indigo, C.mustard, C.redDark];
 
@@ -42,60 +55,98 @@ function tableModel(index: number) {
       ])
         v.box(lx, 0, lz, lx + 1, 5, lz + 1, C.beam);
       const back = c + side * 4 - (side > 0 ? 1 : 0);
-      for (let x = -4; x < 4; x++)
-        for (let y = 6; y < 16; y++) if (x === -4 || x === 3 || y === 15 || y === 11 || x === -1 || x === 0) v.set(x, y, back, C.darkWood);
+      for (let x = -4; x < 4; x++) for (let y = 6; y < 16; y++) if (x === -4 || x === 3 || y === 15 || y === 11 || x === -1 || x === 0) v.set(x, y, back, C.darkWood);
     }
   });
 }
 
-export class TableEntity implements Interactable {
+export interface Seat {
+  pos: THREE.Vector3;
+  facing: number;
+  height: number;
+  legAngle: number;
+  /** Waypoints from the dining-room entry to the seat. */
+  approach: THREE.Vector3[];
+}
+
+/** Somewhere a party sits: a pair of counter stools beside the belt, or a window table. */
+export class Spot implements Interactable {
   readonly root = new THREE.Group();
   party: Party | null = null;
-  dirty = false;
-  readonly seats: { pos: THREE.Vector3; facing: number }[];
+  dirty = 0;
+  readonly seats: Seat[];
+  readonly beltS: number;
   private served: THREE.Object3D[] = [];
   private dirtyMesh: THREE.Object3D | null = null;
-  private readonly model: THREE.Group;
+  private readonly model: THREE.Group | null = null;
 
   constructor(
     private readonly game: Game,
-    readonly index: number,
-    readonly x: number,
-    readonly z: number,
+    readonly def: SpotDef,
+    index: number,
   ) {
-    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
-    const hit = new THREE.Mesh(new THREE.BoxGeometry(TABLE_SIZE.w + 0.1, 1.5, TABLE_SIZE.d + SEAT_OFFSET * 2 + 0.3), hitMat);
-    hit.position.set(x, 0.75, z);
-    this.root.add(hit);
-    this.model = modelGroup(tableModel(index));
-    this.model.position.set(x, 0, z);
-    const decor: [ReturnType<typeof P.soyBottle>, number, number][] = [
-      [P.soyBottle(), 0.5, -0.05],
-      [P.chopstickCup(), 0.5, 0.08],
-      [P.flowerVase(), -0.48, 0.0],
-    ];
-    for (const [m, dx, dz] of decor) {
-      const g = modelGroup(m);
-      g.position.set(dx, TABLE_SIZE.h, dz);
-      this.model.add(g);
+    const hidden = new THREE.MeshBasicMaterial({ visible: false });
+    const { x, z } = def;
+    const V = (a: number, b: number) => new THREE.Vector3(a, 0, b);
+    if (def.kind === 'counter') {
+      const hit = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.7, 1.05), hidden);
+      hit.position.set(x, 0.85, def.side * (ISLAND.halfWidth - 0.24 + 0.52));
+      this.root.add(hit);
+      const aisle = def.side < 0 ? AISLE_NORTH_Z : AISLE_SOUTH_Z;
+      this.seats = [-0.3125, 0.3125].map((dx) => ({
+        pos: V(x + dx, z),
+        facing: def.side < 0 ? 0 : Math.PI,
+        height: STOOL_HEIGHT,
+        legAngle: -1.05,
+        approach: [V(EAST_AISLE_X, aisle), V(x + dx, aisle), V(x + dx, z)],
+      }));
+      this.beltS = game.belt.seatS(x, def.side);
+    } else {
+      const hit = new THREE.Mesh(new THREE.BoxGeometry(TABLE_SIZE.w + 0.1, 1.5, TABLE_SIZE.d + SEAT_OFFSET * 2 + 0.3), hidden);
+      hit.position.set(x, 0.75, z);
+      this.root.add(hit);
+      this.model = modelGroup(tableModel(index));
+      this.model.position.set(x, 0, z);
+      for (const [m, dx, dz] of [
+        [P.soyBottle(), 0.5, -0.05],
+        [P.chopstickCup(), 0.5, 0.08],
+        [P.flowerVase(), -0.48, 0.0],
+      ] as const) {
+        const g = modelGroup(m);
+        g.position.set(dx, TABLE_SIZE.h, dz);
+        this.model.add(g);
+      }
+      this.root.add(this.model);
+      const aisle = z < 0 ? AISLE_NORTH_Z : AISLE_SOUTH_Z;
+      const towardAisle = Math.sign(aisle - z);
+      const inner = V(x, z + towardAisle * SEAT_OFFSET);
+      const outer = V(x, z - towardAisle * SEAT_OFFSET);
+      const side = x + 0.95;
+      this.seats = [inner, outer].map((pos) => ({
+        pos,
+        facing: pos.z < z ? 0 : Math.PI,
+        height: SEAT_HEIGHT,
+        legAngle: -Math.PI / 2,
+        approach: pos === inner ? [V(EAST_AISLE_X, aisle), V(x, aisle), pos.clone()] : [V(EAST_AISLE_X, aisle), V(side, aisle), V(side, pos.z), pos.clone()],
+      }));
+      this.beltS = -1;
     }
-    this.root.add(this.model);
-    this.seats = [
-      { pos: new THREE.Vector3(x, 0, z - SEAT_OFFSET), facing: 0 },
-      { pos: new THREE.Vector3(x, 0, z + SEAT_OFFSET), facing: Math.PI },
-    ];
   }
 
   get label(): string {
-    return `Table ${this.index + 1}`;
+    return this.def.label;
+  }
+
+  get kind(): 'counter' | 'table' {
+    return this.def.kind;
   }
 
   get available(): boolean {
-    return !this.party && !this.dirty;
+    return !this.party && this.dirty === 0;
   }
 
   outlineTargets(): THREE.Object3D[] {
-    return [this.model, ...(this.party?.members.map((m) => m.figure.root) ?? []), ...this.served];
+    return [...(this.model ? [this.model] : []), ...(this.party?.members.map((m) => m.figure.root) ?? []), ...this.served, ...(this.dirtyMesh ? [this.dirtyMesh] : [])];
   }
 
   prompt(): Prompt {
@@ -104,15 +155,16 @@ export class TableEntity implements Interactable {
     const title = p ? `${this.label} · ${p.arch.name}` : this.label;
     if (p && p.state === 'waiting') {
       const wants = summarize(p.remaining.map((i) => g.content.items.get(i).name));
-      if (g.hand.empty) return { title, verb: 'Waiting for their order', detail: `Wants: ${wants}`, ok: false };
+      const via = this.kind === 'counter' ? ' (or send it on the belt)' : '';
+      if (g.hand.empty) return { title, verb: 'Waiting for their order', detail: `Wants: ${wants}${via}`, ok: false };
       if (p.remaining.includes(g.hand.item!)) return { title, verb: `Serve ${g.hand.name}`, detail: `Wants: ${wants}`, ok: true };
       return { title, verb: `They didn't order ${g.hand.name}`, detail: `Wants: ${wants}`, ok: false };
     }
     if (p && (p.state === 'arriving' || p.state === 'ordering')) return { title, verb: 'Reading the menu…', ok: false };
     if (p && p.state === 'eating') return { title, verb: 'Enjoying their meal', ok: false };
-    if (this.dirty) {
-      if (g.hand.empty) return { title, verb: 'Clear Dishes', ok: true };
-      return { title, verb: 'Hands full', detail: 'Dirty dishes to clear', ok: false };
+    if (this.dirty > 0) {
+      if (g.hand.empty || g.hand.item === DIRTY_DISHES) return { title, verb: `Collect ${this.dirty} dirty dish${this.dirty > 1 ? 'es' : ''}`, ok: true };
+      return { title, verb: 'Hands full', detail: 'Dirty dishes to collect', ok: false };
     }
     if (p && p.state === 'leaving') return { title, verb: 'Heading home', ok: false };
     return { title, verb: 'Clean and ready', ok: false };
@@ -124,26 +176,31 @@ export class TableEntity implements Interactable {
     if (p && p.state === 'waiting' && !g.hand.empty && p.remaining.includes(g.hand.item!)) {
       const item = g.hand.clear()!;
       p.serve(item);
-      this.placeServed(item);
       g.audio.play('serve');
       return;
     }
-    if (this.dirty && g.hand.empty && (!p || p.state === 'leaving')) {
-      this.setDirty(false);
-      g.hand.take(DIRTY_DISHES);
+    if (this.dirty > 0 && (!p || p.state === 'leaving') && (g.hand.empty || g.hand.item === DIRTY_DISHES)) {
+      g.hand.takeDirty(this.dirty);
+      this.setDirty(0);
       g.audio.play('dishes');
       return;
     }
     g.reject();
   }
 
-  private placeServed(item: ItemId): void {
+  /** Puts a served dish in front of the next seat. */
+  placeServed(item: ItemId): void {
     const i = this.served.length;
-    const seat = i % 2;
-    const lateral = [-0.12, 0.18, -0.32, 0.28][Math.floor(i / 2) % 4];
+    const seat = this.seats[i % this.seats.length];
     const m = makeItemMesh(this.game.content.items.get(item).visual);
-    m.position.set(this.x + lateral, TABLE_SIZE.h, this.z + (seat === 0 ? -0.2 : 0.2));
-    m.rotation.y = seat === 0 ? 0 : Math.PI;
+    if (this.kind === 'counter') {
+      const lateral = [0, 0.16, -0.16][Math.floor(i / 2) % 3];
+      m.position.set(seat.pos.x + lateral, ISLAND.ledgeTop, this.def.side * (ISLAND.halfWidth - 0.13));
+    } else {
+      const lateral = [-0.12, 0.18, -0.32, 0.28][Math.floor(i / 2) % 4];
+      m.position.set(this.def.x + lateral, TABLE_SIZE.h, this.def.z + (seat.pos.z < this.def.z ? -0.2 : 0.2));
+    }
+    m.rotation.y = seat.facing;
     this.game.scene.add(m);
     this.served.push(m);
   }
@@ -153,21 +210,22 @@ export class TableEntity implements Interactable {
     this.served = [];
   }
 
-  setDirty(dirty: boolean): void {
-    this.dirty = dirty;
+  setDirty(count: number): void {
+    this.dirty = count;
     this.clearServed();
     if (this.dirtyMesh) disposeGroup(this.dirtyMesh);
     this.dirtyMesh = null;
-    if (dirty) {
+    if (count > 0) {
       this.dirtyMesh = makeItemMesh('dirtyDishes');
-      this.dirtyMesh.position.set(this.x - 0.1, TABLE_SIZE.h, this.z);
+      if (this.kind === 'counter') this.dirtyMesh.position.set(this.def.x, ISLAND.ledgeTop, this.def.side * (ISLAND.halfWidth - 0.13));
+      else this.dirtyMesh.position.set(this.def.x - 0.1, TABLE_SIZE.h, this.def.z);
       this.game.scene.add(this.dirtyMesh);
     }
   }
 
   reset(): void {
     this.party = null;
-    this.setDirty(false);
+    this.setDirty(0);
   }
 }
 
@@ -184,7 +242,7 @@ interface Member {
   path: THREE.Vector3[];
   step: number;
   delay: number;
-  seat: { pos: THREE.Vector3; facing: number };
+  seat: Seat;
   seated: boolean;
 }
 
@@ -196,6 +254,7 @@ export class Party {
   patience = 0;
   patienceMax = 0;
   waited = 0;
+  warned = false;
   private timer = 0;
   angry = false;
   satisfaction = 0;
@@ -204,44 +263,39 @@ export class Party {
     private readonly game: Game,
     readonly arch: ArchetypeDef,
     looks: CustomerLook[],
-    readonly table: TableEntity,
+    readonly spot: Spot,
   ) {
     this.members = looks.map((look, i) => {
-      const seat = table.seats[i % table.seats.length];
+      const seat = spot.seats[i % spot.seats.length];
       const figure = new Figure(look);
-      const path = [
-        OUTSIDE.clone().add(new THREE.Vector3(i * 0.5, 0, i * 0.9)),
-        DOORWAY.clone(),
-        ENTRY.clone(),
-        new THREE.Vector3(AISLE_X, 0, ENTRY.z),
-        new THREE.Vector3(AISLE_X, 0, seat.pos.z),
-        seat.pos.clone(),
-      ];
+      const path = [OUTSIDE.clone().add(new THREE.Vector3(i * 0.5, 0, i * 0.9)), DOORWAY.clone(), ENTRY.clone(), ...seat.approach.map((p) => p.clone())];
       figure.root.position.copy(path[0]);
-      figure.root.userData.interactable = table;
+      figure.root.userData.interactable = spot;
       figure.setPose('walk');
       game.scene.add(figure.root);
       game.interaction.addTarget(figure.root);
       return { figure, path, step: 1, delay: i * 0.9, seat, seated: false };
     });
-    this.patienceMax = arch.patienceSeconds;
+    this.patienceMax = arch.patienceSeconds * game.patienceScale();
   }
 
   get bill(): number {
     return this.order.reduce((s, i) => s + priceOf(this.game.content, i), 0);
   }
 
-  /** Anchor for the floating order ticket. */
   ticketAnchor(out: THREE.Vector3): THREE.Vector3 {
-    return out.set(this.table.x, 2.05, this.table.z);
+    const s = this.spot.def;
+    return out.set(s.x, s.kind === 'counter' ? 2.15 : 2.05, s.z);
   }
 
   serve(item: ItemId): void {
     const idx = this.remaining.indexOf(item);
     if (idx < 0) return;
     this.remaining.splice(idx, 1);
+    this.spot.placeServed(item);
     this.game.ledger.itemsServed++;
     this.patience = Math.min(this.patienceMax, this.patience + this.patienceMax * this.game.content.economy.patienceRefillOnServe);
+    if (this.patience > this.patienceMax * 0.3) this.warned = false;
     if (this.remaining.length === 0) {
       this.state = 'eating';
       this.timer = this.game.rng.range(this.arch.eatSeconds[0], this.arch.eatSeconds[1]);
@@ -287,7 +341,7 @@ export class Party {
   }
 
   update(dt: number): void {
-    for (const m of this.members) m.figure.update(dt, SEAT_HEIGHT);
+    for (const m of this.members) m.figure.update(dt, m.seat.height, m.seat.legAngle);
     switch (this.state) {
       case 'arriving': {
         let all = true;
@@ -315,25 +369,38 @@ export class Party {
           this.game.audio.play('order');
         }
         break;
-      case 'waiting':
+      case 'waiting': {
+        if (this.spot.kind === 'counter') {
+          const plate = this.game.belt.findNear(this.spot.beltS, BELT_REACH, (item) => this.remaining.includes(item));
+          if (plate) {
+            this.game.belt.remove(plate);
+            this.serve(plate.item);
+            this.game.audio.play('serve');
+            if (this.state !== 'waiting') break;
+          }
+        }
         this.patience -= dt;
         this.waited += dt;
+        if (!this.warned && this.patience < this.patienceMax * 0.3) {
+          this.warned = true;
+          this.game.warnImpatient(this);
+        }
         if (this.patience <= 0) {
           this.game.ledger.recordWalkout();
-          this.game.emote(this, '💢');
-          this.game.audio.play('angry');
-          if (this.remaining.length < this.order.length) this.table.setDirty(true);
-          else this.table.clearServed();
+          this.game.walkout(this);
+          if (this.remaining.length < this.order.length) this.spot.setDirty(this.order.length - this.remaining.length);
+          else this.spot.clearServed();
           this.leave(true);
         }
         break;
+      }
       case 'eating':
         this.timer -= dt;
         if (this.timer <= 0) {
           const bill = this.bill;
           const tip = tipFor(bill, this.satisfaction, this.arch.tipRate);
           this.game.receivePayment(this, bill, tip);
-          this.table.setDirty(true);
+          this.spot.setDirty(this.order.length);
           this.leave(false);
         }
         break;

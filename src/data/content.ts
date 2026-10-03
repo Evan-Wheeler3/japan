@@ -43,6 +43,7 @@ export const RECIPES: RecipeDef[] = [
     ingredients: [{ id: 'tea_leaves', qty: 1 }],
     prepSeconds: 5,
     batch: 2,
+    dish: true,
   },
   {
     id: 'r_edamame',
@@ -53,6 +54,7 @@ export const RECIPES: RecipeDef[] = [
     ingredients: [{ id: 'edamame_pods', qty: 1 }],
     prepSeconds: 0,
     batch: 1,
+    dish: true,
   },
   {
     id: 'r_rice',
@@ -73,6 +75,7 @@ export const RECIPES: RecipeDef[] = [
     ingredients: [{ id: 'salmon', qty: 1 }],
     prepSeconds: 4,
     batch: 1,
+    dish: true,
   },
 ];
 
@@ -100,6 +103,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     eatSeconds: [8, 11],
     baseSpawnWeight: 1,
     spawnWeight: { opening: 0.6, early: 1.2, peak: 1.5, late: 1.8, winddown: 1.4 },
+    seating: 'counter',
   },
   {
     id: 'elderly_couple',
@@ -121,6 +125,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     eatSeconds: [12, 16],
     baseSpawnWeight: 1,
     spawnWeight: { opening: 1.6, early: 1.2, peak: 0.6, late: 0.5, winddown: 1.0 },
+    seating: 'any',
   },
   {
     id: 'family',
@@ -142,6 +147,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     eatSeconds: [10, 14],
     baseSpawnWeight: 1,
     spawnWeight: { opening: 1.4, early: 1.4, peak: 0.8, late: 0.3, winddown: 0.2 },
+    seating: 'table',
   },
 ];
 
@@ -168,5 +174,8 @@ export const ECONOMY: EconomyConfig = {
   startingCash: 2000,
   startingRating: 1,
   ratingMomentum: 0.75,
-  patienceRefillOnServe: 0.2,
+  patienceRefillOnServe: 0.25,
+  patienceBonusNight1: 1.7,
+  patienceBonusDecay: 0.1,
+  startingCleanDishes: 12,
 };

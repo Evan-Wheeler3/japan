@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { AudioEngine, type MusicMood } from '../audio/audio';
 import { DIRTY_DISHES } from '../data/content';
 import { buildContent, recipeFor, stationChain, unlockedMenu } from '../data/registry';
@@ -16,15 +16,18 @@ import { generateOrder } from '../sim/orders';
 import { Rng } from '../sim/rng';
 import { pickArchetype, Spawner, volumeMultiplier } from '../sim/spawner';
 import { StationBadge, Ticket, UI, yen } from '../ui/ui';
-import { Party, TableEntity } from '../world/dining';
+import { ConveyorBelt } from '../world/belt';
+import { Party, Spot } from '../world/dining';
 import { Environment } from '../world/environment';
+import type { Rect } from '../world/geometry';
 import { Hand, InteractionSystem } from '../world/interaction';
-import { COUNTER_SLOTS, INTERIOR_BOUNDS, PLAYER_SPAWN, ROOM, SIGN_POS, TABLES } from '../world/layout';
+import { COUNTER_X, DINING, PLAYER_SPAWN_APARTMENT, RACK_POS, ROOM_BOXES, SIGN_POS, SINK_POS, SPOTS, STATION_SLOTS } from '../world/layout';
 import { signTexture } from '../world/materials';
 import { Player } from '../world/player';
 import { buildRestaurant, menuBoardTexture, type RestaurantBuild } from '../world/restaurant';
+import { Crate, DishRack, OpenSign, Sink, StationEntity, type StationLabel } from '../world/stations';
+import { LooseItems, SurfaceEntity } from '../world/surfaces';
 import { glowMaterial, updateLightMask } from '../world/voxel/vox';
-import { Crate, OpenSign, PassShelf, Sink, StationEntity, type StationLabel } from '../world/stations';
 
 export type Mode = 'title' | 'prep' | 'shift' | 'sunrise' | 'summary';
 
@@ -72,11 +75,14 @@ export class Game {
   ledger = new NightLedger();
   rng = new Rng(Date.now());
   private spawner = new Spawner(this.rng);
+  readonly dishes = { clean: 12 };
 
   readonly stations: StationEntity[] = [];
-  readonly tables: TableEntity[] = [];
-  readonly pass: PassShelf;
+  readonly spots: Spot[] = [];
+  readonly belt: ConveyorBelt;
+  readonly loose: LooseItems;
   readonly sink: Sink;
+  readonly rack: DishRack;
   readonly crate: Crate;
   readonly sign: OpenSign;
   parties: Party[] = [];
@@ -116,7 +122,7 @@ export class Game {
     this.outline.visibleEdgeColor.set(0xffcf7a);
     this.outline.hiddenEdgeColor.set(0x000000);
     this.composer.addPass(this.outline);
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.7, 0.65, 0.72);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.75, 0.7, 0.7);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new ShaderPass(GRADE_SHADER));
     this.composer.addPass(new OutputPass());
@@ -132,8 +138,9 @@ export class Game {
     this.hand = new Hand(this.camera, this.content);
     this.ui = new UI(container);
 
+    const blocked: Rect[] = [];
     for (const def of this.content.stations.all()) {
-      const z = COUNTER_SLOTS[def.id as keyof typeof COUNTER_SLOTS];
+      const z = STATION_SLOTS[def.id];
       if (z === undefined) throw new Error(`No counter slot for station ${def.id}`);
       const s = new StationEntity(this, def, z);
       this.addEntity(s);
@@ -141,14 +148,17 @@ export class Game {
       this.glows.set(def.id, s.glow.material as THREE.MeshBasicMaterial);
       this.addBadge(s.label);
       this.stations.push(s);
+      blocked.push({ minX: COUNTER_X - 0.5, maxX: COUNTER_X + 0.5, minZ: z - (def.id === 'sushi_board' ? 0.55 : 0.4), maxZ: z + (def.id === 'rice_cooker' ? 0.55 : 0.4) });
     }
-    this.pass = new PassShelf(this, COUNTER_SLOTS.pass);
-    this.addEntity(this.pass);
-    this.sink = new Sink(this, COUNTER_SLOTS.sink);
+    this.sink = new Sink(this, SINK_POS.x, SINK_POS.z);
     this.addEntity(this.sink);
     this.scene.add(this.sink.glow);
     this.glows.set('sink', this.sink.glow.material as THREE.MeshBasicMaterial);
     this.addBadge(this.sink.label);
+    this.rack = new DishRack(this, RACK_POS.x, RACK_POS.z);
+    this.addEntity(this.rack);
+    blocked.push({ minX: SINK_POS.x - 0.6, maxX: SINK_POS.x + 0.6, minZ: SINK_POS.z - 0.5, maxZ: SINK_POS.z + 0.5 });
+    blocked.push({ minX: RACK_POS.x - 0.45, maxX: RACK_POS.x + 0.45, minZ: RACK_POS.z - 0.4, maxZ: RACK_POS.z + 0.4 });
     this.crate = new Crate(this);
     this.addEntity(this.crate);
     this.scene.add(this.crate.glow);
@@ -157,14 +167,18 @@ export class Game {
       signTexture({ width: 120, height: 68, bg, fg: '#f4ead2', border: '#2a1a10', lines: [{ text: jp, size: 24, y: 26 }, { text: en, size: 14, y: 52 }] });
     this.sign = new OpenSign(this, SIGN_POS, { closed: signTex('準備中', 'CLOSED', '#5a2a20'), open: signTex('営業中', 'OPEN', '#2a4a30') });
     this.addEntity(this.sign);
-    TABLES.forEach((t, i) => {
-      const table = new TableEntity(this, i, t.x, t.z);
-      this.addEntity(table);
-      this.tables.push(table);
+    this.belt = new ConveyorBelt(this);
+    this.addEntity(this.belt);
+    SPOTS.forEach((def, i) => {
+      const spot = new Spot(this, def, i);
+      this.addEntity(spot);
+      this.spots.push(spot);
     });
+    this.loose = new LooseItems(this, blocked);
+    for (const def of this.build.surfaces) this.addEntity(new SurfaceEntity(this, def));
 
     this.scene.updateMatrixWorld(true);
-    updateLightMask(this.scene, INTERIOR_BOUNDS, ROOM.height);
+    updateLightMask(this.scene, ROOM_BOXES, DINING.height + 0.1);
     this.clock = new NightClock(this.content.night);
     const defaults = newSave(this.content);
     const loaded = this.storage ? loadSave(this.storage, defaults) : null;
@@ -380,10 +394,13 @@ export class Game {
   private resetNight(): void {
     for (const p of this.parties) this.removeParty(p);
     this.parties = [];
-    for (const t of this.tables) t.reset();
+    for (const s of this.spots) s.reset();
     for (const s of this.stations) s.reset();
-    this.pass.reset();
+    this.belt.reset();
+    this.loose.reset();
     this.sink.reset();
+    this.dishes.clean = this.content.economy.startingCleanDishes;
+    this.rack.sync();
     this.hand.clear();
     this.clock = new NightClock(this.content.night);
     this.ledger = new NightLedger();
@@ -393,11 +410,11 @@ export class Game {
     this.lastCallAnnounced = false;
     this.sign.setOpen(false);
     this.snowBase = this.rng.weighted([
-      [0.3, 1],
-      [0.65, 2],
-      [1, 1.2],
+      [0.45, 1],
+      [0.75, 2],
+      [1, 1.4],
     ])!;
-    this.player.teleport(PLAYER_SPAWN, 0);
+    this.player.teleport(PLAYER_SPAWN_APARTMENT, 0);
   }
 
   private persist(): void {
@@ -418,15 +435,22 @@ export class Game {
     this.ui.flashReject();
   }
 
+  /** Q: set the held item down on whatever counter, ledge or belt you're looking at. */
   putDown(): void {
     if (this.hand.empty) return;
-    if (!this.pass.place(this.hand.item!)) {
-      this.reject();
-      this.ui.toast('The pass counter is full', 'info', 2);
+    const h = this.interaction.hovered;
+    const hit = this.interaction.lastHit;
+    if (h && hit && (h instanceof SurfaceEntity || h instanceof ConveyorBelt)) {
+      h.interact(hit);
       return;
     }
-    this.hand.clear();
-    this.audio.play('place');
+    this.reject();
+    this.ui.toast('Look at a counter or the belt to set it down', 'info', 2);
+  }
+
+  patienceScale(): number {
+    const e = this.content.economy;
+    return Math.max(1, e.patienceBonusNight1 - e.patienceBonusDecay * (this.save.night - 1));
   }
 
   restock(): void {
@@ -458,19 +482,34 @@ export class Game {
   receivePayment(party: Party, bill: number, tip: number): void {
     this.save.cash += bill + tip;
     this.ledger.recordPayment(bill, tip, party.satisfaction);
-    const at = new THREE.Vector3(party.table.x, 1.7, party.table.z);
-    this.ui.floater(at, tip > 0 ? `+${yen(bill)}  +${yen(tip)} tip` : `+${yen(bill)}`, 'money');
+    const s = party.spot.def;
+    this.ui.floater(new THREE.Vector3(s.x, 1.8, s.z), tip > 0 ? `+${yen(bill)}  +${yen(tip)} tip` : `+${yen(bill)}`, 'money');
     this.audio.play('cash');
   }
 
   emote(party: Party, text: string): void {
-    this.ui.floater(new THREE.Vector3(party.table.x, 1.95, party.table.z), text, text === '💢' ? 'angry' : 'happy', 1.8);
+    const s = party.spot.def;
+    this.ui.floater(new THREE.Vector3(s.x, 2.0, s.z), text, text === '💢' ? 'angry' : 'happy', 1.8);
   }
 
-  private spawnParty(table: TableEntity): void {
+  warnImpatient(party: Party): void {
+    this.ui.toast(`${party.spot.label} is getting impatient`, 'warn', 3);
+    this.audio.play('toast');
+  }
+
+  walkout(party: Party): void {
+    this.emote(party, '💢');
+    this.audio.play('angry');
+    this.ui.toast(`${party.spot.label} left — they waited too long`, 'warn', 4);
+  }
+
+  private spawnParty(): void {
     const arch = pickArchetype(this.content.archetypes.all(), this.clock.phase().id, this.rng);
-    const party = new Party(this, arch, this.rng.pick(arch.looks), table);
-    table.party = party;
+    const free = this.spots.filter((s) => s.available);
+    const fits = free.filter((s) => arch.seating === 'any' || s.kind === arch.seating);
+    const spot = this.rng.pick(fits.length ? fits : free);
+    const party = new Party(this, arch, this.rng.pick(arch.looks), spot);
+    spot.party = party;
     this.parties.push(party);
     const ticket = new Ticket();
     this.tickets.set(party, ticket);
@@ -483,7 +522,7 @@ export class Game {
     const t = this.tickets.get(p);
     if (t) this.ui.labels.remove(t.label);
     this.tickets.delete(p);
-    if (p.table.party === p) p.table.party = null;
+    if (p.spot.party === p) p.spot.party = null;
   }
 
   // ---------------------------------------------------------------- frame
@@ -510,6 +549,7 @@ export class Game {
     if (this.mode === 'shift') this.updateShift(sim);
     if (this.mode === 'sunrise') this.updateSunrise(sim);
 
+    this.belt.update(sim);
     for (const p of this.parties) p.update(sim);
     for (const p of this.parties.filter((p) => p.state === 'done')) this.removeParty(p);
     this.parties = this.parties.filter((p) => p.state !== 'done');
@@ -518,9 +558,9 @@ export class Game {
     this.hand.update(dt, this.time);
 
     const skyT = this.mode === 'title' ? 0 : skyProgress(this.content.night, this.clock.minute);
-    const snow = this.mode === 'sunrise' || this.mode === 'summary' ? this.snowBase * Math.max(0.12, 1 - this.sunriseT * 1.3) : this.snowBase;
+    const snow = this.mode === 'sunrise' || this.mode === 'summary' ? this.snowBase * Math.max(0.1, 1 - this.sunriseT * 1.4) : this.snowBase;
     this.env.update(this.time, skyT, snow, this.camera);
-    this.updateInteriorLights();
+    this.updateLights();
 
     this.interaction.update(this.camera, this.isPlaying && !this.paused && this.player.locked);
     this.outline.selectedObjects = this.interaction.hovered ? this.interaction.hovered.outlineTargets() : [];
@@ -533,10 +573,8 @@ export class Game {
     const cfg = this.content.night;
     const advanced = this.clock.tick(dt, this.speed);
     if (!this.clock.isLastCall) {
-      const free = this.tables.filter((t) => t.available);
-      if (this.spawner.tick(advanced, this.clock.phase(), volumeMultiplier(cfg, this.save.night), free.length > 0)) {
-        this.spawnParty(this.rng.pick(free));
-      }
+      const anyFree = this.spots.some((s) => s.available);
+      if (this.spawner.tick(advanced, this.clock.phase(), volumeMultiplier(cfg, this.save.night), anyFree)) this.spawnParty();
     } else if (!this.lastCallAnnounced) {
       this.lastCallAnnounced = true;
       this.ui.toast('Last call — no more guests tonight', 'info', 4);
@@ -548,9 +586,9 @@ export class Game {
   private allClear(): boolean {
     return (
       this.parties.length === 0 &&
-      this.tables.every((t) => !t.dirty) &&
+      this.spots.every((s) => s.dirty === 0) &&
       this.hand.item !== DIRTY_DISHES &&
-      !this.pass.slots.includes(DIRTY_DISHES) &&
+      this.loose.count(DIRTY_DISHES) === 0 &&
       this.sink.queue === 0
     );
   }
@@ -565,20 +603,20 @@ export class Game {
     }
   }
 
-  private updateInteriorLights(): void {
+  private updateLights(): void {
     const dawn = this.mode === 'sunrise' || this.mode === 'summary' ? THREE.MathUtils.smoothstep(this.sunriseT, 0.5, 1) : 0;
     const f = 1 - dawn * 0.45;
-    this.build.interiorLights.forEach((l, i) => {
-      const flicker = 1 + Math.sin(this.time * 7.3 + i * 1.7) * 0.035 + Math.sin(this.time * 13.9 + i * 3.1) * 0.025;
-      l.intensity = (l.userData.base ??= l.intensity) * f * flicker;
+    this.build.lights.forEach(({ light, flicker }, i) => {
+      const wobble = flicker ? 1 + Math.sin(this.time * 7.3 + i * 1.7) * 0.035 + Math.sin(this.time * 13.9 + i * 3.1) * 0.025 : 1;
+      light.intensity = (light.userData.base ??= light.intensity) * f * wobble;
     });
     glowMaterial.color.setScalar(f * (1 + Math.sin(this.time * 5.1) * 0.02));
   }
 
   private updateTitleCamera(): void {
     const a = Math.sin(this.time * 0.05) * 0.1;
-    this.camera.position.set(9.5 + a * 6, 4.2 + Math.sin(this.time * 0.13) * 0.15, 13.5 - a * 3);
-    this.camera.lookAt(-0.5, 2.3, -1.5);
+    this.camera.position.set(13 + a * 6, 5.2 + Math.sin(this.time * 0.13) * 0.15, 17 - a * 3);
+    this.camera.lookAt(-1.5, 2.8, -1.5);
   }
 
   private musicMood(): MusicMood {
@@ -611,7 +649,7 @@ export class Game {
     this.ui.setHeld(this.hand.item ? this.hand.name : null, this.hand.item ? this.content.items.get(this.hand.item).icon : null);
     this.ui.setObjective(playing ? this.objective() : '');
 
-    const hoveredTable = this.interaction.hovered instanceof TableEntity ? this.interaction.hovered : null;
+    const hoveredSpot = this.interaction.hovered instanceof Spot ? this.interaction.hovered : null;
     for (const [party, ticket] of this.tickets) {
       party.ticketAnchor(ticket.label.anchor);
       if (party.state === 'ordering') {
@@ -623,7 +661,7 @@ export class Game {
           const def = this.content.items.get(i);
           return { icon: def.icon, name: def.name };
         });
-        ticket.set(icons, party.patience / party.patienceMax, hoveredTable === party.table || (!this.hand.empty && party.remaining.includes(this.hand.item!)));
+        ticket.set(icons, party.patience / party.patienceMax, hoveredSpot === party.spot || (!this.hand.empty && party.remaining.includes(this.hand.item!)));
       } else {
         ticket.label.visible = false;
       }
@@ -632,7 +670,7 @@ export class Game {
     this.ui.labels.update(this.camera, playing && !this.paused);
   }
 
-  /** Lights the counter strip under every station the current orders depend on. */
+  /** Warm light pools on the counter under every station the current orders depend on. */
   private updateHighlights(): void {
     const needed = new Set<string>();
     if (this.mode === 'shift' || this.mode === 'sunrise') {
@@ -640,9 +678,8 @@ export class Game {
         if (p.state !== 'waiting') continue;
         for (const item of p.remaining) for (const s of stationChain(this.content, item)) needed.add(s);
       }
-      if (this.hand.item === DIRTY_DISHES) needed.add('sink');
-      const empty = this.content.ingredients.all().some((i) => (this.save.pantry[i.id] ?? 0) === 0);
-      if (empty) needed.add('crate');
+      if (this.hand.item === DIRTY_DISHES || this.sink.queue > 0 || this.dishes.clean < 3) needed.add('sink');
+      if (this.content.ingredients.all().some((i) => (this.save.pantry[i.id] ?? 0) === 0)) needed.add('crate');
     }
     const pulse = 0.8 + Math.sin(this.time * 3) * 0.35;
     for (const [id, m] of this.glows) {
@@ -654,13 +691,14 @@ export class Game {
   /** One short line answering "what should I do right now?" */
   private objective(): string {
     const c = this.content;
-    if (this.mode === 'prep') return 'Flip the shop sign by the door to open for the night';
+    if (this.mode === 'prep') return this.player.upstairs ? 'Head downstairs — the stairs lead into the kitchen' : 'Flip the shop sign by the front door to open for the night';
     if (this.mode === 'sunrise') return this.sunriseT < 1 ? 'The night’s work is done. Watch the sunrise.' : 'Good work tonight.';
-    if (this.hand.item === DIRTY_DISHES) return 'Take the dirty dishes to the sink';
+    if (this.hand.item === DIRTY_DISHES) return 'Take the dirty dishes to the sink, and stay there while they wash';
+    if (this.sink.queue > 0 && this.hand.empty && this.dishes.clean < 3) return 'You’re nearly out of clean dishes — stand at the sink to wash';
     const waiting = this.parties.filter((p) => p.state === 'waiting').sort((a, b) => a.patience - b.patience);
     if (this.hand.item) {
       const target = waiting.find((p) => p.remaining.includes(this.hand.item!));
-      if (target) return `Serve the ${this.hand.name} to ${target.table.label}`;
+      if (target) return target.spot.kind === 'counter' ? `Put the ${this.hand.name} on the belt for ${target.spot.label}, or hand it over` : `Carry the ${this.hand.name} to ${target.spot.label}`;
       const usedFor = c.recipes.all().find((r) => r.inputs.includes(this.hand.item!));
       if (usedFor) return `Take the ${this.hand.name} to the ${c.stations.get(usedFor.station).name}`;
     }
@@ -673,24 +711,25 @@ export class Game {
       const r = recipeFor(c, item);
       if (!r) continue;
       const name = c.items.get(item).name;
+      if (this.belt.plates.some((pl) => pl.item === item) && p.spot.kind === 'counter') return `${name} is riding the belt to ${p.spot.label}`;
       if (this.stations.some((s) => s.busy && s.holds(item))) return `${name} is on its way — check other orders`;
+      if (r.dish && this.dishes.clean === 0) return 'No clean dishes — collect dirty ones and wash them at the sink';
       if (r.inputs.length) {
         const input = r.inputs[0];
-        const inputReady = this.stations.some((s) => s.label.ready > 0 && s.holds(input)) || this.pass.slots.includes(input);
+        const inputReady = this.stations.some((s) => s.label.ready > 0 && s.holds(input)) || this.loose.count(input) > 0;
         const inputRecipe = recipeFor(c, input);
         if (!inputReady && inputRecipe && !this.stations.some((s) => s.busy && s.holds(input)))
-          return `${p.table.label} wants ${name} — start with the ${c.stations.get(inputRecipe.station).name}`;
-        return `${p.table.label} wants ${name} — bring ${c.items.get(input).name} to the ${c.stations.get(r.station).name}`;
+          return `${p.spot.label} wants ${name} — start with the ${c.stations.get(inputRecipe.station).name}`;
+        return `${p.spot.label} wants ${name} — bring ${c.items.get(input).name} to the ${c.stations.get(r.station).name}`;
       }
-      return `${p.table.label} wants ${name} — use the ${c.stations.get(r.station).name}`;
+      return `${p.spot.label} wants ${name} — use the ${c.stations.get(r.station).name}`;
     }
-    const dirty = this.tables.find((t) => t.dirty);
-    if (dirty) return `Clear the dishes from ${dirty.label}`;
+    const dirty = this.spots.find((s) => s.dirty > 0);
+    if (dirty) return `Collect the dirty dishes from ${dirty.label}`;
     if (this.content.ingredients.all().some((i) => (this.save.pantry[i.id] ?? 0) === 0)) return 'You’re out of an ingredient — restock at the delivery crate';
     if (this.parties.some((p) => p.state !== 'leaving')) return 'Guests are settling in';
-    if (this.clock.isLastCall) return 'Last call — finish up and tidy the restaurant';
+    if (this.clock.isLastCall) return 'Last call — finish up and wash the last dishes';
     if (this.clock.minute >= this.content.night.preDawnStartMinute) return 'Quiet hours. The sky is starting to change.';
     return 'Waiting for guests… cook rice or brew tea ahead of time';
   }
 }
-

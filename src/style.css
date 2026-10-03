@@ -270,6 +270,11 @@ body {
   text-shadow: 0 3px 10px rgba(0, 0, 0, 0.9);
   letter-spacing: 0.08em;
 }
+.toast.warn {
+  border-color: rgba(229, 87, 74, 0.7);
+  color: #ffd8d0;
+  background: rgba(60, 18, 14, 0.85);
+}
 .toast.out {
   opacity: 0;
   transform: translateY(-8px);

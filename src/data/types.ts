@@ -35,6 +35,8 @@ export interface RecipeDef {
   ingredients: { id: IngredientId; qty: number }[];
   prepSeconds: number;
   batch: number;
+  /** Uses one clean dish from the drying rack. */
+  dish?: boolean;
 }
 
 export interface UnlockCondition {
@@ -74,6 +76,8 @@ export interface ArchetypeDef {
   eatSeconds: [number, number];
   baseSpawnWeight: number;
   spawnWeight: Partial<Record<PhaseId, number>>;
+  /** Where the party prefers to sit. */
+  seating: 'counter' | 'table' | 'any';
 }
 
 export interface PhaseDef {
@@ -102,4 +106,8 @@ export interface EconomyConfig {
   startingRating: number;
   ratingMomentum: number;
   patienceRefillOnServe: number;
+  /** Extra patience on the first nights, shrinking by `patienceBonusDecay` per night. */
+  patienceBonusNight1: number;
+  patienceBonusDecay: number;
+  startingCleanDishes: number;
 }

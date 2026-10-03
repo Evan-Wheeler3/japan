@@ -4,7 +4,8 @@ import { DIRTY_DISHES } from '../data/content';
 import type { ItemId, RecipeDef, StationDef } from '../data/types';
 import type { Interactable, Prompt } from './interaction';
 import { disposeGroup, makeItemMesh } from './items';
-import { COUNTER, COUNTER_X, CRATE } from './layout';
+import { COUNTER_TOP, COUNTER_X, CRATE } from './layout';
+import { dryingRack, plateStack } from './props';
 import { F } from './props';
 import { C } from './voxel/palette';
 import { cachedModel, glowMaterial, modelGroup, type Vox } from './voxel/vox';
@@ -100,15 +101,15 @@ export class StationEntity implements Interactable {
     readonly z: number,
   ) {
     this.recipes = game.content.recipes.all().filter((r) => r.station === def.id);
-    this.root.position.set(COUNTER_X, COUNTER.top, z);
+    this.root.position.set(COUNTER_X, COUNTER_TOP, z);
     this.spec = STATION_SPECS[def.id] ?? STATION_SPECS.default;
     this.lightMat = glowMaterial.clone();
     this.model = modelGroup(cachedModel(`station-${def.id}`, F, [0, 0, 0], this.spec.build), this.lightMat);
     this.root.add(this.model);
     this.steam = this.spec.steam ? new Steam(this.spec.steam) : null;
     if (this.steam) this.root.add(this.steam.points);
-    this.glow = makeGlowPool(COUNTER_X + 0.15, COUNTER.top + 0.004, z, 1.1, 0.9);
-    this.label = { anchor: new THREE.Vector3(COUNTER_X + 0.15, COUNTER.top + 0.62, z), progress: null, ready: 0 };
+    this.glow = makeGlowPool(COUNTER_X + 0.15, COUNTER_TOP + 0.004, z, 1.1, 0.9);
+    this.label = { anchor: new THREE.Vector3(COUNTER_X + 0.15, COUNTER_TOP + 0.62, z), progress: null, ready: 0 };
   }
 
   get busy(): boolean {
@@ -131,6 +132,7 @@ export class StationEntity implements Interactable {
   }
 
   private missingIngredient(r: RecipeDef): string | null {
+    if (r.dish && this.game.dishes.clean <= 0) return 'clean dishes';
     for (const g of r.ingredients) {
       if ((this.game.save.pantry[g.id] ?? 0) < g.qty) return this.game.content.ingredients.get(g.id).name;
     }
@@ -158,7 +160,7 @@ export class StationEntity implements Interactable {
     const r = this.startable();
     if (r) {
       const missing = this.missingIngredient(r);
-      if (missing) return { title, verb: `Out of ${missing}`, detail: 'Restock at the delivery crate', ok: false };
+      if (missing) return { title, verb: `Out of ${missing}`, detail: missing === 'clean dishes' ? 'Wash dirty dishes at the sink' : 'Restock at the delivery crate', ok: false };
       return { title, verb: r.verb, ok: true };
     }
     const needs = this.recipes[0]?.inputs.filter((i) => !this.placed.includes(i)).map((i) => g.content.items.get(i).name);
@@ -192,6 +194,7 @@ export class StationEntity implements Interactable {
     const r = this.startable();
     if (!r || this.missingIngredient(r)) return;
     for (const ing of r.ingredients) this.game.save.pantry[ing.id] -= ing.qty;
+    if (r.dish) this.game.dishes.clean--;
     this.placed = [];
     this.syncPlaced();
     if (r.prepSeconds <= 0) {
@@ -346,121 +349,27 @@ const STATION_SPECS: Record<string, StationSpec> = {
   },
 };
 
-/** Free counter space for setting things down. Q drops the held item here. */
-export class PassShelf implements Interactable {
-  readonly root = new THREE.Group();
-  readonly slots: (ItemId | null)[] = [null, null, null, null];
-  private readonly meshes: (THREE.Object3D | null)[] = [null, null, null, null];
-  private readonly spots: THREE.Vector3[];
-  private readonly model: THREE.Group;
+const WASH_SECONDS_PER_DISH = 0.9;
+const WASH_REACH = 1.7;
 
-  constructor(
-    private readonly game: Game,
-    z: number,
-  ) {
-    this.root.position.set(COUNTER_X, COUNTER.top, z);
-    const centres = [-13, -4, 5, 14];
-    this.model = modelGroup(
-      cachedModel('pass', F, [0, 0, 0], (v) => {
-        v.box(-9, 0, -19, 9, 1, 19, C.midWood);
-        for (const c of centres) v.box(-5, 1, c - 4, 6, 2, c + 4, (x) => (x % 2 ? C.straw : C.hinoki2));
-      }),
-    );
-    this.root.add(this.model);
-    this.spots = centres.map((c) => new THREE.Vector3(0.0, 2 * F, (c + 0.5) * F));
-  }
-
-  outlineTargets(): THREE.Object3D[] {
-    return [this.model, ...this.meshes.filter((m): m is THREE.Object3D => m !== null)];
-  }
-
-  private nearestSlot(point: THREE.Vector3, filled: boolean): number {
-    const local = this.root.worldToLocal(point.clone());
-    let best = -1;
-    let bestD = Infinity;
-    this.spots.forEach((s, i) => {
-      if ((this.slots[i] !== null) !== filled) return;
-      const d = Math.abs(s.z - local.z);
-      if (d < bestD) {
-        bestD = d;
-        best = i;
-      }
-    });
-    return best;
-  }
-
-  get hasFree(): boolean {
-    return this.slots.includes(null);
-  }
-
-  prompt(): Prompt {
-    const hand = this.game.hand;
-    const title = 'Pass Counter';
-    if (!hand.empty) return this.hasFree ? { title, verb: `Set down ${hand.name}`, ok: true } : { title, verb: 'No space left', ok: false };
-    if (this.slots.every((s) => s === null)) return { title, verb: 'Empty', detail: 'Press Q to set an item down', ok: false };
-    const at = this.game.interaction.lastHit ? this.nearestSlot(this.game.interaction.lastHit.point, true) : -1;
-    const name = at >= 0 ? this.game.content.items.get(this.slots[at]!).name : '';
-    return { title, verb: `Pick up ${name}`, ok: true };
-  }
-
-  interact(hit: THREE.Intersection): void {
-    const g = this.game;
-    if (!g.hand.empty) {
-      if (!this.place(g.hand.item!, this.nearestSlot(hit.point, false))) return g.reject();
-      g.hand.clear();
-      g.audio.play('place');
-      return;
-    }
-    const i = this.nearestSlot(hit.point, true);
-    if (i < 0) return g.reject();
-    g.hand.take(this.slots[i]!);
-    this.setSlot(i, null);
-    g.audio.play('pickup');
-  }
-
-  /** Places into `slot`, or the first free slot when slot < 0. */
-  place(item: ItemId, slot = -1): boolean {
-    const i = slot >= 0 && this.slots[slot] === null ? slot : this.slots.indexOf(null);
-    if (i < 0) return false;
-    this.setSlot(i, item);
-    return true;
-  }
-
-  private setSlot(i: number, item: ItemId | null): void {
-    this.slots[i] = item;
-    const old = this.meshes[i];
-    if (old) disposeGroup(old);
-    this.meshes[i] = null;
-    if (item) {
-      const m = makeItemMesh(this.game.content.items.get(item).visual);
-      m.position.copy(this.spots[i]);
-      this.root.add(m);
-      this.meshes[i] = m;
-    }
-  }
-
-  reset(): void {
-    for (let i = 0; i < this.slots.length; i++) this.setSlot(i, null);
-  }
-}
-
-const WASH_SECONDS = 3.5;
-
+/** Sink on the north counter. Dishes only get washed while the player stands at it. */
 export class Sink implements Interactable {
   readonly root = new THREE.Group();
   readonly label: StationLabel;
   readonly glow: THREE.Mesh;
   queue = 0;
-  private remaining = 0;
+  private progress = 0;
   private readonly stack: THREE.Object3D[] = [];
   private readonly water: THREE.Mesh;
   private readonly model: THREE.Group;
 
   constructor(
     private readonly game: Game,
+    x: number,
     z: number,
   ) {
-    this.root.position.set(COUNTER_X, COUNTER.top, z);
+    this.root.position.set(x, COUNTER_TOP, z);
+    this.root.rotation.y = -Math.PI / 2;
     this.model = modelGroup(
       cachedModel('sink', F, [0, 0, 0], (v) => {
         v.box(-9, 0, -14, 9, 4, 14, C.steel);
@@ -470,7 +379,6 @@ export class Sink implements Interactable {
         v.box(-10, 11, -1, -3, 12, 1, C.steel);
         v.box(-4, 10, -1, -3, 11, 1, C.steel);
         v.box(3, 0, 15, 8, 2, 18, C.mustard);
-        v.box(-7, 0, 15, 1, 6, 17, (_x, y) => (y % 2 ? C.ceramic : C.ceramicBlue));
       }),
     );
     this.root.add(this.model);
@@ -478,51 +386,59 @@ export class Sink implements Interactable {
     this.water.rotation.x = -Math.PI / 2;
     this.water.position.set(0, 3.5 * F, 0);
     this.root.add(this.water);
-    this.glow = makeGlowPool(COUNTER_X + 0.15, COUNTER.top + 0.004, z, 1.0, 0.9);
-    this.label = { anchor: new THREE.Vector3(COUNTER_X + 0.15, COUNTER.top + 0.62, z), progress: null, ready: 0 };
+    this.glow = makeGlowPool(x, COUNTER_TOP + 0.004, z + 0.2, 1.1, 0.9);
+    this.label = { anchor: new THREE.Vector3(x, COUNTER_TOP + 0.62, z + 0.1), progress: null, ready: 0 };
   }
 
   outlineTargets(): THREE.Object3D[] {
-    return [this.model];
+    return [this.model, ...this.stack];
+  }
+
+  private get playerNear(): boolean {
+    const p = this.game.player.position;
+    const w = this.root.position;
+    return p.y < 1 && Math.hypot(p.x - w.x, p.z - w.z) < WASH_REACH;
   }
 
   prompt(): Prompt {
     const g = this.game;
     const title = 'Sink';
-    if (g.hand.item === DIRTY_DISHES) return { title, verb: 'Wash Dishes', ok: true };
+    if (g.hand.item === DIRTY_DISHES) return { title, verb: `Put ${g.hand.qty} dish${g.hand.qty > 1 ? 'es' : ''} in the sink`, ok: true };
     if (!g.hand.empty) return { title, verb: `Can't wash ${g.hand.name}`, ok: false };
-    if (this.queue > 0) return { title, verb: `Washing… ${this.queue} left`, ok: false };
-    return { title, verb: 'Bring dirty dishes here', ok: false };
+    if (this.queue > 0) return { title, verb: `Washing… ${this.queue} left`, detail: 'Stay at the sink while you wash', ok: false };
+    return { title, verb: 'Bring dirty dishes here', detail: `${g.dishes.clean} clean dishes on the rack`, ok: false };
   }
 
   interact(): void {
     const g = this.game;
     if (g.hand.item !== DIRTY_DISHES) return g.reject();
+    this.queue += g.hand.qty;
     g.hand.clear();
-    if (this.queue === 0) this.remaining = WASH_SECONDS;
-    this.queue++;
     g.audio.play('wash');
     this.syncStack();
   }
 
   update(dt: number): void {
-    if (this.queue > 0) {
-      this.remaining -= dt;
-      if (this.remaining <= 0) {
+    const washing = this.queue > 0 && this.playerNear;
+    if (washing) {
+      this.progress += dt / WASH_SECONDS_PER_DISH;
+      if (this.progress >= 1) {
+        this.progress = 0;
         this.queue--;
-        this.remaining = WASH_SECONDS;
+        this.game.dishes.clean++;
+        this.game.rack.sync();
         this.syncStack();
         this.game.audio.play(this.queue > 0 ? 'wash' : 'clean');
       }
     }
     const m = this.water.material as THREE.MeshStandardMaterial;
     m.opacity = THREE.MathUtils.damp(m.opacity, this.queue > 0 ? 0.6 : 0, 4, dt);
-    this.label.progress = this.queue > 0 ? 1 - this.remaining / WASH_SECONDS : null;
+    this.label.progress = this.queue > 0 ? this.progress : null;
     this.label.ready = 0;
   }
 
   private syncStack(): void {
-    while (this.stack.length > this.queue) disposeGroup(this.stack.pop()!);
+    while (this.stack.length > Math.min(this.queue, 4)) disposeGroup(this.stack.pop()!);
     while (this.stack.length < Math.min(this.queue, 4)) {
       const m = makeItemMesh('dirtyDishes');
       m.position.set(0, 2 * F + this.stack.length * 0.02, -0.18 + this.stack.length * 0.12);
@@ -533,7 +449,52 @@ export class Sink implements Interactable {
 
   reset(): void {
     this.queue = 0;
+    this.progress = 0;
     this.syncStack();
+  }
+}
+
+/** Drying rack: shows how many clean dishes are ready. */
+export class DishRack implements Interactable {
+  readonly root = new THREE.Group();
+  private readonly frame: THREE.Group;
+  private stacks: THREE.Object3D[] = [];
+
+  constructor(
+    private readonly game: Game,
+    x: number,
+    z: number,
+  ) {
+    this.root.position.set(x, COUNTER_TOP, z);
+    this.frame = modelGroup(dryingRack());
+    this.root.add(this.frame);
+  }
+
+  sync(): void {
+    for (const s of this.stacks) s.removeFromParent();
+    this.stacks = [];
+    let left = Math.min(this.game.dishes.clean, 24);
+    for (let i = 0; left > 0 && i < 3; i++) {
+      const n = Math.min(8, left);
+      left -= n;
+      const s = modelGroup(plateStack(n));
+      s.position.set(-0.22 + i * 0.22, F, 0);
+      this.root.add(s);
+      this.stacks.push(s);
+    }
+  }
+
+  outlineTargets(): THREE.Object3D[] {
+    return [this.frame, ...this.stacks];
+  }
+
+  prompt(): Prompt {
+    const n = this.game.dishes.clean;
+    return { title: 'Drying Rack', verb: `${n} clean dish${n === 1 ? '' : 'es'}`, detail: n < 4 ? 'Running low — wash dirty dishes at the sink' : 'Cooking uses a clean dish', ok: false };
+  }
+
+  interact(): void {
+    this.game.reject();
   }
 }
 

@@ -240,7 +240,7 @@ export class UI {
     if (name && icon) this.held.innerHTML = `<img src="${iconUrl(icon)}"><span>${esc(name)}</span><span class="key">Q</span>`;
   }
 
-  toast(text: string, kind: 'info' | 'big' = 'info', seconds = 3): void {
+  toast(text: string, kind: 'info' | 'big' | 'warn' = 'info', seconds = 3): void {
     const t = el('div', `toast ${kind}`, this.toasts, esc(text));
     setTimeout(() => t.classList.add('out'), seconds * 1000);
     setTimeout(() => t.remove(), seconds * 1000 + 600);

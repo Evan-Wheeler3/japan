@@ -1,12 +1,20 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import type { Rect } from './geometry';
+import { APARTMENT, KITCHEN, STAIRS } from './layout';
 
 const EYE_HEIGHT = 1.62;
 const RADIUS = 0.28;
 const WALK_SPEED = 3.0;
 const SPRINT_MULT = 1.6;
 const STEP_LENGTH = 0.7;
+
+/** Floor height under (x, z): ground, the 1:1 stair ramp, or the apartment floor once upstairs. */
+export function floorHeight(x: number, z: number, current: number): number {
+  if (z >= STAIRS.minZ && z <= STAIRS.maxZ && x >= STAIRS.topX && x <= STAIRS.bottomX) return Math.min(APARTMENT.floor, Math.max(0, STAIRS.bottomX - x));
+  const inWing = x >= KITCHEN.minX - 0.3 && x <= KITCHEN.maxX + 0.1 && z >= KITCHEN.minZ - 0.3 && z <= KITCHEN.maxZ + 0.3;
+  return inWing && current > 1.7 ? APARTMENT.floor : 0;
+}
 
 export class Player {
   readonly controls: PointerLockControls;
@@ -32,14 +40,18 @@ export class Player {
     return this.controls.isLocked;
   }
 
+  get upstairs(): boolean {
+    return this.position.y > 1.7;
+  }
+
   setSensitivity(v: number): void {
     this.controls.pointerSpeed = v;
   }
 
   teleport(p: THREE.Vector3, yaw: number): void {
-    this.position.set(p.x, 0, p.z);
+    this.position.set(p.x, p.y, p.z);
     this.velocity.set(0, 0, 0);
-    this.camera.position.set(p.x, EYE_HEIGHT, p.z);
+    this.camera.position.set(p.x, p.y + EYE_HEIGHT, p.z);
     this.camera.rotation.set(0, yaw, 0, 'YXZ');
   }
 
@@ -57,16 +69,23 @@ export class Player {
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) wish.sub(right);
     const sprint = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
     if (wish.lengthSq() > 0) wish.normalize().multiplyScalar(WALK_SPEED * (sprint ? SPRINT_MULT : 1));
+    this.velocity.lerp(wish, 1 - Math.exp(-dt * 14));
 
-    const accel = 1 - Math.exp(-dt * 14);
-    this.velocity.lerp(wish, accel);
-
-    const before = this.position.clone();
+    const beforeX = this.position.x;
+    const beforeZ = this.position.z;
     this.position.x += this.velocity.x * dt;
     this.position.z += this.velocity.z * dt;
-    for (let i = 0; i < 2; i++) for (const r of this.colliders) pushOut(this.position, r);
+    const feet = this.position.y;
+    for (let i = 0; i < 2; i++)
+      for (const r of this.colliders) {
+        if ((r.minY ?? -Infinity) >= feet + 1.5 || (r.maxY ?? Infinity) <= feet + 0.25) continue;
+        pushOut(this.position, r);
+      }
+    const target = floorHeight(this.position.x, this.position.z, feet);
+    this.position.y = THREE.MathUtils.damp(this.position.y, target, 18, dt);
+    if (Math.abs(this.position.y - target) < 0.002) this.position.y = target;
 
-    const moved = Math.hypot(this.position.x - before.x, this.position.z - before.z);
+    const moved = Math.hypot(this.position.x - beforeX, this.position.z - beforeZ);
     this.stepAcc += moved;
     if (this.stepAcc > STEP_LENGTH) {
       this.stepAcc = 0;
@@ -75,7 +94,7 @@ export class Player {
     const speed = moved / Math.max(dt, 1e-4);
     this.bobPhase += moved * 9;
     const bob = Math.min(1, speed / WALK_SPEED) * Math.sin(this.bobPhase) * 0.025;
-    this.camera.position.set(this.position.x, EYE_HEIGHT + bob, this.position.z);
+    this.camera.position.set(this.position.x, this.position.y + EYE_HEIGHT + bob, this.position.z);
   }
 }
 
@@ -92,7 +111,6 @@ function pushOut(p: THREE.Vector3, r: Rect): void {
     p.z = cz + (dz / d) * RADIUS;
     return;
   }
-  // centre inside the box: push out along the shallowest axis
   const left = p.x - r.minX;
   const rightD = r.maxX - p.x;
   const back = p.z - r.minZ;

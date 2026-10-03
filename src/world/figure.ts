@@ -136,7 +136,7 @@ export class Figure {
     this.pose = p;
   }
 
-  update(dt: number, seatHeight: number): void {
+  update(dt: number, seatHeight: number, legAngle = -Math.PI / 2): void {
     this.phase += dt;
     const t = this.phase;
     this.legL.rotation.x = this.legR.rotation.x = 0;
@@ -162,7 +162,7 @@ export class Figure {
       case 'eat': {
         const scale = this.root.scale.y || 1;
         this.body.position.y = seatHeight / scale - HIP;
-        this.legL.rotation.x = this.legR.rotation.x = -Math.PI / 2;
+        this.legL.rotation.x = this.legR.rotation.x = legAngle;
         this.armL.rotation.x = this.armR.rotation.x = -0.55;
         if (this.pose === 'eat') {
           const bite = Math.max(0, Math.sin(t * 3.2));

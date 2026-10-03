@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Content } from '../data/registry';
+import { DIRTY_DISHES } from '../data/content';
 import type { ItemId } from '../data/types';
 import { disposeGroup, makeItemMesh } from './items';
 
@@ -36,6 +37,11 @@ export class InteractionSystem {
   register(i: Interactable): void {
     i.root.userData.interactable = i;
     this.interactables.add(i);
+  }
+
+  unregister(i: Interactable): void {
+    this.interactables.delete(i);
+    if (this.hovered === i) this.hovered = null;
   }
 
   /** Extra objects (e.g. customers) whose userData.interactable points at an owner. */
@@ -79,6 +85,8 @@ function findInteractable(o: THREE.Object3D | null): Interactable | null {
 /** The player's single carrying slot, rendered in the lower-right of the view. */
 export class Hand {
   item: ItemId | null = null;
+  /** Number of plates when carrying a stack of dirty dishes. */
+  qty = 1;
   private mesh: THREE.Object3D | null = null;
   private readonly holder = new THREE.Group();
   private bob = 0;
@@ -98,12 +106,22 @@ export class Hand {
   }
 
   get name(): string {
-    return this.item ? this.content.items.get(this.item).name : '';
+    if (!this.item) return '';
+    const n = this.content.items.get(this.item).name;
+    return this.item === DIRTY_DISHES && this.qty > 1 ? `${n} ×${this.qty}` : n;
+  }
+
+  /** Picks up (or adds to) a stack of dirty dishes. */
+  takeDirty(n: number): void {
+    const total = this.item === DIRTY_DISHES ? this.qty + n : n;
+    this.take(DIRTY_DISHES);
+    this.qty = total;
   }
 
   take(item: ItemId): void {
     this.clear();
     this.item = item;
+    this.qty = 1;
     this.mesh = makeItemMesh(this.content.items.get(item).visual);
     this.holder.add(this.mesh);
     this.bob = 0.12;
@@ -114,6 +132,7 @@ export class Hand {
     if (this.mesh) disposeGroup(this.mesh);
     this.mesh = null;
     this.item = null;
+    this.qty = 1;
     return prev;
   }
 

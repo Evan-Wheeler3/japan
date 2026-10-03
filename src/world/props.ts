@@ -246,3 +246,101 @@ export function teapot(): VoxMesh {
     v.box(0, 5, 2, 6, 6, 3, C.darkWood);
   });
 }
+
+/** Bar stool for the sushi counter, 1/16 m voxels; seat top at 0.75 m. */
+export function stool(cushion: number): VoxMesh {
+  return cachedModel(`stool-${cushion}`, 1 / 16, [3.5, 0, 3.5], (v) => {
+    v.box(3, 0, 3, 4, 10, 4, C.darkWood);
+    v.cyl(3.5, 3.5, 2.6, 0, 1, C.darkWood);
+    v.box(1, 5, 3, 6, 6, 4, C.beam);
+    v.cyl(3.5, 3.5, 3.6, 10, 11, C.darkWood);
+    v.cyl(3.5, 3.5, 3.3, 11, 12, cushion);
+  });
+}
+
+/** Thin futon mattress with a quilt and pillow, laid on the floor (~2 m × 1 m). */
+export function futon(): VoxMesh {
+  return cachedModel('futon', 1 / 16, [8, 0, 16], (v) => {
+    v.box(0, 0, 0, 16, 2, 32, C.cream);
+    v.box(0, 2, 8, 16, 3, 32, (x, _y, z) => ((x + z) % 6 === 0 ? C.indigo2 : C.indigo));
+    v.box(4, 2, 1, 12, 4, 6, C.white);
+  });
+}
+
+/** Paper floor lamp (andon) — the apartment's only light at first. */
+export function andon(): VoxMesh {
+  return cachedModel('andon', F, [5, 0, 5], (v) => {
+    for (const [x, z] of [
+      [0, 0],
+      [9, 0],
+      [0, 9],
+      [9, 9],
+    ])
+      v.box(x, 0, z, x + 1, 22, z + 1, C.darkWood);
+    v.box(1, 4, 1, 9, 20, 9, C.lanternPaper);
+    v.box(0, 20, 0, 10, 22, 10, C.darkWood);
+    v.box(1, 21, 1, 9, 22, 9, 0);
+  });
+}
+
+/** Round low table (chabudai) with a tea cup. */
+export function chabudai(): VoxMesh {
+  return cachedModel('chabudai', 1 / 16, [6, 0, 6], (v) => {
+    v.cyl(6, 6, 6.2, 5, 6, (x, _y, z) => ((x + z) % 4 === 0 ? C.midWood2 : C.midWood));
+    for (const [x, z] of [
+      [3, 3],
+      [8, 3],
+      [3, 8],
+      [8, 8],
+    ])
+      v.box(x, 0, z, x + 1, 5, z + 1, C.darkWood);
+    v.box(5, 6, 5, 7, 8, 7, C.teacup);
+  });
+}
+
+export function cardboardBox(variant: number): VoxMesh {
+  return cachedModel(`box-${variant}`, 1 / 16, [4, 0, 3], (v) => {
+    const c = variant % 2 ? PAL.add(0xb08a5a, 0.06) : PAL.add(0xa07a4c, 0.06);
+    v.box(0, 0, 0, 8, 6, 6, c);
+    v.box(3, 5, 0, 5, 6, 6, PAL.add(0xd8c8a0, 0.03));
+  });
+}
+
+/** Colored kaiten plate that rides the belt under each dish. */
+export function beltPlate(color: number): VoxMesh {
+  return cachedModel(`belt-plate-${color}`, 1 / 48, [6, 0, 6], (v) => {
+    const rim = PAL.add(color, 0.03);
+    v.cyl(6, 6, 6.2, 0, 1, (x, _y, z) => {
+      const d = Math.hypot(x + 0.5 - 6, z + 0.5 - 6);
+      return d > 4.8 ? rim : C.ceramic;
+    });
+  });
+}
+
+/** Wooden drying rack frame for clean plates. */
+export function dryingRack(): VoxMesh {
+  return cachedModel('drying-rack', F, [0, 0, 0], (v) => {
+    v.box(-12, 0, -9, 12, 1, 9, C.lightWood);
+    for (const x of [-12, 11]) for (const z of [-9, 8]) v.box(x, 0, z, x + 1, 10, z + 1, C.lightWood);
+    for (let x = -10; x <= 10; x += 3) v.box(x, 1, -9, x + 1, 6, -8, C.hinoki2);
+    v.box(-12, 9, -9, 12, 10, -8, C.lightWood);
+    v.box(-12, 9, 8, 12, 10, 9, C.lightWood);
+  });
+}
+
+/** Tea set and condiments that line the middle of the sushi bar. */
+export function counterCondiments(variant: number): VoxMesh {
+  return cachedModel(`condiments-${variant}`, F, [4, 0, 2], (v) => {
+    v.box(0, 0, 0, 3, 4, 3, C.soy);
+    v.box(0, 4, 0, 3, 5, 3, C.red);
+    v.cyl(6, 1.5, 1.6, 0, 4, variant % 2 ? C.ceramicBlue : C.ceramic);
+    v.box(5, 4, 1, 7, 5, 2, C.darkWood);
+    for (let i = 0; i < 3; i++) v.cyl(1.5 + i * 0.2, 4.5, 1.6, i * 2, i * 2 + 2, C.teacup);
+  });
+}
+
+export function plateStack(n: number): VoxMesh {
+  return cachedModel(`plate-stack-${n}`, 1 / 48, [5, 0, 5], (v) => {
+    for (let i = 0; i < n; i++) v.cyl(5, 5, 4.8, i, i + 1, (x, _y, z) => (Math.hypot(x + 0.5 - 5, z + 0.5 - 5) > 3.8 ? C.ceramicBlue : C.ceramic));
+  });
+}
