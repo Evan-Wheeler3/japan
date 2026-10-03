@@ -83,20 +83,36 @@ try {
   await page.evaluate(() => window.__yoake.home.onPlay());
   check(await page.evaluate(() => document.body.classList.contains('arcade') && window.__yoake.arcade.mode === 'menu'), 'the Fami-Com opens on its cartridge menu');
   await page.keyboard.press('Space');
-  for (let i = 0; i < 40; i++) {
-    await page.evaluate(() => { // a steady hand: slide under the lowest sushi
-      const a = window.__yoake.arcade, s = a.s; if (!s || !s.items) return;
+  // the room renders behind the game now, so on a software renderer the game runs slow: play until we score
+  for (let i = 0; i < 400; i++) {
+    const score = await page.evaluate(() => { // a steady hand: slide under the lowest sushi
+      const a = window.__yoake.arcade, s = a.s; if (!s || !s.items) return 0;
       const it = s.items.filter((x) => x.kind !== 'wasabi').sort((p, q) => q.y - p.y)[0];
       a.keys.left = !!it && it.x < s.x - 4; a.keys.right = !!it && it.x > s.x + 4;
+      return s.score;
     });
+    if (i >= 40 && score > 0) break;
     await page.waitForTimeout(250);
   }
+  st = await page.evaluate(() => { const d = window.__yoake, seat = d.home.pieces.get('crt').seats[0]; return { sat: d.player.seated === seat, fov: d.camera.fov }; });
+  check(st.sat && st.fov < 60, `playing sits you on the TV's cushion and frames the set (fov ${st.fov.toFixed(0)})`);
   st = await page.evaluate(() => { const a = window.__yoake.arcade; const score = a.s.score; a.s.lives = 0; return { mode: a.mode, game: a.gameId, score }; });
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => window.__yoake.save.hi && window.__yoake.save.hi.sushi > 0, null, { timeout: 30000 }).catch(() => {});
   st.hi = await page.evaluate(() => window.__yoake.save.hi && window.__yoake.save.hi.sushi);
+  st.score = await page.evaluate(() => window.__yoake.arcade.s.score); // it may have caught one more on the way out
   check(st.game === 'sushi' && st.score > 0 && st.hi === st.score, `Sushi Catch played: ${st.score} points, saved as the high score`);
   await page.keyboard.press('Escape');
   check(await page.evaluate(() => !document.body.classList.contains('arcade')), 'Esc puts the controller down');
+
+  // ---- the TV carries its cushion and the console with it
+  st = await page.evaluate(() => {
+    const d = window.__yoake, tv = d.home.pieces.get('crt'), fc = d.home.pieces.get('famicom'), from = [tv.x, tv.z, tv.rot];
+    d.home.moveTo('crt', 10.5, 2.5, 0);
+    const r = { fc: [fc.x, fc.z, fc.rot], seat: [tv.seats[0].x, tv.seats[0].z] };
+    d.home.moveTo('crt', ...from);
+    return r;
+  });
+  check(st.fc[0] === 10.5 && Math.abs(st.fc[1] - 1.88) < 0.01 && st.fc[2] === 0 && Math.abs(st.seat[1] - 1.25) < 0.01, `moving the TV brings the Fami-Com and the cushion (${st.fc.join(', ')})`);
 
   // ---- moving furniture: the bonsai goes somewhere new (and the hearth won't fit on the kotatsu)
   st = await page.evaluate(() => {

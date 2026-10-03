@@ -197,7 +197,7 @@ async function boot() {
     else if (!locked && arrived && !document.body.classList.contains('summary'))
       menu.show('pause', { clock: clockText(shift.minutes).toLowerCase(), coop: !!coop, isHost: !!(coop && coop.isHost), pausePanel: null });
     // full pause once you've come in (solo only: in co-op the shop keeps going for everyone else)
-    paused = arrived && !locked && !coop && !dev && !sunrise;
+    paused = arrived && !locked && !coop && !dev && !sunrise && !arcadeOpen;
     if (audio.ctx) { if (paused && !arcadeOpen) audio.ctx.suspend(); else audio.ctx.resume(); }
     if (locked && !introShown) { introShown = true; setTimeout(() => $('intro').classList.add('gone'), 9000); }
   }
@@ -308,7 +308,7 @@ async function boot() {
   arcade.onHi = (id, score) => { save.hi = { ...(save.hi || {}), [id]: score }; writeSave(save); };
   arcade.onSfx = (kind) => audio.chip(kind);
   const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast, arcade, touch: !!touchUI, layout: save.place,
-    addSeat: (seat) => addSitSpot(seat, 'Sit by the fire', 'warm hands. the kettle ticks. · walk to stand up'),
+    addSeat: (seat) => addSitSpot(seat, seat.local.label || 'Sit by the fire', seat.local.note || 'warm hands. the kettle ticks. · walk to stand up'),
     addLamp: (l) => { const r = { ...l, mul: 1, v: new THREE.Vector3(...l.pos) }; lamps.push(r); named[l.name] = r; return r; },
     addSteam: (src) => { const st = makeSteam([src]); scene.add(st); homeSteam.push(st); return st; } });
   home.onMove = (p) => startMove(p);
@@ -397,10 +397,17 @@ async function boot() {
   service.onOwned = (list) => { service.owned = [...list]; applyAll(); };
   home.tvOn = false;
   home.onTV = () => { home.tvOn = !home.tvOn; arcade.setPower(home.tvOn, service.owned.includes('famicom')); audio.clickSound(); };
+  // playing: you sit on the TV's cushion and the game runs on the set itself, framed in front of you
   home.onPlay = () => {
+    const tv = home.pieces.get('crt'), seat = tv && tv.seats[0];
+    if (!seat) return;
+    if (player.seated !== seat) {
+      if (seat.occupant) { toast('someone else has the controller'); return; }
+      if (player.seated) player.standUp();
+      player.sitOn(seat);
+    }
     if (!home.tvOn) { home.tvOn = true; arcade.setPower(true, true); }
-    arcadeOpen = true; arcade.open();
-    $('arcade').querySelector('.tv').appendChild(arcade.canvas);
+    arcadeOpen = true; arcade.open(); audio.clickSound();
     document.body.classList.add('arcade');
     unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false);
   };
@@ -408,7 +415,22 @@ async function boot() {
     if (!arcadeOpen) return;
     arcadeOpen = false; arcade.close();
     document.body.classList.remove('arcade');
-    setPlaying(false); // back to the pause menu: one click and you're in the room again
+    setPlaying(false); // back to the pause menu: one click and you're in the room again, still on the cushion
+  };
+  // while you play, the view settles on the screen: aim at it and narrow the lens until the set fills it
+  const tvAim = new THREE.Vector3();
+  const frameTV = (dt) => {
+    const tv = home.pieces.get('crt'); if (!tv || !tv.screen) return 68;
+    tv.screen.getWorldPosition(tvAim);
+    const o = camera.position, dx = tvAim.x - o.x, dy = tvAim.y - o.y, dz = tvAim.z - o.z, flat = Math.hypot(dx, dz), dist = Math.hypot(flat, dy);
+    const k = Math.min(1, dt * 6);
+    const yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, flat);
+    let dyaw = yaw - player.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+    player.yaw += dyaw * k; player.pitch += (pitch - player.pitch) * k;
+    camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+    // the picture is 0.6 x 0.5 m: leave a little of the set showing round it, on any screen shape
+    const vNeed = 2 * Math.atan(0.52 / dist), hNeed = 2 * Math.atan((0.56 / dist) / camera.aspect);
+    return THREE.MathUtils.radToDeg(Math.max(vNeed, hNeed));
   };
   $('arcade').querySelector('[data-act="putDown"]').onclick = putDownController;
   for (const b of $('arcade').querySelectorAll('[data-k]')) {
@@ -682,14 +704,7 @@ async function boot() {
   }
 
   function tick(now) {
-    if (paused) {
-      // a paused room still runs the Fami-Com when you're playing it
-      if (arcadeOpen) {
-        arcade.tick(Math.min(0.05, (now - last) / 1000));
-        const h = $('arcade').querySelector('.hint'); if (h.textContent !== arcade.hint) h.textContent = arcade.hint;
-      }
-      last = now; requestAnimationFrame(tick); return;
-    }
+    if (paused) { last = now; requestAnimationFrame(tick); return; }
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     updateBow();
     player.update(dt);
@@ -734,6 +749,7 @@ async function boot() {
     }
     setDawn(dawn);
     if (arcade.mode !== 'off') arcade.tick(dt);
+    if (arcadeOpen) { const h = $('arcade').querySelector('.hint'); if (h.textContent !== arcade.hint) h.textContent = arcade.hint; }
 
     // the sign, the cash box, the telescope
     signOpen.visible = shift.active && !shift.waiting; signClosed.visible = !signOpen.visible;
@@ -742,11 +758,10 @@ async function boot() {
       const cash = cashBox();
       if (!coop || coop.isHost) service.cashBox = cash;
       const txt = cash >= INFINITE ? '¥∞ · dev' : `¥${Math.round(cash).toLocaleString('en-US')}`;
-      if (arcadeOpen) { const h = $('arcade').querySelector('.hint'); if (h.textContent !== arcade.hint) h.textContent = arcade.hint; }
       if ($('purse').textContent !== txt) $('purse').textContent = txt;
     }
     if (zoom && (player.keys.KeyW || player.keys.KeyA || player.keys.KeyS || player.keys.KeyD || Math.hypot(player.stick.x, player.stick.y) > 0.4 || !player.locked)) zoom = false;
-    const fov = zoom ? 14 : 68;
+    const fov = arcadeOpen ? frameTV(dt) : zoom ? 14 : 68;
     if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); }
     player.sensMul = zoom ? 0.2 : 1;
 

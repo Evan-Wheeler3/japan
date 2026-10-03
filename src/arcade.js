@@ -1,5 +1,5 @@
 // The retro console upstairs: a tiny 8-bit machine drawn on a 256x224 canvas. The same canvas is the
-// texture on the CRT in the living room and the picture in the full-screen view while you play.
+// texture on the CRT in the living room, which is where you play it, sitting on the cushion in front.
 // Games are small arcade loops: Sushi Catch (comes with the console), Snow Dash, Koi Pond, Daruma Break.
 import * as THREE from 'three';
 import { glyphPixels, textWidth } from './voxel.js';

@@ -66,13 +66,15 @@ The **catalog** on the kotatsu sells, for the yen in your cash box:
   irori hearth to sit by, a CRT television, and a Fami-Com console that plugs into it.
 - **for the Fami-Com:** the console comes with *Sushi Catch* (catch falling sushi, dodge the wasabi). Three more
   cartridges: *Snow Dash* (jump snowmen, duck crows), *Koi Pond* (a snake game in a koi pond) and
-  *Daruma Break* (breakout with daruma dolls). Click the console to play: arrow keys or WASD, space, Esc to put
-  the controller down. High scores are saved. The game shows on the TV in the room too.
+  *Daruma Break* (breakout with daruma dolls). The TV comes with a floor cushion in front of it. Click the
+  console to play: you sit down on the cushion, eye level with the set, and the game plays on the CRT itself.
+  Arrow keys or WASD, space, Esc to put the controller down. High scores are saved.
 
 **Rearranging:** anything you bought that stands on the apartment floor can be moved. Look at it and press
 **F** (or click it, if it has nothing else to do) to pick it up; it follows your gaze across the floor. **R** or
 the mouse wheel turns it, a click sets it down where the outline is green, **Esc** or right-click puts it back.
-On a phone, use the move / turn / put back buttons. Things on the walls (the lanterns, the print) stay put.
+On a phone, use the move / turn / put back buttons. The TV takes its cushion and the console with it. Things on
+the walls (the lanterns, the print) stay put.
 Where everything stands is saved.
 
 In co-op everyone can order from the catalog; it all comes out of the shop's one cash box, and everyone
@@ -102,7 +104,7 @@ coin on the offering box.
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen to the counter, the plates riding it |
 | `src/home.js` | The save file, the catalog, what each upgrade does, and the things you can buy for the apartment |
-| `src/arcade.js` | The Fami-Com: a 256×224 canvas that is both the CRT's picture and the full-screen view, and its four games |
+| `src/arcade.js` | The Fami-Com: a 256×224 canvas that is the CRT's picture, and its four games |
 | `src/shift.js` | The clock (10 PM → 6 AM), rushes, the dawn, the stats card, perks |
 | `src/main.js` | Boot, the lamp pool (the nearest lamps get real lights), the sunrise at the end of the night, the loop |
 | `src/menu.js`, `src/coop.js`, `src/net.js`, `src/touch.js` | Menus, online co-op (up to 4), touch controls |

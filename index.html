@@ -140,17 +140,14 @@
     .buy .chip.on[disabled] { opacity: 1; }
     .buy.later .what b { color: var(--muted); }
 
-    /* the Fami-Com: the game fills the screen inside a CRT bezel */
-    #arcade { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 40;
-      background: radial-gradient(ellipse at 50% 45%, rgba(40,30,24,.92), rgba(6,5,8,.97) 70%); padding: 16px; box-sizing: border-box; }
+    /* the Fami-Com: the game plays on the CRT in the room; all that's on top is a strip of controls along the bottom */
+    #arcade { position: fixed; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; align-items: center; gap: 10px; z-index: 40;
+      padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); box-sizing: border-box; pointer-events: none;
+      background: linear-gradient(to top, rgba(6,5,8,.7), rgba(6,5,8,0)); }
+    #arcade > * { pointer-events: auto; }
     body.arcade #arcade { display: flex; }
     body.arcade #overlay, body.arcade .hud, body.arcade #reticle, body.arcade #hint { display: none; }
-    #arcade .tv { position: relative; width: min(86vw, calc((100vh - 170px) * 256 / 224)); aspect-ratio: 256 / 224; max-width: 100%; padding: 22px; box-sizing: content-box;
-      border-radius: 34px; background: linear-gradient(160deg, #3a3a42, #1e1e24); box-shadow: inset 0 2px 0 rgba(255,255,255,.08), 0 24px 60px rgba(0,0,0,.6); }
-    #arcade canvas { width: 100%; height: 100%; display: block; border-radius: 18px / 22px; image-rendering: pixelated; image-rendering: crisp-edges; }
-    #arcade .tv::after { content: ''; position: absolute; inset: 22px; border-radius: 18px / 22px; pointer-events: none;
-      background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.06), rgba(0,0,0,0) 45%, rgba(0,0,0,.45) 100%); box-shadow: inset 0 0 40px rgba(0,0,0,.6); }
-    #arcade .hint { font: 600 15px Nunito, sans-serif; color: var(--muted); text-align: center; }
+    #arcade .hint { font: 600 15px Nunito, sans-serif; color: var(--cream); opacity: .85; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
     #arcade .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
     #arcade .pads { display: none; gap: 10px; }
     body.touch #arcade .pads { display: flex; }
@@ -314,7 +311,7 @@
   <div id="summary"></div>
   <div id="purse" class="hud glass"></div>
   <div id="fade"><div class="cap"></div></div>
-  <div id="arcade"><div class="tv"></div><div class="hint"></div>
+  <div id="arcade"><div class="hint"></div>
     <div class="row"><div class="pads"><button data-k="ArrowLeft">◀</button><button data-k="ArrowUp">▲</button><button data-k="ArrowDown">▼</button><button data-k="ArrowRight">▶</button><button class="a" data-k="Space">A</button></div>
     <button class="text-btn" data-act="putDown">put the controller down <kbd>Esc</kbd></button></div></div>
   <script type="module" src="src/main.js"></script>

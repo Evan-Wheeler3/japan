@@ -214,9 +214,12 @@ const PIECES = [
       { model: zabuton, x: -0.95, collide: false }, { model: zabuton, x: 0.95, collide: false }, { model: zabuton, z: 0.95, collide: false }],
     seats: [{ x: -0.95, z: 0, yaw: Math.PI * 1.5 }, { x: 0.95, z: 0, yaw: Math.PI / 2 }, { x: 0, z: 0.95, yaw: 0 }],
     lamp: { x: 0, y: 0.4, z: 0, color: 0xff7a30, intensity: 4, distance: 6, name: 'irori' }, steam: { x: 0, y: 0.6, z: 0, size: 0.35 } },
-  { key: 'crt', item: 'crt', name: 'the TV', at: [7.7, 4.5, 1], foot: [0.5, 0.38], parts: [{ model: crt }], screen: true,
+  // the TV comes with a cushion on the floor in front of it, at eye level with the screen; they move together
+  { key: 'crt', item: 'crt', name: 'the TV', at: [7.7, 4.5, 1], foot: [0.5, 0.96], footOff: [0, -0.58], parts: [{ model: crt }, { model: zabuton, z: -1.25, collide: false }], screen: true,
+    seats: [{ x: 0, z: -1.25, yaw: Math.PI, y: 0.0, app: [0.8, -1.25], label: 'Sit in front of the TV', note: 'cross-legged on the cushion, eye to eye with the set · walk to stand up' }],
     acts: [{ box: [0, 0.75, 0, 0.5, 0.4, 0.38], label: (h) => (h.tvOn ? 'Turn the TV off' : 'Turn the TV on'), fn: (h) => h.onTV && h.onTV() }] },
-  { key: 'famicom', item: 'famicom', name: 'the Fami-Com', at: [7.1, 4.5, 1], foot: [0.38, 0.25], parts: [{ model: famicom, collide: false }],
+  // the console sits on the floor between the TV and its cushion, and goes where the TV goes
+  { key: 'famicom', item: 'famicom', name: 'the Fami-Com', attach: { to: 'crt', x: 0, z: -0.62 }, foot: [0.38, 0.25], parts: [{ model: famicom, collide: false }],
     acts: [{ box: [0, 0.05, 0, 0.38, 0.08, 0.22], label: 'Play the Fami-Com', fn: (h) => h.onPlay && h.onPlay() }] },
 ];
 // floor you can't put things on: the kotatsu, the futon, the doorway out, the gap in the fusuma
@@ -246,8 +249,10 @@ export class Home {
       if (this.placed.has(id)) continue;
       this.placed.add(id);
       if (FIXED[id]) FIXED[id](this);
-      for (const spec of PIECES) if (spec.item === id) this.makePiece(spec);
+      for (const spec of PIECES) if (spec.item === id && !spec.attach) this.makePiece(spec);
     }
+    // things that ride on another piece go in once their host is there
+    for (const spec of PIECES) if (spec.attach && this.placed.has(spec.item) && !this.pieces.has(spec.key) && this.pieces.has(spec.attach.to)) this.makePiece(spec);
   }
 
   // ---------------------------------------------------------------- pieces
@@ -261,6 +266,7 @@ export class Home {
     if (spec.screen) { // the TV's picture: the console's canvas, over the glass
       const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.5), new THREE.MeshBasicMaterial({ map: this.arcade.texture }));
       scr.position.set(0, 11 / 16, -12 / 32 + 1 / 16 - 0.008); scr.rotation.y = Math.PI; p.root.add(scr);
+      p.screen = scr;
     }
     this.scene.add(p.root);
     const move = this.touch ? '' : ' · F to move';
@@ -268,25 +274,29 @@ export class Home {
       const [dx, dz] = turn(b[0], b[2], p.rot), odd = p.rot & 1;
       return [p.x + dx, F2 + b[1], p.z + dz, odd ? b[5] : b[3], b[4], odd ? b[3] : b[5]];
     };
+    // an attached piece rides along with its host: moving it moves the host
+    const host = spec.attach ? this.pieces.get(spec.attach.to) : null;
+    if (host) { p.host = host; (host.kids ||= []).push(p); }
     for (const a of spec.acts || []) {
       const it = this.interactions.add(boxOf(a.box), () => (typeof a.label === 'function' ? a.label(this) : a.label) + move, () => a.fn(this));
-      it.piece = p;
+      it.piece = host || p;
     }
     if (!spec.acts) { // nothing to do with it but look at it: clicking picks it up
       const it = this.interactions.add(boxOf([0, 0.35, 0, spec.foot[0], 0.35, spec.foot[1]]), () => `${spec.name[0].toUpperCase()}${spec.name.slice(1)} · click to move`, () => this.onMove && this.onMove(p));
       it.piece = p;
     }
     for (const s of spec.seats || []) {
-      const seat = { kind: 'cushion', y: F2 + 0.3, floorY: F2, local: s, x: 0, z: 0, yaw: 0, app: [0, 0] };
+      const seat = { kind: 'cushion', y: F2 + (s.y ?? 0.3), floorY: F2, local: s, x: 0, z: 0, yaw: 0, app: [0, 0] };
       p.seats.push(seat);
       const it = this.addSeat(seat); if (it) it.piece = p;
     }
     if (spec.lamp) p.lamp = this.addLamp({ ...spec.lamp, pos: [0, 0, 0] });
     if (spec.steam) { p.steam = this.addSteam({ pos: [0, 0, 0], size: spec.steam.size }); }
+    this.pieces.set(spec.key, p);
+    if (host) { this.pose(host, host.x, host.z, host.rot); return p; }
     const at = this.layout[spec.key] || spec.at;
     this.pose(p, at[0], at[1], at[2]);
     this.mark(p);
-    this.pieces.set(spec.key, p);
     return p;
   }
   // put a piece (and everything that hangs off it) at x, z turned rot quarter turns
@@ -295,8 +305,11 @@ export class Home {
     p.root.position.set(x, F2, z); p.root.rotation.y = p.rot * Math.PI / 2;
     for (const seat of p.seats) {
       const [dx, dz] = turn(seat.local.x, seat.local.z, p.rot);
-      seat.x = x + dx; seat.z = z + dz; seat.yaw = seat.local.yaw + p.rot * Math.PI / 2; seat.app = [x + dx * 1.9, z + dz * 1.9];
+      seat.x = x + dx; seat.z = z + dz; seat.yaw = seat.local.yaw + p.rot * Math.PI / 2;
+      if (seat.local.app) { const [ax, az] = turn(seat.local.app[0], seat.local.app[1], p.rot); seat.app = [x + ax, z + az]; }
+      else seat.app = [x + dx * 1.9, z + dz * 1.9];
     }
+    for (const k of p.kids || []) { const [dx, dz] = turn(k.spec.attach.x, k.spec.attach.z, p.rot); this.pose(k, x + dx, z + dz, p.rot); }
     const at = (o) => { const [dx, dz] = turn(o.x, o.z, p.rot); return [x + dx, F2 + o.y, z + dz]; };
     if (p.lamp) p.lamp.v.set(...at(p.spec.lamp));
     if (p.steam) p.steam.position.set(...at(p.spec.steam));
@@ -318,14 +331,18 @@ export class Home {
   }
   unmark(p) { for (const i of p.cells) this.world.col[i] = 0; p.cells = []; }
   // the floor it would cover at x, z, rot: [x0, x1, z0, z1]
-  rect(p, x, z, rot) { const [hx, hz] = rot & 1 ? [p.spec.foot[1], p.spec.foot[0]] : p.spec.foot; return [x - hx, x + hx, z - hz, z + hz]; }
+  rect(p, x, z, rot) {
+    const [hx, hz] = rot & 1 ? [p.spec.foot[1], p.spec.foot[0]] : p.spec.foot;
+    const [ox, oz] = p.spec.footOff ? turn(p.spec.footOff[0], p.spec.footOff[1], rot) : [0, 0];
+    return [x + ox - hx, x + ox + hx, z + oz - hz, z + oz + hz];
+  }
   // can it go there? Inside the apartment, clear of walls, furniture, the other pieces, the doorway and you.
   fits(p, x, z, rot, who) {
     const [x0, x1, z0, z1] = this.rect(p, x, z, rot);
     if (x0 < ROOM.x0 || x1 > ROOM.x1 || z0 < ROOM.z0 || z1 > ROOM.z1) return false;
     const hit = (r) => x0 < r[1] && x1 > r[0] && z0 < r[3] && z1 > r[2];
     if (NO_GO.some(hit)) return false;
-    for (const q of this.pieces.values()) if (q !== p && hit(this.rect(q, q.x, q.z, q.rot))) return false;
+    for (const q of this.pieces.values()) if (q !== p && !q.host && hit(this.rect(q, q.x, q.z, q.rot))) return false;
     if (who && who.x > x0 - 0.25 && who.x < x1 + 0.25 && who.z > z0 - 0.25 && who.z < z1 + 0.25) return false;
     for (let px = x0 + 0.03; px <= x1; px += 0.1) for (let pz = z0 + 0.03; pz <= z1; pz += 0.1)
       for (const y of [0.2, 0.7, 1.3]) if (this.world.solid(px, F2 + y, pz)) return false;
@@ -334,6 +351,7 @@ export class Home {
   // move a piece for good (and remember where)
   moveTo(key, x, z, rot) {
     const p = this.pieces.get(key); if (!p) { this.layout[key] = [x, z, rot]; return; }
+    if (p.host) return; // it goes where its host goes
     this.unmark(p); this.pose(p, x, z, rot); this.mark(p);
     this.layout[key] = [x, z, p.rot];
   }
