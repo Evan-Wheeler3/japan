@@ -256,10 +256,14 @@ async function boot() {
     audio.musicOn = !audio.musicOn; audio.clickSound(); toast(audio.musicOn ? 'radio on' : 'radio off');
   });
   const cans = ['a hot can of royal milk tea', 'hot corn soup. somehow perfect.', 'a hot can of coffee. it warms your hands.', 'hot lemon. a little treat.'];
-  interactions.add([17.0, 1.2, -2.95, 0.45, 0.6, 0.12], () => 'Buy a hot drink · ¥130', () => {
+  // a hot can warms you up and puts a spring in your step: 1.25x walking speed for two minutes of play
+  const BOOST = { mul: 1.25, secs: 120 };
+  let boostLeft = 0;
+  interactions.add([17.0, 1.2, -2.95, 0.45, 0.6, 0.12], () => (boostLeft > 0 ? 'Buy a hot drink · ¥130 (tops up your boost)' : 'Buy a hot drink · ¥130 · walk 25% faster for 2 min'), () => {
     if (cashBox() < 130) { toast('the cash box is empty. maybe after tonight.'); audio.rattle(); return; }
     if (!save.devYen) { save.yen -= 130; writeSave(save); }
-    audio.vend(); toast(cans[Math.floor(Math.random() * cans.length)]);
+    boostLeft = BOOST.secs; player.speedMul = BOOST.mul;
+    audio.vend(); toast(`${cans[Math.floor(Math.random() * cans.length)]} · +25% speed for 2 minutes`);
   });
   interactions.add([12.3, 1.12, -3.0, 0.28, 0.16, 0.16], () => 'Pet the cat', () => { audio.purr(); toast('she stretches one paw. purrrr.'); });
   interactions.add([1.0, 1.2, 15.65, 0.65, 1.0, 0.15], () => 'Back door', () => { audio.rattle(); toast("it's snowed shut. the front door it is."); });
@@ -707,6 +711,7 @@ async function boot() {
     if (paused) { last = now; requestAnimationFrame(tick); return; }
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     updateBow();
+    if (boostLeft > 0 && (boostLeft -= dt) <= 0) { boostLeft = 0; player.speedMul = 1; toast('the hot drink wears off. back to a steady pace.'); }
     player.update(dt);
     const p = player.pos;
 
@@ -757,7 +762,8 @@ async function boot() {
       purseT = 0.5;
       const cash = cashBox();
       if (!coop || coop.isHost) service.cashBox = cash;
-      const txt = cash >= INFINITE ? '¥∞ · dev' : `¥${Math.round(cash).toLocaleString('en-US')}`;
+      const boost = boostLeft > 0 ? ` · ☕ ${Math.floor(boostLeft / 60)}:${String(Math.floor(boostLeft % 60)).padStart(2, '0')}` : '';
+      const txt = (cash >= INFINITE ? '¥∞ · dev' : `¥${Math.round(cash).toLocaleString('en-US')}`) + boost;
       if ($('purse').textContent !== txt) $('purse').textContent = txt;
     }
     if (zoom && (player.keys.KeyW || player.keys.KeyA || player.keys.KeyS || player.keys.KeyD || Math.hypot(player.stick.x, player.stick.y) > 0.4 || !player.locked)) zoom = false;

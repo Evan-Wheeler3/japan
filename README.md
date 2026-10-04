@@ -91,7 +91,8 @@ shares one arrangement of the apartment.
 **Dev switch:** the **`** key (or "dev · infinite yen" in settings) toggles a cash box that never runs out, for
 testing. It's remembered until you switch it off.
 
-The vending machine outside takes ¥130 from the cash box for a hot drink.
+The vending machine outside, at the foot of the stair, takes ¥130 from the cash box for a hot drink. It warms you
+up: you walk 25% faster for two minutes of play (the cash box shows the time left, and another can tops it up).
 
 West of the shop, a flagstone path leads past a stone lantern and through a torii to a little hokora in the
 pines. Bow there (click the shrine: two bows, two claps, one bow) and once a day the kami leave a ¥100

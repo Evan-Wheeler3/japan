@@ -79,6 +79,14 @@ try {
   st = await page.evaluate(() => { const d = window.__yoake; return { yen: d.save.yen, x: d.player.pos.x, free: !d.player.frozen, clear: !d.player.blocked(-6.4, 3.0, 0.125) }; });
   check(yen1 === yen0 + 100 && st.yen === yen1 && st.free && st.clear && st.x < -6, `bowing at the shrine leaves ¥100, once a day (¥${yen0} → ¥${yen1} → ¥${st.yen})`);
 
+  // ---- the vending machine: ¥130 for a hot can and a quarter more walking speed for a while
+  st = await page.evaluate(() => {
+    const d = window.__yoake, before = d.save.yen;
+    d.interactions.items.find((it) => { try { return it.label().startsWith('Buy a hot drink'); } catch { return false; } }).act();
+    return { spent: before - d.save.yen, mul: d.player.speedMul };
+  });
+  check(st.spent === 130 && st.mul === 1.25, 'a hot drink costs ¥130 and gives 1.25x walking speed');
+
   // ---- the Fami-Com: pick up the controller, play Sushi Catch, set a high score, put it down
   await page.evaluate(() => window.__yoake.home.onPlay());
   check(await page.evaluate(() => document.body.classList.contains('arcade') && window.__yoake.arcade.mode === 'menu'), 'the Fami-Com opens on its cartridge menu');
