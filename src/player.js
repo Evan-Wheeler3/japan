@@ -5,7 +5,7 @@ import { L } from './world.js';
 export class Player {
   constructor(camera, world, dom) {
     this.cam = camera; this.world = world;
-    // behind the counter in the corner by the kitchen door, looking across the whole room to the far corner
+    // in the corner by the kitchen door, looking across the whole room to the far corner
     this.pos = new THREE.Vector3(15.3, L.floor, 9.45);
     this.vel = new THREE.Vector3();
     this.yaw = 0.82; this.pitch = 0.03;

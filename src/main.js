@@ -96,7 +96,7 @@ async function boot() {
   const snow = makeSnow(7000, snowLights, L.roofDry); scene.add(snow);
   const steam = makeSteam([
     { pos: [11.3, 1.25, 10.05], size: 0.6 }, { pos: [12.2, 1.25, 10.05], size: 0.6 },
-    { pos: [7.3, 1.95, 9.65], size: 0.35 }, { pos: [7.9, 1.95, 9.65], size: 0.3 }, { pos: [9.0, 1.35, 9.7], size: 0.3 },
+    { pos: [8.1, 2.05, 6.47], size: 0.35 }, { pos: [8.7, 2.05, 6.47], size: 0.3 }, { pos: [6.65, 1.5, 6.47], size: 0.3 }, // urns, rice in the well
     { pos: [11.75, 1.6, 15.1], size: 0.7 }, { pos: [13.4, 1.4, 15.1], size: 0.5 },
     { pos: [9.65, 1.3, 15.2], size: 0.9 }, { pos: [10.65, 1.3, 15.2], size: 0.9 }, { pos: [8.1, 1.2, 15.1], size: 0.6 },
     ...meta.steam,
@@ -252,7 +252,7 @@ async function boot() {
   addFaucet(5.46, 1.55, 0.75, 12.3, [5.32, 1.45, 12.3, 0.09, 0.14, 0.12], 'water');
   for (const [tz] of [[12.45], [15.2]]) interactions.add([4.49, 0.6, tz, 0.4, 0.45, 0.3], () => 'Flush', () => audio.flush());
   for (const rz0 of [10.25, 13.125]) interactions.add([4.0, 1.25, rz0 + 0.1, 0.16, 0.16, 0.14], () => 'Dry your hands', () => audio.dryer());
-  interactions.add([6.2, 1.12, 9.75, 0.22, 0.16, 0.14], () => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => {
+  interactions.add([9.6, 1.25, 4.85, 0.22, 0.16, 0.14], () => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => {
     audio.musicOn = !audio.musicOn; audio.clickSound(); toast(audio.musicOn ? 'radio on' : 'radio off');
   });
   const cans = ['a hot can of royal milk tea', 'hot corn soup. somehow perfect.', 'a hot can of coffee. it warms your hands.', 'hot lemon. a little treat.'];
@@ -445,11 +445,11 @@ async function boot() {
   addEventListener('keyup', (e) => { if (arcadeOpen && arcade.key(e.code, false)) e.preventDefault(); });
   applyAll();
   service.onOpenShop = () => { if (shift.openShop()) { audio.doorBell(); } };
-  const WAKE = { x: 4.6, z: 12.6, yaw: 0.19 };
+  const WAKE = { x: 12.4, z: 2.2, yaw: 0.15 }; // in the bedroom, beside the futon, facing the bay
   const wakeUp = () => {
     if (player.seated) player.standUp();
     const k = coop && net ? Math.max(0, net.players.findIndex((p) => p.id === net.id)) : 0;
-    player.pos.set(WAKE.x + k * 0.7, 3.75, WAKE.z); player.yaw = WAKE.yaw; player.pitch = -0.05; player.vel.set(0, 0, 0);
+    player.pos.set(WAKE.x, 3.75, WAKE.z + k * 0.55); player.yaw = WAKE.yaw; player.pitch = -0.05; player.vel.set(0, 0, 0);
     $('intro').classList.remove('gone');
     $('intro').innerHTML = 'evening. go down and turn the sign by the front door to <b>OPEN</b> · the catalog is on the kotatsu';
     setTimeout(() => $('intro').classList.add('gone'), 12000);
@@ -495,7 +495,7 @@ async function boot() {
   };
   service.onBuy = buyItem;
   const openCatalog = () => { catalogOpen = true; unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false); };
-  interactions.add([4.85, 4.28, 4.6, 0.16, 0.06, 0.2], () => 'Read the catalog', openCatalog);
+  interactions.add([9.25, 4.28, 3.4, 0.16, 0.06, 0.2], () => 'Read the catalog', openCatalog);
 
   // the little shrine on the west slope: bow twice, clap twice, bow once. Once a day the kami leave ¥100.
   const SHRINE = { x: -7.6, z: 3.0 };
@@ -655,11 +655,11 @@ async function boot() {
     }, () => !seat.occupant && !player.seated && !moving);
   }
   for (const seat of batch.homeSeats) addSitSpot(seat, 'Sit at the kotatsu', 'toes under the quilt. warm. · walk to stand up');
-  interactions.add([3.0, 3.95, 13.0, 0.5, 0.2, 1.0], () => 'Lie down for a minute', () => {
+  interactions.add([13.6, 3.95, 2.95, 0.5, 0.2, 1.0], () => 'Lie down for a minute', () => {
     audio.purr(); toast(shift.waiting ? "you're wide awake. the shop is waiting." : shift.active ? 'just a minute… then back down to the shop.' : 'the futon is still warm.');
   });
-  interactions.add([12.25, 4.8, 15.1, 0.2, 0.15, 0.22], () => 'Put the kettle on', () => { audio.pour(); toast('a cup of hojicha, just for you.'); });
-  interactions.add([1.2, 4.2, 11.0, 0.22, 0.45, 0.22], () => 'Andon lamp', () => { const l = named.aptBed; l.mul = l.mul > 0.5 ? 0.15 : 1; audio.clickSound(); });
+  interactions.add([12.5, 4.8, 8.1, 0.2, 0.15, 0.22], () => 'Put the kettle on', () => { audio.pour(); toast('a cup of hojicha, just for you.'); });
+  interactions.add([12.0, 4.2, 4.3, 0.22, 0.45, 0.22], () => 'Andon lamp', () => { const l = named.aptBed; l.mul = l.mul > 0.5 ? 0.15 : 1; audio.clickSound(); });
 
   // the telescope at the front window: a long look at Fuji until you move
   let zoom = false;
@@ -667,7 +667,7 @@ async function boot() {
 
   // ---------------------------------------------------------------- loop
   let indoor = 1, last = performance.now(), time = 0, dawn = 0, purseT = 0;
-  const radioPos = new THREE.Vector3(6.2, 1.2, 9.75); // the radio on the back bar
+  const radioPos = new THREE.Vector3(9.6, 1.25, 4.85); // the radio in the well
   const sunV = new THREE.Vector3(), haze = new THREE.Color(), wind = new THREE.Vector2();
   const mats = backdrop.userData.mats;
 

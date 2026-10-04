@@ -85,15 +85,15 @@ export class Person {
     this.umbrella.position.set(0.16, 0.95, -0.12); this.umbrella.visible = false; g.add(this.umbrella);
     this.phase = Math.random() * 10; this.sit = 0; this.idleT = Math.random() * 10;
   }
-  // walk speed (m/s) drives the gait; sit 0..1 blends into a seated pose
-  pose(dt, speed, sitAmt, seatY, outdoors) {
+  // walk speed (m/s) drives the gait; sit 0..1 blends into a seated pose (kneel: seiza on a cushion, shins folded under)
+  pose(dt, speed, sitAmt, seatY, outdoors, kneel = false) {
     this.phase += speed * dt * 5.2;
     this.idleT += dt;
     const w = Math.min(1, speed / 1.0) * (1 - sitAmt), s = Math.sin(this.phase);
     this.legs.forEach((L, i) => {
       const ph = i ? s : -s;
       L.t.rotation.x = ph * 0.55 * w + sitAmt * (Math.PI / 2);
-      L.k.rotation.x = -Math.max(0, -ph) * 0.8 * w - sitAmt * (Math.PI / 2);
+      L.k.rotation.x = -Math.max(0, -ph) * 0.8 * w - sitAmt * (kneel ? Math.PI * 0.94 : Math.PI / 2);
     });
     const sip = sitAmt > 0.9 ? Math.max(0, Math.sin(this.idleT * 0.35) - 0.85) * 6.5 : 0;
     this.arms.forEach((a, i) => {
@@ -205,7 +205,7 @@ export class Crowd {
   pickSeat() {
     const free = this.freeSeats();
     if (!free.length) return null;
-    const wt = (s) => (s.z < 0 ? 2.2 : s.kind === 'stool' ? 1.6 : s.kind === 'booth' ? 1.5 : 0.8);
+    const wt = (s) => (s.kind === 'zabuton' ? 1.5 : s.kind === 'stool' ? 1.7 : s.kind === 'booth' ? 1.6 : 0.8);
     let tot = free.reduce((a, s) => a + wt(s), 0), x = this.r() * tot;
     for (const s of free) { x -= wt(s); if (x <= 0) return s; }
     return free[0];
@@ -233,7 +233,7 @@ export class Crowd {
     q.state = q.path ? 'walk' : 'gone'; q.then = 'despawn';
   }
   positions() { return this.people.map((q) => q.pos); }
-  floorAt(x, z) { return this.world.solid(x, 0.3, z) ? 0.375 : this.world.solid(x, 0.18, z) ? 0.25 : this.world.solid(x, 0.06, z) ? 0.125 : 0; }
+  floorAt(x, z) { return this.world.solid(x, 0.43, z) ? 0.5 : this.world.solid(x, 0.3, z) ? 0.375 : this.world.solid(x, 0.18, z) ? 0.25 : this.world.solid(x, 0.06, z) ? 0.125 : 0; }
 
   remove(q) {
     this.scene.remove(q.person.group);
@@ -280,7 +280,7 @@ export class Crowd {
     const p = q.person;
     const outdoors = !this.inside(q.pos.x, q.pos.z);
     const seatY = q.seat ? q.seat.y - q.pos.y : 0.5;
-    p.pose(dt, speed, q.sitAmt, Math.max(0.3, seatY), outdoors && q.state === 'walk');
+    p.pose(dt, speed, q.sitAmt, Math.max(0.3, seatY), outdoors && q.state === 'walk', !!q.seat && q.seat.kind === 'zabuton');
     p.group.position.set(q.pos.x, q.pos.y, q.pos.z);
     p.group.rotation.y = q.yaw;
     if (q.sitAmt > 0 && q.seat) {

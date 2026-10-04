@@ -119,7 +119,7 @@ try {
     const d = window.__yoake, p = d.home.pieces.get('bonsai'), irori = d.home.pieces.get('irori');
     const blocked = d.home.fits(irori, 4.5, 4.5, 0);
     d.service.request('placePiece', 'bonsai', 6.5, 2.5, 1);
-    return { blocked, at: [p.x, p.z, p.rot], solid: d.world.solid(6.5, 3.95, 2.5), oldClear: !d.world.solid(1.4, 3.95, 0.75), saved: d.save.place && d.save.place.bonsai };
+    return { blocked, at: [p.x, p.z, p.rot], solid: d.world.solid(6.5, 3.95, 2.5), oldClear: !d.world.solid(9.9, 3.95, 0.75), saved: d.save.place && d.save.place.bonsai };
   });
   check(!st.blocked && st.at.join() === '6.5,2.5,1' && st.solid && st.oldClear && st.saved, 'furniture moves, takes its collision with it, and the spot is saved');
 
@@ -144,7 +144,8 @@ try {
       const onBelt = (k) => s.belt.plates.filter((p) => p.type === k).length;
       if (H.length) {
         const k = H[0].type, q = people.find((p) => p.svc.phase === 'food' && p.svc.items.some((i) => !i.done && i.kind === k));
-        if (q && q.seat.kind === 'stool') { const free = [0.1, 0.45, 0.8, 1.15].find((x) => s.belt.isFree(x)); if (free !== undefined) { act('beltPut', free); stats.belt++; } return; }
+        // the window guests get theirs carried by hand, so both ways of serving get tested
+        if (q && q.seat.kind !== 'zabuton' && s.beltS(q.seat) !== null) { const free = [0.1, 0.45, 0.8, 1.15].find((x) => s.belt.isFree(x)); if (free !== undefined) { act('beltPut', free); stats.belt++; } return; }
         if (q) { act('cust', q.id); stats.served++; stats.kinds[k] = (stats.kinds[k] || 0) + 1; } else act('drop');
         return;
       }
