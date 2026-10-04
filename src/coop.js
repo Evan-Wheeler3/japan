@@ -94,7 +94,7 @@ export class Coop {
       a.speed += (Math.hypot(a.pos.x - before.x, a.pos.z - before.z) / Math.max(dt, 1e-3) - a.speed) * Math.min(1, dt * 8);
       const seat = a.seat >= 0 ? this.crowd.seats[a.seat] : null;
       const p = a.person;
-      p.pose(dt, a.speed, seat ? 1 : 0, seat ? Math.max(0.3, seat.y - a.pos.y) : 0.5, false, !!seat && seat.kind === 'zabuton');
+      p.pose(dt, a.speed, seat ? 1 : 0, seat ? Math.max(0.3, seat.y - a.pos.y) : 0.5, false);
       p.group.position.copy(a.pos); p.group.rotation.y = a.yaw;
       p.neck.rotation.x = -(a.pitch || 0) * 0.6;
       const hands = this.service.handsBy[id] || [];

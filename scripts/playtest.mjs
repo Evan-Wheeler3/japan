@@ -152,8 +152,8 @@ try {
       const onBelt = (k) => s.belt.plates.filter((p) => p.type === k).length;
       if (H.length) {
         const k = H[0].type, q = people.find((p) => p.svc.phase === 'food' && p.svc.items.some((i) => !i.done && i.kind === k));
-        // the window guests get theirs carried by hand, so both ways of serving get tested
-        if (q && q.seat.kind !== 'zabuton' && s.beltS(q.seat) !== null) { const free = [0.1, 0.45, 0.8, 1.15].find((x) => s.belt.isFree(x)); if (free !== undefined) { act('beltPut', free); stats.belt++; } return; }
+        // guests round the island get it by belt; the window booths get theirs carried
+        if (q && s.beltS(q.seat) !== null) { const free = [0.1, 0.45, 0.8, 1.15].find((x) => s.belt.isFree(x)); if (free !== undefined) { act('beltPut', free); stats.belt++; } return; }
         if (q) { act('cust', q.id); stats.served++; stats.kinds[k] = (stats.kinds[k] || 0) + 1; } else act('drop');
         return;
       }

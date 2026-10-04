@@ -171,7 +171,7 @@ export function buildWorld(W) {
   };
 
   // ------------------------------------------------------------ the shop (ground floor). Same footprint as the old diner:
-  // main room x 0..16, z 0..10 behind a shoji partition; a glass veranda along the front (z -3..0) looking out to sea.
+  // main room x 0..16, z 0..10 behind a shoji partition; a glass-fronted booth room along the front (z -3..0) looking out to sea.
   const wood = (u, y) => {
     const my = myOf(y);
     if (my < 1.125) return P.oak[(u >> 1) % 3];          // dark board wainscot
@@ -211,11 +211,25 @@ export function buildWorld(W) {
   B(0.25, 3.25, 9.75, 15.75, 3.5, 10.0, P.beam);
   for (const bz of [2.6, 5.2, 7.8]) B(0.25, 3.375, bz - 0.0625, 15.75, 3.5, bz + 0.0625, P.beam);
 
-  // the old partition line is now just a header beam across the room, on two posts clear of the zashiki belt
+  // shoji partition between the main room and the front booth room: dark wood half wall, shoji panels above, timber posts, two openings
+  const openings = [[7.25, 8.5], [12.75, 14.0]];
+  B(0.125, 0.125, 0, 15.875, 3.0, 0.25, 0);
+  for (let x = X(0.25); x < X(15.75); x++) {
+    const px = mx(x);
+    if (openings.some(([a, b]) => px > a && px < b)) continue;
+    const post = (x - X(0.25)) % 9 === 0;
+    for (const z of [Z(0), Z(0.125)]) {
+      for (let y = Y(0.25); y < Y(1.25); y++) G.set(x, y, z, P.oak[(x >> 1) & 1]);
+      G.set(x, Y(1.25) - 1, z, P.walnutD);
+      for (let y = Y(1.25); y < Y(1.875); y++) if (post) G.set(x, y, z, P.timber);
+      G.set(x, Y(1.875), z, P.timber);
+    }
+  }
+  for (const [a, b] of openings) for (const px of [X(a) - 1, X(b)]) for (let y = Y(0.25); y < Y(3.0); y++) { G.set(px, y, Z(0), P.timberD); G.set(px, y, Z(0.125), P.timberD); }
   B(0.25, 3.0, 0, 15.75, 3.5, 0.25, P.beam);
-  for (const px of [0.25, 10.75]) B(px, 0.25, 0, px + 0.25, 3.0, 0.25, P.timberD);
+  for (const [a, b] of [[0.25, 7.125], [8.625, 12.625], [14.125, 15.75]]) meta.etched.push({ x0: a, x1: b, y0: 1.25, y1: 1.875, z: 0.125 });
 
-  // ---- veranda: stone-and-cedar knee wall, timber-framed glass, cedar ceiling under a tiled lean-to roof
+  // ---- front room: stone-and-cedar knee wall, timber-framed glass, cedar ceiling under a tiled lean-to roof
   const consPanes = [[0.375, 1.75], [1.875, 3.375], [3.5, 5.0], [5.125, 6.625], [6.75, 8.25], [8.375, 9.875], [10.0, 11.5], [11.625, 12.625], [14.125, 15.625]];
   const glassWall = (inPane, outer, my, u) => {
     if (my < 0.875) return outer ? yakisugi(u, my) : P.oak[0];
@@ -239,7 +253,7 @@ export function buildWorld(W) {
   B(0.125, 0.875, -3.125, 15.75, 1.0, -2.875, P.hinokiE);            // inside sill (the cat's spot)
   B(12.75, 0.25, -3.125, 14.0, 1.0, -2.875, 0);
   B(12.625, 0.125, -3.75, 14.125, 0.25, -3.125, P.stoneL);           // stone step at the door
-  // lean-to roof over the veranda: cedar soffit, dark tiles, a thick blanket of snow, icicles at the eave
+  // lean-to roof over the front room: cedar soffit, dark tiles, a thick blanket of snow, icicles at the eave
   for (let z = Z(-4.0); z < Z(0); z++) {
     const d = Z(0) - 1 - z, yr = Y(3.5) - Math.floor(d / 4.5);
     for (let x = X(-0.5); x < X(16.5); x++) {
@@ -267,7 +281,7 @@ export function buildWorld(W) {
   // sides; stools face it from the back, booths butt up against it from the front, and you work in the well
   // inside it, which opens at the east end towards the kitchen door.
   {
-    const I0 = { x0: 2.75, x1: 12.0, z0: 4.0, z1: 7.25 }, W0 = { x0: 3.75, z0: 5.0, z1: 6.25 };
+    const I0 = { x0: 2.75, x1: 12.0, z0: 3.75, z1: 7.25 }, W0 = { x0: 3.7, z0: 4.7, z1: 6.3 };
     const inWell = (px, pz) => px > W0.x0 && pz > W0.z0 && pz < W0.z1;
     for (let z = Z(I0.z0); z < Z(I0.z1); z++) for (let x = X(I0.x0); x < X(I0.x1); x++) {
       const px = mx(x), pz = mz(z);
@@ -285,31 +299,28 @@ export function buildWorld(W) {
     B(2.0, 0.25, 4.625, 2.75, 0.375, 7.25, (x, y, z) => (x === X(2.0) ? P.walnutD : P.oak[2]));
   }
 
-  // ---- zashiki: a raised tatami platform along the front windows. Low tables stand end-on to a belt of its own
-  // on a ledge at the platform's edge, so the window seats can take plates too.
-  {
-    const tatami = [C('#c0b880', 0, 0.04), C('#b2aa72', 0, 0.04)], tEdge = C('#2a3a2a', 0, 0.04);
-    B(0.25, 0.25, -3.125, 10.75, 0.5, -0.25, (x, y, z) => {
-      const px = mx(x), pz = mz(z);
-      if (y < Y(0.5) - 1) return x === X(10.75) - 1 || z === Z(-0.25) - 1 ? P.walnutD : P.timberD;
-      if (x === X(10.75) - 1 || z === Z(-0.25) - 1) return P.walnutD;          // the wooden edge you step up over
-      const row = Math.floor((px - 0.25) / 1.75), off = 0, lu = (px - 0.25 + off) - row * 1.75, col = Math.floor((pz + 3.125) / 0.875), lv = (pz + 3.125) - col * 0.875;
-      if (lu < 0.13 || lv < 0.13) return tEdge;
-      return tatami[(x + z) & 1];
-    });
-    // the belt ledge: cedar boards to the room, a hinoki top the low tables meet
-    B(0.75, 0.25, -0.25, 10.25, 0.75, 0.25, (x, y, z) => (z === Z(0.25) - 1 ? ((x % 8 === 0) ? P.timberD : P.sugi[(x >> 3) % 3]) : P.timberD));
-    B(0.625, 0.75, -0.3125, 10.375, 0.875, 0.3125, (x, y, z) => (z === Z(-0.3125) || z === Z(0.3125) - 1 ? P.hinokiE : P.hinoki));
-  }
-
-  // ---- the genkan inside the door: a stone floor, and the register on a little counter by the east wall
-  for (let z = Z(-3.125); z < Z(-0.5); z++) for (let x = X(10.75); x < X(15.75); x++) {
+  // ---- the genkan inside the door: a stone floor at the east end of the front room, the register on a counter
+  // against the partition
+  for (let z = Z(-3.125); z < Z(0); z++) for (let x = X(11.5); x < X(15.75); x++) {
     const row = z >> 2, off = (row & 1) * 2, seam = ((x + off) & 3) === 0 || (z & 3) === 0;
     G.set(x, Y(0.25) - 1, z, seam ? P.stoneD : P.flag[Math.floor(hash01(x >> 2, row, 23) * 3.999)]);
   }
-  for (let x = X(10.75); x < X(15.75); x++) G.set(x, Y(0.25) - 1, Z(-0.5), P.walnutD);
-  B(14.875, 0.25, 0.5, 15.75, 0.875, 2.25, (x, y, z) => (x === X(14.875) && (z & 3) === 0 ? P.walnutD : P.oak[1]));
-  B(14.75, 0.875, 0.375, 15.75, 1.0, 2.375, (x, y, z) => (x === X(14.75) || z === Z(0.375) || z === Z(2.375) - 1 ? P.hinokiE : P.hinoki));
+  for (let z = Z(-3.125); z < Z(0); z++) G.set(X(11.5), Y(0.25) - 1, z, P.walnutD);
+  B(14.25, 0.25, -0.75, 15.75, 0.875, 0, (x, y, z) => (z === Z(-0.75) && (x & 3) === 0 ? P.walnutD : P.oak[1]));
+  B(14.125, 0.875, -0.875, 15.75, 1.0, 0, (x, y, z) => (x === X(14.125) || z === Z(-0.875) ? P.hinokiE : P.hinoki));
+  // a glowing drinks case against the east wall of the main room
+  {
+    const bottles = ['#3a7a4a', '#e8e0c8', '#c8902a', '#5a2a18', '#e8d070', '#2a4a7a'].map((h) => C(h, 1.0, 0.08));
+    const lit = C('#fff0d8', 1.4, 0.05);
+    B(14.625, 0.25, 1.625, 15.75, 1.875, 2.875, (x, y, z) => {
+      const my = myOf(y);
+      if (my < 0.5 || my > 1.75) return P.timberD;
+      if (z === Z(1.625) || z === Z(2.875) - 1) return P.timberD;
+      const ly = y - Y(0.5);
+      if (ly % 3 === 0) return P.chrome;
+      return ly % 3 === 1 ? bottles[Math.floor(hash01(x >> 1, y, z >> 1) * 5.99)] : lit;
+    });
+  }
   // a shelf on the back wall for the sake and the daruma
   B(2.375, 1.875, 9.75, 5.125, 2.0, 10.0, P.walnutD);
   for (const bx of [2.5, 4.875]) B(bx, 1.625, 9.875, bx + 0.125, 1.875, 10.0, P.walnutD);
@@ -417,15 +428,15 @@ export function buildWorld(W) {
     meta.lights.push({ pos: [8.0, 2.5, 12.8], color: 0xffeccc, intensity: 3.5, distance: 8, name: 'kitchenA' });
     meta.lights.push({ pos: [12.6, 2.5, 12.8], color: 0xffeccc, intensity: 3.5, distance: 8, name: 'kitchenB' });
   }
-  meta.lights.push({ pos: [3.0, 2.0, -1.4], color: 0xffa860, intensity: 4.5, distance: 6.5, name: 'consL' });
-  meta.lights.push({ pos: [8.0, 2.0, -1.4], color: 0xffa860, intensity: 4.5, distance: 6.5, name: 'consR' });
+  meta.lights.push({ pos: [3.4, 2.0, -1.6], color: 0xffa860, intensity: 5, distance: 7, name: 'consL' });
+  meta.lights.push({ pos: [8.6, 2.0, -1.6], color: 0xffa860, intensity: 5, distance: 7, name: 'consR' });
   meta.lights.push({ pos: [5.0, 2.6, 5.6], color: 0xffb070, intensity: 6, distance: 8, name: 'chandA' });
   meta.lights.push({ pos: [10.0, 2.6, 5.6], color: 0xffb070, intensity: 6, distance: 8, name: 'chandB' });
   meta.lights.push({ pos: [5.0, 2.3, 3.0], color: 0xffc890, intensity: 4, distance: 6, name: 'boothsFront' });
   meta.lights.push({ pos: [9.5, 2.3, 3.0], color: 0xffc890, intensity: 4, distance: 6, name: 'boothsWest' });
   meta.lights.push({ pos: [5.0, 2.4, 8.6], color: 0xffc898, intensity: 3.6, distance: 7, name: 'counterL' });
   meta.lights.push({ pos: [10.5, 2.4, 8.6], color: 0xffc898, intensity: 3.6, distance: 7, name: 'counterR' });
-  meta.lights.push({ pos: [13.5, 2.2, 0.5], color: 0xffc080, intensity: 4, distance: 6, name: 'genkan' });
+  meta.lights.push({ pos: [13.6, 2.1, -1.5], color: 0xffc080, intensity: 3.5, distance: 5, name: 'genkan' });
 
   // ------------------------------------------------------------ upstairs (the apartment) and the big roof
   const upper = (u, y) => {
@@ -462,27 +473,26 @@ export function buildWorld(W) {
   };
   const ZF = Z(0), ZB = Z(16) - 1, XW = X(0), XE = X(16) - 1;
   // the apartment takes the front-east corner (x 5.5..16, z 0..8.75); the rest of the upstairs is the shop's dark storeroom
-  for (const [c0, c1] of [[10.875, 13.125], [13.375, 15.5]]) shojiWindow('z', ZF, -1, c0, c1, 3.875, 6.25, 'glass'); // the engawa's tall glass
-  shojiWindow('z', ZF, -1, 6.0, 10.25, 5.375, 6.25, 'glass');                                                      // a high window over the sign
-  shojiWindow('z', ZF, -1, 1.75, 3.25, 5.25, 6.375, 0);
+  for (const [c0, c1] of [[6.0, 8.25], [8.5, 10.75], [11.0, 13.25], [13.5, 15.5]]) shojiWindow('z', ZF, -1, c0, c1, 3.875, 6.25, 'glass'); // the engawa's tall glass
   for (const [c, lit] of [[3.0, 0], [7.5, 0], [12.5, 0]]) shojiWindow('x', XW, -1, c - 0.75, c + 0.75, 5.25, 6.375, lit);
   for (const [c, lit] of [[3.75, 1], [11.5, 0]]) shojiWindow('x', XE, 1, c - 0.75, c + 0.75, 5.0, 6.25, lit);
   for (const [c, lit] of [[4.0, 0], [11.0, 0]]) shojiWindow('z', ZB, 1, c - 0.75, c + 0.75, 5.25, 6.375, lit);
   meta.lights.push({ pos: [2.5, 5.8, -1.2], color: 0xffa860, intensity: 2.5, distance: 5, name: 'upstairs' });
 
-  // the shop's name board (kanban) above the veranda roof: dark cedar, lamp-lit letters
+  // the shop's name board (kanban) above the front room's roof: dark cedar, lamp-lit letters
   {
     const str = 'YOAKE', w = textWidth(str);
-    const xa = X(8) - 20, xb = X(8) + 20, ya = Y(3.75) + 1, yb = ya + 11;
+    const SX0 = 3.0; // over the booth room, where the storeroom's blank wall is
+    const xa = X(SX0) - 20, xb = X(SX0) + 20, ya = Y(3.75) + 1, yb = ya + 11;
     for (let x = xa; x < xb; x++) for (let y = ya; y < yb; y++) for (const z of [ZF - 1, ZF - 2]) {
       const edge = x === xa || x === xb - 1 || y === ya || y === yb - 1;
       G.set(x, y, z, edge ? P.hinokiE : P.timberD);
     }
-    const u0 = X(8) + Math.floor(w / 2);
+    const u0 = X(SX0) + Math.floor(w / 2);
     glyphPixels(str, (c, r) => G.set(u0 - c, yb - 3 - r, ZF - 2, P.kanbanInk));
     // the little lamps that light it
-    for (const lx of [6.0, 10.0]) { B(lx - 0.0625, myOf(yb) + 0.125, -0.5, lx + 0.0625, myOf(yb) + 0.25, -0.125, P.black); G.set(X(lx), yb + 1, Z(-0.5), P.lantern); }
-    meta.lights.push({ pos: [8, 4.7, -1.4], color: 0xffc080, intensity: 4.5, distance: 6, name: 'kanban' });
+    for (const lx of [SX0 - 2, SX0 + 2]) { B(lx - 0.0625, myOf(yb) + 0.125, -0.5, lx + 0.0625, myOf(yb) + 0.25, -0.125, P.black); G.set(X(lx), yb + 1, Z(-0.5), P.lantern); }
+    meta.lights.push({ pos: [SX0, 4.7, -1.4], color: 0xffc080, intensity: 4.5, distance: 6, name: 'kanban' });
   }
 
   // gable roof (ridge along x at z 8): dark tiles under a thick blanket of snow, icicles at the eaves
@@ -544,6 +554,8 @@ export function buildWorld(W) {
       for (let x = X(AX0); x < X(15.75); x++) inner(x, y, Z(0) + 1);
       for (let z = Z(0.25); z < Z(AZ1); z++) inner(X(16) - 2, y, z);
     }
+    // ranma: a lattice transom between the lintels and the ceiling, rails top and bottom and slats every half foot
+    const ranma = (u, y) => (y === Y(F2 + 2.125) || y === Y(6.375) - 1 || u % 4 === 0 ? P.lattice : 0);
     const wallC = (u, y) => { const my = myOf(y); return my < F2 + 0.125 ? P.timberD : u % 14 === 0 || Math.abs(my - (F2 + 1.875)) < 0.07 ? P.timber : clay[(u + y) & 1]; };
     // the flat's own walls, shutting off the storeroom: west and back
     B(AX0 - 0.25, F2, 0.25, AX0, 6.5, AZ1 + 0.25, (x, y, z) => wallC(z, y));
@@ -560,6 +572,7 @@ export function buildWorld(W) {
     };
     for (const [x0, x1] of [[AX0, 6.75], [9.25, 11.875], [14.125, 15.75]]) shojiRow(x0, x1);
     B(AX0, F2 + 2.0, 1.25, 15.75, F2 + 2.125, 1.375, P.timberD);                       // the lintel over them
+    for (let x = X(AX0); x < X(15.75); x++) for (let y = Y(F2 + 2.125); y < Y(6.375); y++) G.set(x, y, Z(1.25), ranma(x, y));
     // fusuma between the living room and the bedroom, with a painted wave, one panel slid aside
     const fus = C('#efe4cc', 0, 0.03), fusInk = C('#3a5a8a', 0, 0.04), fusFrame = C('#2a1a10', 0, 0.04);
     const fusuma = (along, c0, c1, plane, gap) => {
@@ -568,15 +581,18 @@ export function buildWorld(W) {
         if (gap && pu > gap[0] && pu < gap[1]) continue;
         const frame = ly === 0 || ly === Y(F2 + 2.0) - Y(F2) - 1 || lu % 14 === 0;
         const wave = Math.abs(ly - 5 - Math.sin(lu * 0.45) * 2) < 0.8;
-        for (const d of [0, 1]) G.set(...(along === 'z' ? [plane + d, y, u] : [u, y, plane + d]), frame ? fusFrame : wave ? fusInk : fus);
+        G.set(...(along === 'z' ? [plane, y, u] : [u, y, plane]), frame ? fusFrame : wave ? fusInk : fus);
       }
     };
     fusuma('z', 1.375, 5.5, X(11.0), [2.5, 3.625]);
-    B(11.0, F2 + 2.0, 1.375, 11.25, F2 + 2.125, 5.5, P.timberD);
-    // the wall at the back of the two rooms: a closet (oshiire) behind fusuma in the bedroom, a doorway from the living room
+    B(11.0, F2 + 2.0, 1.375, 11.125, F2 + 2.125, 5.5, P.timberD);
+    for (let z = Z(1.375); z < Z(5.5); z++) for (let y = Y(F2 + 2.125); y < Y(6.375); y++) G.set(X(11.0), y, z, ranma(z, y));
+    // behind the bedroom, a closet (oshiire) behind fusuma; behind the living room it opens wide into the back room,
+    // under a lintel with a lattice transom (ranma), so the two read as one L-shaped space
     B(AX0, F2, 5.5, 15.75, 6.375, 5.625, (x, y) => wallC(x, y));
-    B(9.25, F2, 5.5, 10.5, F2 + 2.0, 5.625, 0);
-    B(9.125, F2 + 2.0, 5.5, 10.625, F2 + 2.125, 5.625, P.timberD);
+    B(7.625, F2, 5.5, 11.0, F2 + 2.0, 5.625, 0);
+    B(7.625, F2 + 2.0, 5.5, 11.0, F2 + 2.125, 5.625, P.timberD);
+    for (let x = X(7.625); x < X(11.0); x++) for (let y = Y(F2 + 2.125); y < Y(6.375); y++) G.set(x, y, Z(5.5), ranma(x, y));
     B(11.25, F2, 4.875, 13.75, F2 + 2.0, 5.5, P.timberD);                               // the closet's bulk
     fusuma('x', 11.25, 13.75, Z(4.75), null);
     // the tokonoma: a raised alcove in the living room's back corner for a scroll and a flower
@@ -727,7 +743,7 @@ export function buildWorld(W) {
     snowCap(-16, 36, fz - 0.2, fz + 0.2, 0.3, 1.3, 0.8);
   }
 
-  // pines: west slope, east of the storehouse, behind the shop. The view out of the veranda stays clear.
+  // pines: west slope, east of the storehouse, behind the shop. The view out of the front room stays clear.
   [[-12.5, -7.5, 7.5, 1], [-9.0, -8.6, 5.5, 2], [-13.5, -1.5, 8.5, 3], [-11.0, 6.5, 8.0, 4], [-6.0, 10.5, 7.0, 5], [-13.5, 13.0, 8.5, 6],
     [-2.25, 13.5, 6.0, 7], [19.0, -8.6, 6.0, 8], [30.5, -8.4, 7.5, 9], [33.5, 2.0, 8.5, 10], [29.5, 12.5, 8.0, 11], [19.25, 13.0, 6.5, 12],
     [24.0, 13.5, 7.0, 13], [33.5, 9.0, 6.0, 14], [-15.0, 4.0, 6.5, 15]].forEach(([x, z, h, s]) => conifer(x, z, h, s));

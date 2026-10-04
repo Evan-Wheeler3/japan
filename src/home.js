@@ -225,7 +225,7 @@ const PIECES = [
 // floor you can't put things on: the kotatsu and its cushions, the futon, the genkan, the tokonoma, and the ways
 // through: the gaps in the shoji and the fusuma, the doorway to the back room, the kitchen corner
 const NO_GO = [[7.85, 10.3, 2.2, 4.4], [13.05, 14.15, 1.95, 3.95], [13.9, 15.8, 5.6, 8.5], [5.75, 7.65, 4.7, 5.5],
-  [6.7, 9.3, 1.1, 1.55], [11.8, 14.2, 1.1, 1.55], [10.85, 11.4, 2.45, 3.7], [9.15, 10.6, 5.35, 5.9], [10.9, 13.9, 7.4, 8.5]];
+  [6.7, 9.3, 1.1, 1.55], [11.8, 14.2, 1.1, 1.55], [10.85, 11.4, 2.45, 3.7], [7.7, 11.0, 5.35, 5.85], [10.9, 13.9, 7.4, 8.5]];
 const ROOM = { x0: 5.8, x1: 15.7, z0: 0.3, z1: 8.45 };
 
 // rotate a local (x, z) by quarter turns, the same way three.js turns an object about y

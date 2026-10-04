@@ -96,7 +96,7 @@ async function boot() {
   const snow = makeSnow(7000, snowLights, L.roofDry); scene.add(snow);
   const steam = makeSteam([
     { pos: [11.3, 1.25, 10.05], size: 0.6 }, { pos: [12.2, 1.25, 10.05], size: 0.6 },
-    { pos: [8.1, 2.05, 6.47], size: 0.35 }, { pos: [8.7, 2.05, 6.47], size: 0.3 }, { pos: [6.65, 1.5, 6.47], size: 0.3 }, // urns, rice in the well
+    { pos: [8.1, 2.05, 6.5], size: 0.35 }, { pos: [8.7, 2.05, 6.5], size: 0.3 }, { pos: [6.65, 1.5, 6.47], size: 0.3 }, // urns, rice in the well
     { pos: [11.75, 1.6, 15.1], size: 0.7 }, { pos: [13.4, 1.4, 15.1], size: 0.5 },
     { pos: [9.65, 1.3, 15.2], size: 0.9 }, { pos: [10.65, 1.3, 15.2], size: 0.9 }, { pos: [8.1, 1.2, 15.1], size: 0.6 },
     ...meta.steam,
@@ -252,7 +252,7 @@ async function boot() {
   addFaucet(5.46, 1.55, 0.75, 12.3, [5.32, 1.45, 12.3, 0.09, 0.14, 0.12], 'water');
   for (const [tz] of [[12.45], [15.2]]) interactions.add([4.49, 0.6, tz, 0.4, 0.45, 0.3], () => 'Flush', () => audio.flush());
   for (const rz0 of [10.25, 13.125]) interactions.add([4.0, 1.25, rz0 + 0.1, 0.16, 0.16, 0.14], () => 'Dry your hands', () => audio.dryer());
-  interactions.add([9.6, 1.25, 4.85, 0.22, 0.16, 0.14], () => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => {
+  interactions.add([9.6, 1.25, 4.5, 0.22, 0.16, 0.14], () => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => {
     audio.musicOn = !audio.musicOn; audio.clickSound(); toast(audio.musicOn ? 'radio on' : 'radio off');
   });
   const cans = ['a hot can of royal milk tea', 'hot corn soup. somehow perfect.', 'a hot can of coffee. it warms your hands.', 'hot lemon. a little treat.'];
@@ -533,7 +533,7 @@ async function boot() {
   };
   interactions.add([-7.45, 0.8, 3.0, 0.55, 0.7, 0.62], () => 'Bow at the shrine', bow, () => !bowing && !player.seated);
 
-  // the OPEN / CLOSED sign in the veranda window by the door
+  // the OPEN / CLOSED sign in the front window by the door
   const signOpen = Props.openSign().mesh(litMat, emitMat), signClosed = Props.closedSign().mesh(litMat, emitMat);
   for (const m of [signOpen, signClosed]) { m.position.set(14.9, 1.55, -3.07); scene.add(m); }
   interactions.add([14.9, 1.7, -3.05, 0.32, 0.2, 0.14], () => (shift.waiting ? 'Turn the sign to OPEN' : shift.active ? 'Open until dawn' : 'Closed'), () => {
@@ -671,7 +671,7 @@ async function boot() {
 
   // ---------------------------------------------------------------- loop
   let indoor = 1, last = performance.now(), time = 0, dawn = 0, purseT = 0;
-  const radioPos = new THREE.Vector3(9.6, 1.25, 4.85); // the radio in the well
+  const radioPos = new THREE.Vector3(9.6, 1.25, 4.5); // the radio in the well
   const sunV = new THREE.Vector3(), haze = new THREE.Color(), wind = new THREE.Vector2();
   const mats = backdrop.userData.mats;
 

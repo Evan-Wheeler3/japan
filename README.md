@@ -26,9 +26,10 @@ You wake upstairs in the evening. The shop stays closed until you go down and tu
 door to **OPEN**, so take your time: sit at the kotatsu, read the catalog, look out at the bay.
 
 The shop is laid out like a kaiten-zushi: a long island counter down the middle of the room with the belt
-running round its top, stools along its back, booths butting up against its front, and a raised tatami zashiki
-along the windows where guests kneel at low tables beside a belt lane of their own. You work in the well inside
-the island (its open end faces the kitchen door). The register is by the entrance, in the stone-floored genkan.
+running round its top in a U, stools along its back and west end, and booths butting up against its front. You
+work in the well inside the island (its open end faces the kitchen door). Behind the shoji partition, a front
+room of booths looks out through the glass over the bay; the belt doesn't reach out there, so those guests are
+served by hand. The register is by the entrance, in the stone-floored genkan.
 
 Guests with a **!** want to order: click them. Then make what they asked for:
 
@@ -43,9 +44,8 @@ Guests with a **!** want to order: click them. Then make what they asked for:
 | Miso ramen *(catalog)* | start a bowl on the stove in the kitchen; it takes a while |
 
 Serve it by hand, or set it on the **sushi belt**, anywhere along it: it starts on the plating station in the
-kitchen, slips through a hatch, goes round the island past the stools and the booths, then dives under the floor
-and comes up along the zashiki. Every guest in the shop lifts off whatever they ordered as it passes their
-seat. Anything nobody takes goes back round; you can take it off again. The orders panel counts dishes already
+kitchen, slips through a hatch and goes round the island past the stools and the booths. Every guest round the
+island lifts off whatever they ordered as it passes their seat. Anything nobody takes goes back round; you can take it off again. The orders panel counts dishes already
 on the belt, so it only asks for what still needs making.
 
 When guests are done they line up at the register (**¥**). Carry dirty dishes to the sink in the kitchen, stay
@@ -60,8 +60,8 @@ saved in this browser ("start a new game" in settings wipes it).
 
 You live in a small old-fashioned flat upstairs: out the front door, round the east side of the shop and up
 the wooden stair. Take your boots off in the genkan. There's an engawa along the tall windows over the bay, an
-eight-mat living room with a kotatsu (sit and warm your feet) and a tokonoma with a scroll, a bedroom with a
-futon behind the fusuma, and at the back a wood-floored room and a kitchen corner with a kettle on the hob.
+eight-mat living room with a kotatsu (sit and warm your feet) and a tokonoma with a scroll, opening at the back
+into a wood-floored room, a bedroom with a futon behind the fusuma, and a kitchen corner with a kettle on the hob.
 The rest of the upstairs is the shop's storeroom.
 
 The **catalog** on the kotatsu sells, for the yen in your cash box:
@@ -103,7 +103,7 @@ coin on the offering box.
 | File | What it is |
 |---|---|
 | `src/voxel.js` | Palette, voxel grid, face-culled mesher with baked AO, `Model` (props) and `PropBatch` (merged static props), 5×7 pixel font |
-| `src/world.js` | The 1/8 m voxel world: the snowy lot, the shop (kaiten island, zashiki, genkan, kitchen), the flat upstairs and its outdoor stair, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
+| `src/world.js` | The 1/8 m voxel world: the snowy lot, the shop (kaiten island, front booth room, genkan, kitchen), the flat upstairs and its outdoor stair, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
 | `src/props.js` | Finer-scale prop models: furniture, lanterns, the sushi case, kitchen gear, signs, the cat, the vending machine, and where they're placed |
 | `src/effects.js` | Night-to-dawn sky, snowfall, frosted glass, steam, the cliff, the sea, the hills and Mt Fuji, post FX |
 | `src/audio.js` | Fully synthesized sound: wind, the sea, room tone, a generative koto radio, the door chime, snowy footsteps |
@@ -111,7 +111,7 @@ coin on the offering box.
 | `src/interact.js` | Click-to-use raycasting, hinged and sliding doors |
 | `src/npc.js` | Guests: voxel people, walk/sit animation, nav grid + A*, the crowd |
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
-| `src/belt.js` | The kaiten sushi belt: its loop from the kitchen round the island and along the zashiki, the plates riding it |
+| `src/belt.js` | The kaiten sushi belt: its loop from the kitchen round the island, the plates riding it |
 | `src/home.js` | The save file, the catalog, what each upgrade does, and the things you can buy for the apartment |
 | `src/arcade.js` | The Fami-Com: a 256×224 canvas that is the CRT's picture, and its four games |
 | `src/shift.js` | The clock (10 PM → 6 AM), rushes, the dawn, the stats card, perks |
