@@ -123,6 +123,86 @@ West of the shop, a flagstone path leads past a stone lantern and through a tori
 pines. Bow there (click the shrine: two bows, two claps, one bow) and once a day the kami leave a ¥100
 coin on the offering box.
 
+## 百鬼夜行 · the night parade
+
+A survival mode on the title screen, separate from the shop: your save, yen and purchases are never touched.
+
+It's the same shop after dark, boarded up, with the gaki (the hungry dead, in tattered burial white) coming up out
+of the snow in rounds. The round number is drawn as a kanji numeral in the corner. You start in the front room with
+500 points and nothing in your hands. The dishes on the booth tables are your first weapons: grab them with **E** and
+throw them with the mouse or **G** (plates, tea cups and sake flasks all break on whatever they hit). With no weapon
+your fists work too.
+
+**Controls:**
+
+| Input | Action |
+|---|---|
+| **Mouse** | strike or shoot (hold it to keep swinging a blade) |
+| **Right-click**, **V** or **F** | quick melee |
+| **R** | reload |
+| **1 / 2** or the wheel | switch weapons |
+| **G** or **Q** | throw a dish |
+| **E** | use things |
+| hold **E** at a window | rebuild its boards |
+
+On a phone there are strike, use, throw, 1/2 and reload buttons.
+
+- **Points:** 10 for a hit, 60 for a kill, 100 for a headshot kill, 130 for a melee kill and 300 for an oni. Rebuilding
+  boards is worth 10 a plank (up to 500 a round).
+- **Windows and the front door** are boarded. The gaki tear the planks off one at a time and climb through. They
+  find their way anywhere you can go: through doors, round the outside of the building, and up the stair to the
+  flat.
+- **Sealed doorways:** ofuda talismans and straw rope seal off the rest of the place until you pay to break them.
+  Each one opens more of the map:
+  - the dining room: 750, either partition opening;
+  - the kitchen: 1,000, either door;
+  - the washrooms: 1,000;
+  - the back door to the grounds: 1,250;
+  - the walk-in freezer: 1,250;
+  - the old kura: 1,000;
+  - the flat upstairs: 1,250.
+
+  Once the kitchen and the washrooms are open, gaki also break up through the floorboards there.
+- **Weapons on the walls:**
+  - a tantō (750) and a Type 26 revolver (1,000) in the front room;
+  - a katana (1,500) in the dining room;
+  - a Murata rifle (1,250) in the kitchen.
+
+  Buying a gun you already carry refills its ammunition. You carry two weapons.
+- **The omikuji box** (950, in the dining room to start) rattles its fortune sticks and draws you a fortune and a
+  weapon. That might be a naginata, a kanabō, a tanegashima matchlock or, at 大吉 (great blessing), the cursed
+  Muramasa, which heals you with every kill. Draw 凶 (a curse) and it refunds your points and moves to the kitchen
+  or the shrine.
+- **Blessings:**
+
+  | Where | Blessing | Price | Effect |
+  |---|---|---|---|
+  | Vending machine | 速 Ramune Rush | 2,000 | quicker on your feet and with your hands |
+  | Walk-in freezer | 氷 Kōri | 2,500 | two and a half times the health |
+  | Kura | 酒 Sake Courage | 3,000 | faster swings and reloads |
+  | Kotatsu upstairs | 炬 Kotatsu | 2,000 | you heal sooner and faster |
+  | Shrine | 守 Omamori | 1,500 | get back up once |
+
+- **Gifts:** now and then a fallen gaki leaves something floating behind. Walk into it to take it.
+
+  | Gift | Effect |
+  |---|---|
+  | A maneki-neko | double points |
+  | A hannya mask | one blow kills |
+  | The great drum | every yōkai on the lot falls |
+  | A carpenter's mallet | every window boarded again |
+  | A crate of cartridges | full ammunition and dishes |
+
+- **Every fifth round is an oni night.** Only oni come: big red and blue brutes with iron kanabō. They smash a
+  window's boards in one blow and hit hard enough to knock you back. With a clear run at you, an oni stamps, roars
+  and charges in a straight line. If it misses it stands there blowing for a moment and takes extra damage. The last
+  oni of the night always leaves ammunition.
+- **Gore:** blades cut. Arms, legs and heads come off in clean voxel pieces with red stumps, and the blood lands on
+  the floor and stays there. A gaki that loses a leg keeps coming, dragging itself along the floor. A headshot kill
+  with a gun can burst the head.
+- **Health and falling:** health comes back if you stay out of reach for a few seconds. When you fall, the night's
+  card shows your round, kills, headshots, limbs taken and points.
+
 ## Layout
 
 | File | What it is |
@@ -137,6 +217,7 @@ coin on the offering box.
 | `src/npc.js` | Guests: voxel people, walk/sit animation, nav grid + A*, the crowd |
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
 | `src/staff.js`, `src/chores.js` | The hired help at their posts, and the sweeping and shovelling before opening |
+| `src/survival/` | The night parade: `mode.js` (rounds, points, seals, buys, blessings, the box, the HUD), `nav.js` (a two-level walking grid and flow field over the whole lot), `horde.js` and `yokai.js` (the gaki and oni, their rigs and dismemberment), `weapons.js` (first-person weapons and thrown dishes), `gore.js`, `props.js`, `sfx.js` |
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen round the island, the plates riding it |
 | `src/home.js` | The save file, the catalog, what each upgrade does, and the things you can buy for the apartment |
 | `src/arcade.js` | The Fami-Com: a 256×224 canvas that is the CRT's picture, and its four games |
@@ -150,7 +231,8 @@ coin on the offering box.
 
 `npm install && npm run playtest` runs a bot through the whole loop in a headless browser: wake upstairs, buy
 from the catalog (including upgrade levels and the Fami-Com), play Sushi Catch, open, work a full night (every dish, the belt, washing up), sleep, wake for night 2, reload
-and check the save. Set `CHROME_PATH` if Playwright can't find a Chromium.
+and check the save, then hold the front room in the night parade with a katana, break a seal, sit through an oni
+night and fall. Set `CHROME_PATH` if Playwright can't find a Chromium.
 
 `.github/workflows/pages.yml` publishes the game to GitHub Pages on every push and runs the playtest. Turn it
 on once in the repository's Settings → Pages → Source: **GitHub Actions**; the site is then at

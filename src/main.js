@@ -17,6 +17,7 @@ import { Menu } from './menu.js';
 import { Net, newCode } from './net.js';
 import { Coop } from './coop.js';
 import { TouchControls, isTouch } from './touch.js';
+import { Parade } from './survival/mode.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { const el = document.querySelector('#screen .loading'); if (el) el.textContent = t; };
@@ -80,6 +81,7 @@ async function boot() {
 
   // ---------------------------------------------------------------- glass
   const glassMat = makeGlassMaterial();
+  const glassPanes = []; // (the night parade knocks some out)
   for (const g of meta.glass) {
     let m;
     if (g.axis === 'x') {
@@ -90,7 +92,7 @@ async function boot() {
       m.position.set((g.x0 + g.x1) / 2, (g.y0 + g.y1) / 2, g.z);
     }
     m.renderOrder = 4;
-    scene.add(m);
+    scene.add(m); glassPanes.push({ g, m });
   }
 
   // ---------------------------------------------------------------- snow, steam
@@ -199,13 +201,14 @@ async function boot() {
     player.locked = locked;
     if (touchUI && !locked) touchUI.reset();
     if (locked) document.body.classList.remove('summary');
-    overlay.classList.toggle('hidden', locked);
+    overlay.classList.toggle('hidden', locked || !!(parade && parade.dead));
     document.body.classList.toggle('playing', locked);
     if (!locked) interactions.clear();
     if (!locked && arcadeOpen) {} // the Fami-Com fills the screen
     else if (!locked && catalogOpen) menu.show('catalog', { catalog: catalogData() });
+    else if (!locked && parade && parade.dead) {} // the night's over: its card is up
     else if (!locked && arrived && !document.body.classList.contains('summary'))
-      menu.show('pause', { clock: clockText(shift.minutes).toLowerCase(), coop: !!coop, isHost: !!(coop && coop.isHost), pausePanel: null });
+      menu.show('pause', { clock: parade ? parade.pauseText() : clockText(shift.minutes).toLowerCase(), coop: !!coop, isHost: !!(coop && coop.isHost), pausePanel: null });
     // full pause once you've come in (solo only: in co-op the shop keeps going for everyone else)
     paused = arrived && !locked && !coop && !dev && !sunrise && !arcadeOpen;
     if (audio.ctx) { if (paused && !arcadeOpen) audio.ctx.suspend(); else audio.ctx.resume(); }
@@ -227,6 +230,7 @@ async function boot() {
   interactions.attach(outline);
   addEventListener('mousedown', (e) => {
     if (!player.locked) return;
+    if (parade) { parade.mouse(e.button, true); return; }
     if (moving && e.button === 2) { endMove(false); return; }
     if (e.button === 0) interactions.click();
   });
@@ -637,6 +641,7 @@ async function boot() {
   applySettings(menu.profile.settings);
   menu.h = {
     onSolo: () => enter(),
+    onParade: () => startParade(),
     onHost: async () => {
       menu.show('connecting');
       for (let tries = 0; tries < 5 && !net; tries++) {
@@ -677,6 +682,10 @@ async function boot() {
   try { notice = sessionStorage.getItem('yoake.notice'); sessionStorage.removeItem('yoake.notice'); } catch {}
   const joinCode = (new URLSearchParams(location.search).get('join') || '').toUpperCase();
   if (joinCode) { history.replaceState(null, '', location.pathname); menu.show('join', { code: joinCode, notice: null }); }
+  else if ((() => { try { const v = sessionStorage.getItem('yoake.parade'); sessionStorage.removeItem('yoake.parade'); return v; } catch { return null; } })()) {
+    menu.h.onResume = () => startParade();
+    menu.show('ready', { readyNote: 'the snow is falling. something is coming up out of it', readyTitle: '百鬼夜行', readyItem: 'rise again' });
+  }
   else { menu.saveInfo = { night: save.night }; menu.show('main', { notice }); }
   for (const seat of batch.seats) {
     interactions.add([seat.x, seat.y - 0.1, seat.z, 0.24, 0.3, 0.24], () => 'Sit down', () => {
@@ -702,6 +711,45 @@ async function boot() {
   const fujiAt = new THREE.Vector3(FUJI.x, FUJI.y + 118, FUJI.z); // the snowy top of the cone
   home.onTelescope = () => { zoom = true; aimFuji = 1.2; document.body.classList.add('scope'); audio.clickSound(); };
   const scopeOff = () => { zoom = false; document.body.classList.remove('scope'); };
+
+  // ---------------------------------------------------------------- 百鬼夜行: the night parade (a survival mode; the shop's save is untouched)
+  let parade = null;
+  const startParade = () => {
+    if (parade) { lock(); return; }
+    if (arrived) return;
+    audio.start();
+    arrived = true;
+    if (zoom) scopeOff();
+    service.held.visible = false; crowd.auto = false; crowd.clearAll();
+    frontDoor.stuck = true;
+    parade = new Parade({ scene, camera, player, world, interactions, audio, toast, litMat, emitMat, glassMat, composer, snowPile,
+      doors: { front: frontDoor, kitchen: kitchenDoor, restA: restDoorA, restB: restDoorB, back: backDoor, freezer: freezerDoor, kura: kuraDoor },
+      allDoors: doors, glass: glassPanes, lamps, hud: $('zm'),
+      onQuit: () => location.reload(),
+      onAgain: () => { try { sessionStorage.setItem('yoake.parade', '1'); } catch {} location.reload(); } });
+    parade.start();
+    // phones: buttons to strike (hold to keep swinging), throw a dish, switch weapons, reload, and use (hold to rebuild)
+    if (touchUI) {
+      const bar = $('touchbar');
+      const btn = (label, down, up = null) => {
+        const b = document.createElement('button'); b.className = 'glass zm-btn'; b.textContent = label; b.dataset.k = label;
+        b.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); down(); }, { passive: false });
+        b.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); if (up) up(); }, { passive: false });
+        bar.prepend(b); return b;
+      };
+      btn('reload', () => parade.key('KeyR', true), () => parade.key('KeyR', false));
+      btn('1/2', () => parade.wheel());
+      btn('throw', () => parade.key('KeyG', true), () => parade.key('KeyG', false));
+      btn('use', () => parade.key('KeyE', true), () => parade.key('KeyE', false));
+      btn('strike', () => parade.mouse(0, true), () => parade.mouse(0, false));
+    }
+    lock();
+  };
+  addEventListener('mouseup', (e) => { if (parade) parade.mouse(e.button, false); });
+  addEventListener('keydown', (e) => { if (parade && player.locked) parade.key(e.code, true); });
+  addEventListener('keyup', (e) => { if (parade) parade.key(e.code, false); });
+  addEventListener('wheel', () => { if (parade && player.locked) parade.wheel(); }, { passive: true });
+  addEventListener('contextmenu', (e) => { if (parade) e.preventDefault(); });
 
   // ---------------------------------------------------------------- loop
   let indoor = 1, last = performance.now(), time = 0, dawn = 0, purseT = 0;
@@ -757,9 +805,10 @@ async function boot() {
     // the shop waits for you: nothing ticks behind the menu
     // (a hidden co-op host is run by the background ticker instead, so don't double up)
     const bgHost = document.hidden && coop && coop.isHost;
-    if ((arrived || dev || (coop && !coop.isHost)) && !bgHost) { crowd.update(dt); service.update(dt); shift.update(dt); }
+    if (parade) parade.update(dt);
+    else if ((arrived || dev || (coop && !coop.isHost)) && !bgHost) { crowd.update(dt); service.update(dt); shift.update(dt); }
     if (coop) coop.update(dt);
-    const agents = [player.pos, ...crowd.positions(), ...crowd.others];
+    const agents = parade ? [player.pos, ...parade.horde.list.filter((k) => k.alive).map((k) => k.pos)] : [player.pos, ...crowd.positions(), ...crowd.others];
     for (const d of doors) d.update(dt, coop && !coop.isHost ? null : agents); // guests: the host decides when doors close
     if (moving) updateMove();
     else if (player.locked) interactions.update();
@@ -846,7 +895,7 @@ async function boot() {
   }
   requestAnimationFrame(tick);
   window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home, arcade,
-    get coop() { return coop; }, get net() { return net; }, get dawn() { return dawn; }, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
+    get coop() { return coop; }, get net() { return net; }, get parade() { return parade; }, startParade, get dawn() { return dawn; }, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
 }
 
 boot().catch((e) => { console.error(e); status('something spilled: ' + e.message); });

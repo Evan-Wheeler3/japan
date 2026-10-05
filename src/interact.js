@@ -108,7 +108,7 @@ export class Door {
   // agents: positions of everyone who might be walking through (you and the customers)
   update(dt, agents) {
     // swing shut behind whoever opened it once they're through (or if nobody comes)
-    if (this.target !== 0 && agents) {
+    if (this.target !== 0 && agents && !this.stuck) {
       this.openFor += dt;
       const dist = Math.min(...agents.map((p) => Math.hypot(p.x - this.center.x, p.z - this.center.z)));
       if (dist < 1.4) this.wasNear = true;

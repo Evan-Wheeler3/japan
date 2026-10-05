@@ -90,7 +90,7 @@ export class Menu {
       html = `<div class="col">
         <div><div class="neon amber title">YOAKE</div><div class="hand tagline">夜明け · open until dawn · it's snowing</div></div>
         ${this.notice ? `<div class="err">${esc(this.notice)}</div>` : ''}
-        <div style="margin-top:auto">${items([['solo', this.saveInfo && this.saveInfo.night > 1 ? `carry on · night ${this.saveInfo.night}` : 'come in from the snow', true, true], ['host', 'open with friends'], ['join', 'join a friend'], ['settings', 'settings']])}</div>
+        <div style="margin-top:auto">${items([['solo', this.saveInfo && this.saveInfo.night > 1 ? `carry on · night ${this.saveInfo.night}` : 'come in from the snow', true, true], ['host', 'open with friends'], ['join', 'join a friend'], ['parade', '百鬼夜行 · the night parade'], ['settings', 'settings']])}</div>
         <div class="tip">${this.touch ? (innerHeight > innerWidth ? 'tip · turn your phone sideways for the best view' : 'tip · push the stick all the way to hurry') : 'tip · press <kbd>M</kbd> anytime for the radio'}</div>
       </div>
       <button class="me-card glass" data-act="custom"><div class="pv"></div><div>
@@ -204,6 +204,7 @@ export class Menu {
   act(a) {
     const go = (screen, extra = {}) => this.show(screen, { error: null, notice: null, ...extra });
     if (a === 'solo') this.h.onSolo();
+    else if (a === 'parade') this.h.onParade();
     else if (a === 'host') this.h.onHost();
     else if (a === 'join') go('join', { busy: false });
     else if (a === 'sound') this.show('pause', { pausePanel: this.pausePanel === 'sound' ? null : 'sound' });

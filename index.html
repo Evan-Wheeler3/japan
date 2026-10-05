@@ -11,7 +11,7 @@
   <title>Yoake</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Fredoka:wght@500;600&family=Monoton&family=Nunito:wght@600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Fredoka:wght@500;600&family=Monoton&family=Nunito:wght@600;700&family=Yuji+Syuku&display=swap" rel="stylesheet" />
   <style>
     /* Lamplight: frosted cocoa glass, amber lamplight, soft rounded type */
     :root {
@@ -264,6 +264,8 @@
     body.touch #hint .mouse { display: none; }
     body.touch #hint { padding: 7px 16px; }
     #touchbar #t-drop { display: none; }
+    body.parade #touchbar #t-drop { display: none !important; }
+    #touchbar .zm-btn { padding: 0 14px; } #touchbar .zm-btn[data-k="strike"] { background: rgba(200,32,26,.7); }
     #touchbar #t-drop.show { display: block; }
     body.touch #intro { bottom: max(80px, calc(env(safe-area-inset-bottom) + 72px)); white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 48px); }
     @media (max-height: 520px), (max-width: 720px) {
@@ -301,6 +303,77 @@
       #summary .stat { width: 130px; padding: 12px 16px; } #summary .stat b { font-size: 28px; }
     }
     @media (max-width: 720px) { #toast { max-width: calc(100vw - 40px); top: auto; bottom: 80px; } .stage { display: none; } }
+    /* ---------------------------------------------------------------- 百鬼夜行: the night parade */
+    #zm { display: none; position: fixed; inset: 0; pointer-events: none; color: #f4ead8; font-family: Fredoka, sans-serif; }
+    #zm.on { display: block; }
+    body.parade #orders, body.parade #schedule, body.parade #purse, body.parade #intro, body.parade #pop { display: none !important; }
+    body.parade #hint .mouse { display: none; }
+    body.parade #hint .txt { text-transform: none; }
+    body:not(.playing) #zm .zm-right, body:not(.playing) #zm .zm-round, body:not(.playing) #zm .zm-perks { opacity: .35; }
+    body.zm-oni #zm::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(140,10,0,0) 45%, rgba(110,8,0,.28) 100%); animation: zmOni 4s ease-in-out infinite; }
+    @keyframes zmOni { 50% { opacity: .55; } }
+    .zm-hurt { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at 50% 50%, rgba(120,0,0,0) 35%, rgba(120,0,0,.55) 75%, rgba(60,0,0,.9) 100%); transition: opacity .3s ease; }
+    .zm-hurt.hit { animation: zmHit .45s ease-out; }
+    @keyframes zmHit { 0% { box-shadow: inset 0 0 220px 60px rgba(200,0,0,.8); } 100% { box-shadow: inset 0 0 0 0 rgba(200,0,0,0); } }
+    body.zm-dead .zm-hurt { opacity: 1 !important; background: radial-gradient(ellipse at 50% 50%, rgba(90,0,0,.4) 10%, rgba(40,0,0,.95) 80%); transition: opacity 2s ease; }
+    .zm-round { position: absolute; left: 34px; bottom: 26px; font: 400 92px "Yuji Syuku", serif; color: #c8160e; line-height: 1;
+      text-shadow: 0 0 2px #3a0000, 0 4px 18px rgba(0,0,0,.85), 0 0 30px rgba(200,20,10,.35); writing-mode: vertical-rl; }
+    .zm-round b { font-weight: 400; }
+    .zm-round.flash { animation: zmRound 3s ease; }
+    @keyframes zmRound { 0% { color: #fff; transform: scale(1.5); filter: blur(2px); } 25% { color: #ff3020; transform: scale(1.1); filter: none; } 100% { color: #c8160e; transform: none; } }
+    .zm-perks { position: absolute; left: 30px; top: 26px; display: flex; gap: 8px; }
+    .zm-perks i { font: 400 26px "Yuji Syuku", serif; font-style: normal; width: 42px; height: 54px; display: grid; place-items: center; color: #1a0a08;
+      background: #f2ead8; border: 2px solid #c8201a; box-shadow: 0 0 14px var(--c), 0 4px 12px rgba(0,0,0,.6); }
+    .zm-timers { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); display: flex; gap: 12px; font: 600 16px Fredoka, sans-serif; color: #ffd890; text-shadow: 0 2px 8px #000; }
+    .zm-right { position: absolute; right: 34px; bottom: 28px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-shadow: 0 2px 10px rgba(0,0,0,.9); }
+    .zm-points { font: 400 46px "Yuji Syuku", serif; color: #f6e2b8; letter-spacing: 1px; }
+    .zm-pluses { position: absolute; right: 4px; bottom: 56px; }
+    .zm-plus { position: absolute; right: 0; bottom: 0; font: 400 26px "Yuji Syuku", serif; color: #ffcf60; animation: zmPlus .9s ease-out forwards; white-space: nowrap; }
+    @keyframes zmPlus { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translate(-30px, -54px); } }
+    .zm-weapon { display: flex; flex-direction: column; align-items: flex-end; font: 600 18px Fredoka, sans-serif; color: #efe0c8; }
+    .zm-weapon b { font-weight: 600; }
+    .zm-weapon .ammo { font: 600 30px Fredoka, sans-serif; color: #fff4de; font-variant-numeric: tabular-nums; }
+    .zm-weapon .ammo i { font-style: normal; font-size: 18px; color: #cdb497; margin-left: 4px; }
+    .zm-weapon .ammo.out { color: #ff5040; }
+    .zm-weapon em { font-style: normal; font-size: 13px; color: #cdb497; }
+    .zm-weapon em.rl { color: #ffd060; }
+    .zm-throw { display: flex; gap: 5px; align-items: center; min-height: 20px; }
+    .zm-throw i { width: 14px; height: 14px; border-radius: 50%; background: #f2eee4; box-shadow: inset 0 0 0 3px #2a4a8a; }
+    .zm-throw i.t-cup { border-radius: 3px; background: #8a5a3a; box-shadow: inset 0 3px 0 #d8c8a8; }
+    .zm-throw i.t-tokkuri { border-radius: 40% 40% 30% 30%; background: #f0ece0; box-shadow: inset 0 -4px 0 #2a3a7a; height: 18px; }
+    .zm-throw span { font: 700 12px Nunito, sans-serif; background: rgba(255,236,210,.18); border-radius: 5px; padding: 1px 6px; margin-left: 4px; }
+    .zm-msg { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); font: 400 46px "Yuji Syuku", serif; color: #f4e6cc; opacity: 0; transition: opacity .5s ease;
+      text-shadow: 0 0 18px rgba(200,20,10,.7), 0 3px 14px #000; white-space: nowrap; }
+    .zm-sub { position: absolute; left: 50%; top: calc(30% + 44px); transform: translateX(-50%); font: 600 17px Fredoka, sans-serif; color: #e8d6b8; opacity: 0; transition: opacity .5s ease; text-shadow: 0 2px 10px #000; white-space: nowrap; }
+    .zm-msg.show, .zm-sub.show { opacity: 1; }
+    body.parade #reticle { width: 18px; height: 18px; margin: -9px; border-radius: 0; background: none;
+      background-image: linear-gradient(#f4e6cc, #f4e6cc), linear-gradient(#f4e6cc, #f4e6cc); background-size: 2px 6px, 6px 2px; background-position: center 0, 0 center; background-repeat: no-repeat;
+      box-shadow: none; opacity: .8; }
+    body.parade #reticle::after { content: ''; position: absolute; inset: 0; background-image: linear-gradient(#f4e6cc, #f4e6cc), linear-gradient(#f4e6cc, #f4e6cc);
+      background-size: 2px 6px, 6px 2px; background-position: center 100%, 100% center; background-repeat: no-repeat; }
+    body.parade #reticle.active { opacity: 1; }
+    #reticle.zm-hit { animation: zmMark .18s ease-out; }
+    #reticle.zm-kill { filter: drop-shadow(0 0 4px #ff2010) sepia(1) saturate(8) hue-rotate(-20deg); }
+    @keyframes zmMark { 0% { transform: rotate(45deg) scale(1.5); } 100% { transform: rotate(45deg) scale(1); } }
+    #zm-over { position: fixed; inset: 0; display: none; place-items: center; background: radial-gradient(ellipse at 50% 45%, rgba(60,0,0,.55), rgba(8,0,0,.92) 75%); z-index: 30; color: #f4e6cc; font-family: Fredoka, sans-serif; }
+    #zm-over.on { display: grid; animation: zmFade 1.4s ease; }
+    @keyframes zmFade { from { opacity: 0; } to { opacity: 1; } }
+    #zm-over .card { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 24px; }
+    #zm-over .ttl { font: 400 74px "Yuji Syuku", serif; color: #d8180e; text-shadow: 0 0 30px rgba(220,20,10,.6), 0 4px 18px #000; letter-spacing: 6px; }
+    #zm-over .sub { font: 600 20px Fredoka, sans-serif; color: #cdb497; margin-top: -6px; }
+    #zm-over .rd { display: flex; align-items: center; gap: 14px; margin: 8px 0; }
+    #zm-over .rd b { font: 400 64px "Yuji Syuku", serif; font-weight: 400; color: #f4e6cc; }
+    #zm-over .rd span { font: 600 18px Fredoka, sans-serif; color: #cdb497; }
+    #zm-over .stats { display: grid; grid-template-columns: repeat(5, minmax(96px, auto)); gap: 10px; }
+    #zm-over .stats div { background: rgba(40,10,6,.6); border: 1px solid rgba(255,200,160,.14); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; }
+    #zm-over .stats b { font: 600 26px Fredoka, sans-serif; color: #fff2dc; }
+    #zm-over .stats span { font: 700 12px Nunito, sans-serif; color: #cdb497; }
+    #zm-over .acts { display: flex; gap: 20px; align-items: center; margin-top: 14px; }
+    #zm-over .pill-btn { background: #c8201a; color: #fff2e0; box-shadow: 0 0 28px rgba(220,30,20,.45); }
+    @media (max-width: 700px) {
+      .zm-round { font-size: 60px; left: 16px; bottom: 16px; } .zm-points { font-size: 32px; } .zm-right { right: 16px; bottom: 16px; }
+      #zm-over .stats { grid-template-columns: repeat(2, minmax(110px, auto)); } #zm-over .ttl { font-size: 54px; }
+    }
   </style>
   <script type="importmap">
     { "imports": {
@@ -321,6 +394,10 @@
   <div id="overlay"><div class="shade"></div><div id="screen"></div></div>
   <div id="summary"></div>
   <div id="purse" class="hud glass"></div>
+  <div id="zm"><div class="zm-hurt"></div><div class="zm-round"></div><div class="zm-perks"></div><div class="zm-timers"></div>
+    <div class="zm-right"><div class="zm-throw"></div><div class="zm-weapon"></div><div class="zm-points"></div><div class="zm-pluses"></div></div>
+    <div class="zm-msg"></div><div class="zm-sub"></div></div>
+  <div id="zm-over"></div>
   <div id="fade"><div class="cap"></div></div>
   <div id="scope"><div class="hint">move the mouse to pan · walk to step back</div></div>
   <div id="arcade"><div class="hint"></div>

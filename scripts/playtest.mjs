@@ -2,7 +2,8 @@
 //   wake upstairs → buy from the catalog (dishes, upgrade levels, the TV, the Fami-Com and its games)
 //   → play the Fami-Com → open the shop → work a full night (by hand and by belt,
 //   cooking every dish, washing up) → sunrise and the night's card → go to bed → wake for night 2
-//   → reload and check the save carried over.
+//   → reload and check the save carried over → the night parade: hold the front room with a katana, break a seal,
+//   an oni night, and the card when you fall.
 // Usage: npm install && npm run playtest     (CHROME_PATH=/path/to/chrome to pick a browser)
 import { chromium } from 'playwright-core';
 import { readFileSync, existsSync } from 'fs';
@@ -258,6 +259,60 @@ try {
   check(st.n === 2 && st.hands === 2 && st.placed.includes('irori') && st.placed.includes('famicom') && st.menu.includes('tempura'), "night 2 starts with last night's perk and everything you bought");
   st = await page.evaluate(() => { const p = window.__yoake.home.pieces.get('bonsai'); return [p.x, p.z, p.rot].join(); });
   check(st === '6.5,2.5,1', 'the bonsai is still where you put it');
+
+  // ---- 百鬼夜行: the night parade (a survival mode that leaves the shop's save alone)
+  await page.reload(); await ready();
+  const saveBefore = await page.evaluate(() => localStorage.getItem('yoake.save'));
+  await page.click('#screen [data-act="parade"]');
+  st = await page.evaluate(() => {
+    const d = window.__yoake, P = d.parade;
+    d.player.locked = true;
+    return { on: !!P, pts: P.points, boards: P.barriers.map((b) => b.boards), x: d.player.pos.x, z: d.player.pos.z, zones: [...P.zones] };
+  });
+  check(st.on && st.pts === 500 && st.boards.every((n) => n === 6) && st.zones.join() === 'front' && st.z < 0, 'the night parade starts in the boarded-up front room with 500 points');
+  // a bot holds the front room with a katana: it turns to the nearest yōkai and cuts
+  st = await page.evaluate(() => {
+    const d = window.__yoake, P = d.parade, A = P.arsenal, pl = d.player;
+    P.hp = P.maxHp = 1e6;
+    A.give('katana');
+    let tore = false;
+    for (let i = 0; i < 3000 && P.round < 3; i++) {
+      for (let k = 0; k < 3; k++) { P.update(0.05); pl.update(0.05); }
+      if (P.barriers.some((b) => b.boards < 6)) tore = true;
+      const t = P.horde.list.filter((k) => k.alive && k.state !== 'rise' && k.state !== 'climb').sort((a, b) => a.pos.distanceTo(pl.pos) - b.pos.distanceTo(pl.pos))[0];
+      if (t) {
+        pl.yaw = Math.atan2(-(t.pos.x - pl.pos.x), -(t.pos.z - pl.pos.z)); pl.pitch = -0.1; pl.update(0.001);
+        if (t.pos.distanceTo(pl.pos) < 1.8) A.attack(pl);
+      }
+    }
+    return { round: P.round, kills: P.kills, tore, points: P.points, limbs: P.limbs, splats: P.gore.sN };
+  });
+  check(st.round >= 3 && st.kills >= 15 && st.tore && st.splats > 0, `two rounds held: ${st.kills} yōkai cut down, ${st.limbs} limbs taken, boards torn off the windows`);
+  st = await page.evaluate(() => {
+    const d = window.__yoake, P = d.parade, pl = d.player, I = d.interactions;
+    P.points = 10000;
+    pl.pos.set(7.9, 0.25, -0.9); pl.update(0.016); pl.yaw = Math.PI; pl.pitch = -0.1; pl.update(0.016); I.update();
+    const label = I.hover && I.hover.label();
+    P.key('KeyE', true); P.key('KeyE', false);
+    return { label, open: P.zones.has('dining'), points: P.points };
+  });
+  check(/break the seal/.test(st.label || '') && st.open && st.points === 9250, 'breaking an ofuda seal (750) opens the dining room');
+  // every fifth round is an oni night: only oni, and they charge
+  st = await page.evaluate(() => {
+    const d = window.__yoake, P = d.parade, pl = d.player;
+    while (P.horde.list.length) { P.horde.list[0].remove(); P.horde.list.shift(); }
+    P.round = 4; P.toSpawn = 0; P.breakT = 0.01;
+    pl.pos.set(8.0, 0.25, 3.2);
+    const states = new Set(), kinds = new Set();
+    for (let i = 0; i < 3000 && !states.has('charge'); i++) { P.update(0.05); pl.update(0.05); for (const k of P.horde.list) { states.add(k.state); kinds.add(k.kind); } }
+    return { round: P.round, oni: P.oniRound, kinds: [...kinds], charged: states.has('charge') };
+  });
+  check(st.round === 5 && st.oni && st.kinds.join() === 'oni' && st.charged, `round 5 is an oni night: only oni come, and they charge (${JSON.stringify(st)})`);
+  // falling: the night's card
+  await page.evaluate(() => { const P = window.__yoake.parade; P.maxHp = 100; P.hp = 1; P.hurt({ dmg: 50, pos: window.__yoake.player.pos.clone(), kind: 'gaki', state: 'attack' }); });
+  await page.waitForFunction(() => document.getElementById('zm-over').classList.contains('on'), null, { timeout: 30000 });
+  st = await page.evaluate(() => ({ text: document.getElementById('zm-over').textContent, save: localStorage.getItem('yoake.save') }));
+  check(/the night parade took you/.test(st.text) && /round 5/.test(st.text) && st.save === saveBefore, "falling ends the night with its card, and the shop's save is untouched");
 
   if (errors.length) throw new Error(`page errors:\n${errors.join('\n')}`);
   console.log('PLAYTEST PASSED');
