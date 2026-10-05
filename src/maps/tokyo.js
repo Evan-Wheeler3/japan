@@ -47,7 +47,8 @@ export const TOKYO = {
     },
     chores: { ...M.chores, shovel: [[1.5, -4.4], [4.6, -4.6], [7.6, -4.5], [10.5, -4.4], [13.3, -4.8], [15.2, -4.5]] },
     doors: [
-      ...M.doors.filter((d) => ['front', 'kitchen', 'restA', 'freezer'].includes(d.key)),
+      ...M.doors.filter((d) => ['front', 'kitchen', 'freezer'].includes(d.key)),
+      { ...M.doors.find((d) => d.key === 'restA'), hinge: [2.5625, 11.0], block: [2.5, 2.75, 11.0, 12.0] }, // the hall's wider here
       { key: 'back', name: 'back door', kind: 'exit', hinge: [15.6875, 14.375], base: -R, plusDir: [1, 0], block: [15.625, 16.125, 14.375, 15.625],
         needs: 'backdoor', locked: ['Back door (snowed shut)', 'snow drifted up against it in the yard. (the catalog: dig out the back door)'] },
       { key: 'kura', name: 'shed door', kind: 'kura', hinge: [TK.shed.x0 + 0.125, 14.5], base: -R, plusDir: [-1, 0], block: [TK.shed.x0, TK.shed.x0 + 0.25, 14.5, 16.0],
@@ -64,7 +65,9 @@ export const TOKYO = {
     // behind the menu: across the street, looking back at the shop under the snow
     title: { x: 1.5, z: -11.0, yaw: lookYaw(1.5, -11.0, 11.5, -3.4), pitch: 0.15 },
   },
-  home: MOUNTAIN.home,
+  // the flat is the mountain's, but here the whole floor is yours: keep furniture out of the doorways to the hall
+  // and to the spare room
+  home: { ...MOUNTAIN.home, noGo: [...MOUNTAIN.home.noGo, [6.0, 7.4, 7.6, 8.5], [5.75, 6.7, 6.4, 7.6]] },
   homeKey: 'mountain',                       // the very same flat, so the same arrangement of your things
   // the catalog in this map's words
   catalog: {
@@ -77,7 +80,7 @@ export const TOKYO = {
     ...MOUNTAIN.test,
     bowFrom: [TK.shrine.x, 0.125, 0.4],
     // on foot from the futon to the flat's door, down the stairs into the restroom hall, and back up again
-    walk: [[[11.6, 3.4], [10.3, 3.4], [10.0, 6.6], [13.2, 7.0], [14.8, 7.6], [14.8, 9.4, 3.75], [14.8, 15.05], [4.6, 15.05, 3.75], [1.1, 15.05, 1.75], [1.0, 11.9, 0.25], [1.0, 10.6, 0.25]],
-           [[1.0, 12.2], [1.0, 14.9, 1.75], [4.8, 15.05, 3.75], [14.8, 15.05], [14.8, 9.4], [14.8, 7.6, 3.75], [13.2, 7.0], [10.0, 6.6], [10.3, 3.4], [12.4, 3.0, 3.75]]],
+    walk: [[[11.6, 3.4], [10.3, 3.4], [10.0, 6.6], [6.7, 7.6], [6.7, 9.45, 3.75], [0.75, 9.45], [0.75, 15.35, 0.25], [1.9, 15.35], [1.9, 10.6], [1.9, 9.3, 0.25]],
+           [[1.9, 10.6], [1.9, 15.35], [0.75, 15.35], [0.75, 9.45, 3.75], [6.7, 9.45], [6.7, 7.6, 3.75], [10.0, 6.6], [10.3, 3.4], [12.4, 3.0, 3.75]]],
   },
 };

@@ -471,8 +471,8 @@ export function buildShop(K, opts = {}) {
   B(14.375, 0.25, -1.625, 15.75, 0.875, -1.125, (x, y, z) => (z === Z(-1.625) && (x & 3) === 0 ? P.walnutD : P.oak[1]));
   B(14.25, 0.875, -1.75, 15.75, 1.0, -1.0, (x, y, z) => (x === X(14.25) || z === Z(-1.75) ? P.hinokiE : P.hinoki));
   // a shelf on the back wall for the sake and the daruma, by the restroom door
-  B(1.875, 1.875, 9.75, 3.625, 2.0, 10.0, P.walnutD);
-  for (const bx of [2.0, 3.375]) B(bx, 1.625, 9.875, bx + 0.125, 1.875, 10.0, P.walnutD);
+  B(city ? 2.625 : 1.875, 1.875, 9.75, 3.625, 2.0, 10.0, P.walnutD);
+  for (const bx of city ? [2.75, 3.375] : [2.0, 3.375]) B(bx, 1.625, 9.875, bx + 0.125, 1.875, 10.0, P.walnutD);
 
   // the kitchen pass over the counter's east leg: the belt runs straight through it from the kitchen; heat lamps above
   B(11.375, 1.125, 9.875, 13.75, 2.0, 10.25, 0);
@@ -485,8 +485,9 @@ export function buildShop(K, opts = {}) {
     B(d0, 0.25, 9.875, d1, 2.375, 10.25, 0);
     B(d0 - 0.125, 0.25, 9.875, d0, 2.5, 10.0, P.timberD); B(d1, 0.25, 9.875, d1 + 0.125, 2.5, 10.0, P.timberD); B(d0 - 0.125, 2.375, 9.875, d1 + 0.125, 2.5, 10.0, P.timberD);
   }
-  B(0.375, 0.25, 9.875, 1.625, 2.375, 10.25, 0);
-  B(0.25, 0.25, 9.875, 0.375, 2.5, 10.0, P.walnutD); B(1.625, 0.25, 9.875, 1.75, 2.5, 10.0, P.walnutD); B(0.25, 2.375, 9.875, 1.75, 2.5, 10.0, P.walnutD);
+  { const [h0, h1] = city ? [1.375, 2.5] : [0.375, 1.625];
+    B(h0, 0.25, 9.875, h1, 2.375, 10.25, 0);
+    B(h0 - 0.125, 0.25, 9.875, h0, 2.5, 10.0, P.walnutD); B(h1, 0.25, 9.875, h1 + 0.125, 2.5, 10.0, P.walnutD); B(h0 - 0.125, 2.375, 9.875, h1 + 0.125, 2.5, 10.0, P.walnutD); }
 
   // ================= back of house (z 10.25..15.75): restroom hallway, two restrooms, the kitchen
   {
@@ -495,7 +496,8 @@ export function buildShop(K, opts = {}) {
     const ktile = [C('#ecebe4', 0, 0.03), C('#dfded6', 0, 0.03)], kUpper = C('#c8cac4', 0, 0.04);
     const ceilT = C('#e4e2da', 0, 0.04), ceilG = C('#b8b6ae', 0, 0.03);
     const quarry = [C('#8a3a24', 0, 0.07), C('#7a3220', 0, 0.07)], mat = C('#18181a', 0, 0.05);
-    const region = (mx, mz) => (mx < 1.75 ? 'hall' : mx < 5.0 ? 'rest' : 'kitchen');
+    const hallX = city ? 2.5 : 1.75; // (in town the hall is wider: the stairs run up one side of it)
+    const region = (mx, mz) => (mx < hallX ? 'hall' : mx < 5.0 ? 'rest' : 'kitchen');
     const wallFinish = (reg, u, y) => {
       const my = myOf(y);
       if (reg === 'hall') return my < 1.125 ? P.oak[(u >> 1) & 1] : my < 1.25 ? P.walnutD : cream;
@@ -527,11 +529,18 @@ export function buildShop(K, opts = {}) {
     B(0, 3.125, 10.25, 16, 3.75, 16, P.plasterD);
     // interior walls: hallway | restrooms | kitchen, restroom divider
     // two-voxel shared walls so each side gets its own finish
-    B(1.75, 0.25, 10.25, 1.875, 3.0, 15.75, (x, y, z) => wallFinish('hall', z, y));
-    B(1.875, 0.25, 10.25, 2.0, 3.0, 15.75, (x, y, z) => wallFinish('rest', z, y));
-    B(1.75, 0.25, 11.0, 2.0, 2.25, 12.0, 0); if (!city) B(1.75, 0.25, 13.75, 2.0, 2.25, 14.75, 0);
-    B(1.75, 2.25, 10.9, 1.875, 2.375, 12.1, P.walnutD); if (!city) B(1.75, 2.25, 13.65, 1.875, 2.375, 14.85, P.walnutD);
-    B(2.0, 0.25, 13.0, 4.875, 3.0, 13.125, (x, y, z) => wallFinish('rest', x, y));
+    if (!city) {
+      B(1.75, 0.25, 10.25, 1.875, 3.0, 15.75, (x, y, z) => wallFinish('hall', z, y));
+      B(1.875, 0.25, 10.25, 2.0, 3.0, 15.75, (x, y, z) => wallFinish('rest', z, y));
+      B(1.75, 0.25, 11.0, 2.0, 2.25, 12.0, 0); B(1.75, 0.25, 13.75, 2.0, 2.25, 14.75, 0);
+      B(1.75, 2.25, 10.9, 1.875, 2.375, 12.1, P.walnutD); B(1.75, 2.25, 13.65, 1.875, 2.375, 14.85, P.walnutD);
+      B(2.0, 0.25, 13.0, 4.875, 3.0, 13.125, (x, y, z) => wallFinish('rest', x, y));
+    } else { // one restroom, a little narrower; past it the hall opens into a nook for the mops and buckets
+      B(2.5, 0.25, 10.25, 2.625, 3.0, 13.125, (x, y, z) => wallFinish('hall', z, y));
+      B(2.625, 0.25, 10.25, 2.75, 3.0, 13.125, (x, y, z) => wallFinish('rest', z, y));
+      B(2.5, 0.25, 11.0, 2.75, 2.25, 12.0, 0); B(2.5, 2.25, 10.9, 2.625, 2.375, 12.1, P.walnutD);
+      B(2.75, 0.25, 13.0, 4.875, 3.0, 13.125, (x, y, z) => wallFinish('rest', x, y));
+    }
     B(4.875, 0.25, 10.25, 5.0, 3.0, 15.75, (x, y, z) => wallFinish('rest', z, y));
     B(5.0, 0.25, 10.25, 5.125, 3.0, 15.75, (x, y, z) => wallFinish('kitchen', z, y));
     // hallway end: the back door (a door panel in main.js; snowed shut until you dig it out), a step outside
@@ -540,39 +549,34 @@ export function buildShop(K, opts = {}) {
       B(0.25, 0.25, 15.625, 0.375, 2.375, 16.0, P.steelD); B(1.625, 0.25, 15.625, 1.75, 2.375, 16.0, P.steelD); B(0.25, 2.25, 15.625, 1.75, 2.375, 16.0, P.steelD);
       B(0.25, 0.125, 16.0, 1.75, 0.25, 16.5, P.stoneL);
     } else {
-      // in town the hall turns the corner into a stairway up to the flat: one flight up the end of the hall to a
-      // landing in the corner, then a second along the back wall, through the ceiling. (The second restroom gives way.)
-      const step = 0.25, tread = 0.375, F = 0.25, F2 = 3.75;
+      // in town the stairs go up one side of the hall: walk to its end, turn, and climb one straight flight back toward
+      // the front, up through the ceiling into the flat's hall. Thirteen steps (a quarter metre up, three eighths
+      // deep), solid underneath; a half wall on the open side with a wooden rail along it (the rails are decor's).
+      const F = 0.25, rise = 0.25, run = 0.375, foot = 15.0, sx0 = 0.25, sx1 = 1.25;
       const oakT = (x, z) => ((x + z) % 9 === 0 ? P.oak[2] : P.oak[1]);
-      // flight one: north up the hall, five steps, then the landing (x 0.25..1.75)
-      for (let k = 1; k <= 5; k++) {
-        const z0 = 12.5 + (k - 1) * tread, h = F + k * step;
-        B(0.25, F, z0, 1.75, h, z0 + tread, (x, y, z) => (y === Y(h) - 1 ? oakT(x, z) : z === Z(z0) ? P.oak[0] : P.walnutD));
+      for (let k = 1; k <= 13; k++) {
+        const z0 = foot - k * run, z1 = z0 + run, top = F + k * rise;
+        B(sx0, F, z0, sx1, top, z1, (x, y, z) => (y === Y(top) - 1 ? (z === Z(z1) - 1 ? P.walnutD : oakT(x, z)) : z === Z(z1) - 1 ? P.oak[0] : P.walnutD));
       }
-      B(0.25, F, 14.375, 2.0, 1.75, 15.75, (x, y, z) => (y === Y(1.75) - 1 ? oakT(x, z) : P.walnutD));   // the landing
-      // flight two: east along the back wall, seven steps, up to the flat's floor (x 2.0..4.375)
-      for (let j = 1; j <= 7; j++) {
-        const x0 = 1.625 + j * tread, h = 1.75 + j * step;
-        B(x0, F, 14.375, x0 + tread, h, 15.75, (x, y, z) => (y === Y(h) - 1 ? oakT(x, z) : x === X(x0) ? P.oak[0] : P.walnutD));
+      // the half wall between the stairs and the hall: oak below, plaster, a dark cap; up to the ceiling where the
+      // stairs go through it
+      for (let z = Z(10.125); z < Z(foot); z++) {
+        const pz = mz(z), k = Math.ceil((foot - pz) / run), top = pz < 14.125 ? 3.75 : F + k * rise + 0.75;
+        for (let y = Y(F); y < Y(top); y++) G.set(X(1.25), y, z, y === Y(top) - 1 && pz >= 14.125 ? P.walnutD : wallFinish('hall', z, y));
       }
-      // a wall down the open side of flight two, closing off the space under it (plaster to the stair)
-      B(2.0, F, 14.25, 4.875, 3.0, 14.375, (x, y) => wallFinish('hall', x, y));
-      // the hall's own wall stops at the landing; the second flight runs on through it
-      B(1.75, 1.75, 14.375, 2.0, 3.0, 15.75, 0);
-      // handrails on the walls, following the pitch
-      // (one unbroken rail each, on brackets, rising with the line of the step noses)
-      const rail = (set, u0, u1, h0) => {
-        let prev = null;
-        for (let u = u0; u < u1; u++) {
-          const y = Y(h0 + ((u - u0) * VS / tread) * step + 0.875);
-          if (prev !== null) for (let yy = Math.min(prev, y); yy <= Math.max(prev, y); yy++) set(u, yy);
-          set(u, y); set(u, y - 1); prev = y;
-          if ((u - u0) % 10 === 5) set(u, y - 2);
-        }
-      };
-      rail((z, y) => G.set(X(0.25), y, z, P.walnutD), Z(12.5), Z(14.375), F + step * 0.5);
-      rail((x, y) => G.set(x, y, Z(15.75) - 1, P.walnutD), X(1.75), X(4.5), 1.75 + step * 0.5);
-      meta.lights.push({ pos: [1.4, 3.6, 14.9], color: 0xffd8a8, intensity: 2.6, distance: 6, name: 'stairs' });
+      for (let y = Y(F); y < Y(0.875); y++) G.set(X(1.25), y, Z(foot) - 1, P.walnutD); // a newel post at the foot
+      // the nook past the restroom: a mop sink, shelves of cleaning things, a bucket
+      const blue = C('#3a6ab0', 0, 0.05), bottles = ['#e84a3a', '#f0f0e8', '#4ac0e0', '#f0c040', '#7ad070'].map((h) => C(h, 0, 0.06));
+      B(3.875, F, 14.875, 4.75, 0.75, 15.625, (x, y) => (y === Y(0.75) - 1 ? P.steel : P.steelD));
+      B(4.0, 0.5, 15.0, 4.625, 0.75, 15.5, 0); B(4.0, 0.375, 15.0, 4.625, 0.5, 15.5, C('#8aa0a8', 0, 0.05));
+      B(4.25, 1.0, 15.625, 4.375, 1.25, 15.75, P.chrome);
+      for (const sy of [1.375, 1.875]) {
+        B(2.875, sy, 15.375, 3.75, sy + 0.0625, 15.75, P.steel);
+        for (let x = X(2.9375); x < X(3.6875); x += 2) G.set(x, Y(sy) + 1, Z(15.5), bottles[(x + Y(sy)) % 5]);
+      }
+      B(3.0, F, 14.125, 3.375, 0.625, 14.5, (x, y, z) => (y > Y(0.375) && x > X(3.0) && x < X(3.375) - 1 && z > Z(14.125) && z < Z(14.5) - 1 ? 0 : blue));
+      B(3.5, F, 15.5, 3.5625, 1.5, 15.5625, P.wood[0]); B(3.375, F, 15.375, 3.6875, 0.375, 15.625, P.straw); // a mop
+      meta.lights.push({ pos: [0.75, 2.6, 14.4], color: 0xffd8a8, intensity: 2.4, distance: 6, name: 'stairs' });
       // the back door moves to the kitchen's east wall, out onto the yard
       B(15.75, 0.25, 14.375, 16.125, 2.25, 15.625, 0);
       B(15.625, 0.25, 14.25, 15.75, 2.375, 14.375, P.steelD); B(15.625, 0.25, 15.625, 15.75, 2.375, 15.75, P.steelD); B(15.625, 2.25, 14.25, 15.75, 2.375, 15.75, P.steelD);
@@ -580,8 +584,8 @@ export function buildShop(K, opts = {}) {
     }
     // square washi ceiling lamps in the restrooms and the hall
     const washi = (x0, z0, s) => B(x0, 2.875, z0, x0 + s, 3.0, z0 + s, (x, y, z) => (x === X(x0) || z === Z(z0) || x === X(x0 + s) - 1 || z === Z(z0 + s) - 1 ? P.timberD : C('#ffe2b0', 1.6, 0.04)));
-    for (const lz of city ? [11.375] : [11.375, 14.125]) washi(3.125, lz, 0.75);
-    washi(0.75, 12.75, 0.5);
+    for (const lz of [11.375, 14.125]) washi(3.125, lz, 0.75);
+    if (city) washi(1.6875, 11.75, 0.5); else washi(0.75, 12.75, 0.5);
     meta.lights.push({ pos: [3.45, 2.6, city ? 11.7 : 13.06], color: 0xffd8a8, intensity: 3.2, distance: 5.5, name: 'restrooms' });
 
     // ---- kitchen: cook line under a big hood, prep island, plating shelf, dish station, walk-in, dry storage
@@ -825,21 +829,96 @@ export function buildShop(K, opts = {}) {
       snowCap(16.0, 17.8, 6.0, 8.05, F2, F2 + 1.2, 0.7);
       meta.lights.push({ pos: [16.35, 5.7, 7.0], color: 0xffb070, intensity: 2.2, distance: 5, name: 'aptDoor' });
     } else {
-      // in town the flat is reached from inside: a doorway in its back wall, from the genkan into the back room
-      // over the shop where the stair comes up (x 0.25..15.75, z 8.75..15.75: boards, a bare bulb, odds and ends)
-      B(14.25, F2, AZ1, 15.375, F2 + 2.125, AZ1 + 0.25, 0);
-      B(14.125, F2 + 2.125, AZ1, 15.5, F2 + 2.25, AZ1 + 0.25, P.timberD);
-      for (const x of [14.125, 15.375]) B(x, F2, AZ1, x + 0.125, F2 + 2.125, AZ1 + 0.25, P.timberD);
-      meta.lights.push({ pos: [8.0, 5.9, 12.4], color: 0xffc890, intensity: 2.6, distance: 10, name: 'attic' });
-      // the stairwell: the well through the ceiling and this floor over the restroom hall's stairs, and a solid
-      // balustrade round it (open where the stairs come up, on the east)
-      B(0.25, 3.0, 13.375, 1.75, F2, 15.75, 0);
-      B(1.75, 3.0, 14.375, 2.0, F2, 15.75, 0);                                                     // over the landing's corner
-      for (let j = 1; j <= 7; j++) B(1.625 + j * 0.375, Math.max(3.0, 1.75 + j * 0.25), 14.375, 2.0 + j * 0.375, F2, 15.75, 0); // over each step of the second flight
-      const bal = (x, y) => (y >= Y(F2 + 0.875) - 1 ? P.walnutD : (x & 7) === 0 ? P.timber : P.plaster[0]);
-      B(0.25, F2, 13.25, 1.875, F2 + 0.875, 13.375, (x, y) => bal(x, y));
-      B(1.75, F2, 13.375, 1.875, F2 + 0.875, 14.375, (x, y, z) => bal(z, y));
-      B(1.75, F2, 14.25, 4.625, F2 + 0.875, 14.375, (x, y) => bal(x, y));
+      // in town the whole upper floor is the flat. The stairs come up into a hall along the back of the rooms you know;
+      // off it: the back room and the genkan, a spare tatami room in the front-west corner (closets, boxes), a bathroom
+      // and a storeroom over the kitchen (shelves, the futons, the cleaning things)
+      const H0 = AZ1 + 0.25, H1 = 10.125;                      // the hall runs along z 8.75..10.125
+      const ceilB = (x, y, z) => ((x & 3) === 0 ? P.timberD : P.sugi[(z >> 3) % 3]);
+      B(0.25, 6.375, 0.25, AX0, 6.5, AZ1, ceilB); B(0.25, 6.375, AZ1, 15.75, 6.5, 15.75, ceilB);
+      // floors: tatami in the spare room, small tiles in the bathroom (the hall and the storeroom keep their boards)
+      for (let z = Z(0.25); z < Z(AZ1); z++) for (let x = X(0.25); x < X(AX0 - 0.25); x++) {
+        const px = mx(x), pz = mz(z), row = Math.floor((pz - 0.25) / 0.875), off = row & 1 ? 0.875 : 0, col = Math.floor((px - 0.25 + off) / 1.75);
+        const lu = (px - 0.25 + off) - col * 1.75, lv = (pz - 0.25) - row * 0.875;
+        G.set(x, Y(F2) - 1, z, lu < 0.13 || lv < 0.13 ? tatamiEdge : tatami[(x + z) & 1]);
+      }
+      const bathTile = [C('#dfe6ea', 0, 0.03), C('#c8d4dc', 0, 0.03)];
+      for (let z = Z(H1 + 0.125); z < Z(15.75); z++) for (let x = X(1.375); x < X(5.5); x++) G.set(x, Y(F2) - 1, z, bathTile[((x >> 1) + (z >> 1)) & 1]);
+      // the walls: the spare room's back (to the hall), the hall's back (to the bathroom and the storeroom), the wall
+      // between those two, the wall beside the stairwell, and a linen cupboard over the foot of the stairs
+      B(0.25, F2, AZ1, AX0 - 0.25, 6.375, H0, (x, y) => wallC(x, y));
+      B(1.375, F2, H1, 15.75, 6.375, H1 + 0.125, (x, y) => wallC(x, y));
+      B(5.5, F2, H1 + 0.125, 5.625, 6.375, 15.75, (x, y, z) => wallC(z, y));
+      B(1.25, F2, H1, 1.375, 6.375, 15.75, (x, y, z) => wallC(z, y));
+      B(0.25, F2, 14.125, 1.25, 6.375, 15.75, P.timberD);
+      for (let x = X(0.25); x < X(1.25); x++) for (let y = Y(F2); y < Y(6.375); y++) {
+        const ly = y - Y(F2), frame = ly === 0 || ly === 16 || ly === 17 || x === X(0.25) || x === X(1.25) - 1 || x === X(0.75);
+        G.set(x, y, Z(14.125), frame ? P.timberD : fus);
+      }
+      // doorways, with timber jambs and a lintel
+      const doorway = (alongX, p0, p1, a, b) => {
+        if (alongX) { B(a, F2, p0, b, F2 + 2.0, p1, 0); B(a - 0.125, F2 + 2.0, p0, b + 0.125, F2 + 2.125, p1, P.timberD); for (const x of [a - 0.125, b]) B(x, F2, p0, x + 0.125, F2 + 2.0, p1, P.timberD); }
+        else { B(p0, F2, a, p1, F2 + 2.0, b, 0); B(p0, F2 + 2.0, a - 0.125, p1, F2 + 2.125, b + 0.125, P.timberD); for (const z of [a - 0.125, b]) B(p0, F2, z, p1, F2 + 2.0, z + 0.125, P.timberD); }
+      };
+      doorway(true, AZ1, H0, 14.25, 15.375);       // the genkan, from the hall
+      doorway(true, AZ1, H0, 6.125, 7.25);         // the back room, from the hall
+      doorway(true, AZ1, H0, 2.0, 3.125);          // the spare room, from the hall
+      doorway(false, AX0 - 0.25, AX0, 6.5, 7.5);   // the spare room and the back room, side by side
+      doorway(true, H1, H1 + 0.125, 2.375, 3.375); // the bathroom
+      doorway(true, H1, H1 + 0.125, 9.5, 10.625);  // the storeroom
+      // the stairwell: the well through the shop's ceiling and this floor, cut only above each step
+      for (let k = 3; k <= 13; k++) { const z0 = 15.0 - k * 0.375; B(0.25, Math.max(3.0, 0.25 + k * 0.25), Math.max(z0, H1), 1.25, F2, Math.min(z0 + 0.375, 14.125), 0); }
+      // ---- the spare room: closets down the west wall, boxes, a chest, the spare futons; paper windows over the sign
+      B(0.25, F2, 0.5, 0.875, 6.375, 6.25, P.timberD);
+      fusuma('z', 0.5, 6.25, X(0.875), null);
+      for (let z = Z(0.5); z < Z(6.25); z++) for (let y = Y(F2 + 2.0); y < Y(6.375); y++) G.set(X(0.875), y, z, (z - Z(0.5)) % 14 === 0 || y === Y(F2 + 2.0) ? P.timberD : fus);
+      const card = [C('#b08a5a', 0, 0.06), C('#a07a4a', 0, 0.06), C('#c49a68', 0, 0.05)], tape = C('#d8c8a0', 0, 0.03);
+      const crate = (x0, y0, z0, w, h, d, i) => B(x0, y0, z0, x0 + w, y0 + h, z0 + d, (x, y, z) => (Math.abs(mx(x) - (x0 + w / 2)) < 0.07 && y === Y(y0 + h) - 1 ? tape : card[i % 3]));
+      for (const [x0, z0, n] of [[1.0, 6.75, 3], [1.0, 7.75, 2], [4.0, 0.5, 2], [4.6, 1.1, 1]]) for (let i = 0; i < n; i++) crate(x0, F2 + i * 0.5, z0, 0.625 - i * 0.05, 0.5, 0.5, i + n);
+      B(4.875, F2, 2.0, 5.5, F2 + 0.75, 3.875, (x, y, z) => (y % 4 === 0 || (z & 7) === 0 ? P.walnutD : P.oak[1]));    // a low chest
+      for (let i = 0; i < 4; i++) B(1.5, F2 + i * 0.1875, 0.75, 2.875, F2 + (i + 1) * 0.1875, 1.75, C(['#c84a4a', '#f0e8d8', '#4a6aa0', '#e8c870'][i], 0, 0.05)); // folded futons
+      shojiWindow('z', ZF, -1, 1.0, 2.5, 5.5, 6.25, 1); shojiWindow('z', ZF, -1, 3.0, 4.5, 5.5, 6.25, 1);
+      // ---- the bathroom: a deep hinoki tub, a stool and a bucket on the tiles, the washing machine, a basin
+      B(1.375, F2, 15.625, 5.5, F2 + 1.375, 15.75, (x, y) => bathTile[(x + y) & 1]);
+      B(3.25, F2, 13.75, 5.375, F2 + 0.75, 15.625, (x, y, z) => {
+        const rim = x === X(3.25) || x === X(5.375) - 1 || z === Z(13.75) || z === Z(15.625) - 1;
+        return rim ? P.hinoki : y < Y(F2 + 0.5) ? C('#7ab8c0', 0.25, 0.04) : 0;
+      });
+      B(3.25, F2 + 0.75, 13.75, 5.375, F2 + 0.8125, 15.625, (x, y, z) => (x === X(3.25) || z === Z(13.75) ? P.hinokiE : 0));
+      B(2.0, F2, 13.0, 2.375, F2 + 0.25, 13.375, P.hinoki); B(2.5, F2, 13.25, 2.75, F2 + 0.25, 13.5, P.hinokiE);       // a stool, a bucket
+      B(1.375, F2 + 1.0, 12.5, 1.5, F2 + 1.625, 13.5, P.chrome); B(1.375, F2 + 0.75, 12.875, 1.5, F2 + 0.875, 13.125, P.steel); // the mirror and tap
+      B(1.5, F2, 10.375, 2.25, F2 + 0.875, 11.125, (x, y, z) => (x === X(2.25) - 1 && Math.hypot(myOf(y) - (F2 + 0.45), mz(z) - 10.75) < 0.2 ? C('#3a4a5a', 0, 0.04) : C('#eef0f0', 0, 0.03))); // the washing machine
+      B(4.0, F2, 10.375, 5.375, F2 + 0.875, 10.875, (x, y) => (y === Y(F2 + 0.875) - 1 ? P.hinoki : P.oak[1]));
+      B(4.25, F2 + 0.75, 10.4375, 5.125, F2 + 0.875, 10.8125, C('#f0f2f2', 0, 0.02));
+      B(4.25, F2 + 1.25, H1 + 0.125, 5.125, F2 + 1.875, H1 + 0.25, P.chrome);
+      // ---- the storeroom: steel shelving full of boxes, the futon pile, the cleaning things, washing drying on a pole
+      const bins = ['#c84a3a', '#3a6ab0', '#e8c040', '#5aa060', '#e8e4dc'].map((h) => C(h, 0, 0.06));
+      for (const [x0, x1] of [[6.0, 9.25], [11.25, 15.5]]) {
+        for (const px of [x0, x1 - 0.125]) for (const pz of [15.0, 15.625]) B(px, F2, pz, px + 0.125, F2 + 2.0, pz + 0.125, P.steelD);
+        for (const sy of [0.375, 1.0, 1.625]) {
+          B(x0, F2 + sy, 15.0, x1, F2 + sy + 0.0625, 15.75, P.steel);
+          for (let bx = x0 + 0.125; bx < x1 - 0.5; bx += 0.625) if (hash01(Math.floor(bx * 8), Math.floor(sy * 8), 61) > 0.2) {
+            const c = hash01(Math.floor(bx * 8), Math.floor(sy * 8), 62) < 0.6 ? card[Math.floor(bx * 3) % 3] : bins[Math.floor(bx * 5) % 5];
+            B(bx, F2 + sy + 0.0625, 15.0625, bx + 0.5, F2 + sy + 0.5, 15.6875, c);
+          }
+        }
+      }
+      for (let i = 0; i < 6; i++) B(13.75, F2 + i * 0.1875, 10.5, 15.5, F2 + (i + 1) * 0.1875, 11.875, C(['#f0e8d8', '#7a8ab8', '#d87a6a', '#f0e8d8', '#8ab07a', '#e8d090'][i], 0, 0.05)); // futons
+      B(6.0, F2, 10.5, 6.375, F2 + 0.5, 10.875, bins[1]); B(6.5, F2, 10.5, 6.875, F2 + 0.5, 10.875, bins[0]);           // buckets
+      for (const [mxp, c] of [[7.125, P.wood[0]], [7.375, P.straw], [7.625, P.wood[1]]]) B(mxp, F2, 10.375, mxp + 0.0625, F2 + 1.5, 10.4375, c); // brooms and mops against the wall
+      B(7.0, F2, 10.4375, 7.75, F2 + 0.25, 10.625, P.straw);
+      B(8.25, F2, 10.5, 8.75, F2 + 0.375, 11.0, C('#c8302a', 0, 0.04)); B(8.4375, F2 + 0.375, 10.6875, 8.5625, F2 + 1.0, 10.8125, P.black); // a vacuum
+      for (let i = 0; i < 5; i++) B(6.0 + i * 0.25, F2 + 0.625, 10.375, 6.125 + i * 0.25, F2 + 0.875, 10.5, bins[(i + 2) % 5]);     // spray bottles on a ledge
+      B(6.0, F2 + 0.5625, 10.25, 7.25, F2 + 0.625, 10.5, P.oak[0]);
+      B(8.5, F2 + 1.875, 13.0, 13.0, F2 + 1.9375, 13.0625, P.chrome);                                       // the drying pole
+      for (let i = 0; i < 5; i++) { const tx = 8.75 + i * 0.85; B(tx, F2 + 1.125, 13.0, tx + 0.625, F2 + 1.875, 13.0625, C(['#f4f4f0', '#8ab0d8', '#f0c8c8', '#f4f4f0', '#c8d8a0'][i], 0, 0.04)); }
+      // ---- the hall: a long runner down the boards, a little table by the bathroom door
+      const runner = [C('#6a2a2a', 0, 0.05), C('#2a3a5a', 0, 0.04)];
+      for (let z = Z(9.125); z < Z(9.75); z++) for (let x = X(1.625); x < X(15.375); x++) G.set(x, Y(F2) - 1, z, z === Z(9.125) || z === Z(9.75) - 1 ? runner[1] : runner[0]);
+      B(11.75, F2, 9.875, 12.875, F2 + 0.75, 10.125, (x, y) => (y === Y(F2 + 0.75) - 1 ? P.hinoki : (x === X(11.75) || x === X(12.875) - 1) ? P.walnutD : 0));
+      meta.lights.push({ pos: [8.0, 6.0, 9.45], color: 0xffd8a8, intensity: 3.2, distance: 9, name: 'upHall' });
+      meta.lights.push({ pos: [2.9, 6.0, 4.3], color: 0xffc890, intensity: 3.2, distance: 7, name: 'spare' });
+      meta.lights.push({ pos: [3.4, 6.0, 12.8], color: 0xfff0dc, intensity: 3.2, distance: 6, name: 'bath' });
+      meta.lights.push({ pos: [10.5, 6.0, 12.8], color: 0xffe0b0, intensity: 3.2, distance: 9, name: 'storage' });
     }
     meta.lights.push({ pos: [8.4, 5.6, 3.2], color: 0xffa860, intensity: 5.5, distance: 8, name: 'aptLiving' });
     meta.lights.push({ pos: [12.2, 4.4, 4.2], color: 0xff9a50, intensity: 3, distance: 5, name: 'aptBed' });

@@ -292,6 +292,29 @@ function tower() {
 
 // ---------------------------------------------------------------- the trains on the overpass
 
+// ---------------------------------------------------------------- the handrails on the shop's stairs: smooth wooden
+// rails (voxels can only make a staircase of a slope), one on each side of the flight, on brackets, a newel post at
+// the foot. The flight rises toward -z from its foot at z 15.0, a quarter metre up for every three eighths along.
+function stairRails() {
+  const grp = new THREE.Group();
+  const wood = new THREE.MeshLambertMaterial({ color: 0x4a2c16 }), dark = new THREE.MeshLambertMaterial({ color: 0x24160c });
+  const nose = (z) => 0.25 + (15.375 - z) * (0.25 / 0.375), H = 0.85;
+  const bar = (a, b, t, mat) => {
+    const A = new THREE.Vector3(...a), Bv = new THREE.Vector3(...b), len = A.distanceTo(Bv);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(t, t, len), mat);
+    m.position.copy(A).add(Bv).multiplyScalar(0.5); m.lookAt(Bv); grp.add(m);
+  };
+  const z0 = 15.0, z1 = 10.2;
+  for (const [x, wallX] of [[0.33, 0.25], [1.17, 1.25]]) {
+    bar([x, nose(z0) + H, z0], [x, nose(z1) + H, z1], 0.075, wood);
+    for (let z = z0 - 0.4; z > z1 + 0.2; z -= 1.1) bar([wallX, nose(z) + H - 0.06, z], [x, nose(z) + H - 0.06, z], 0.03, dark); // brackets
+    bar([x, nose(z1) + H, z1], [wallX, nose(z1) + H, z1 - 0.02], 0.075, wood);                                                // turned into the wall at the top
+  }
+  bar([1.17, nose(z0) + H, z0], [1.17, 0.25, z0], 0.11, wood);                                                                 // the newel post
+  bar([0.33, nose(z0) + H, z0], [0.25, nose(z0) + H, z0 + 0.02], 0.075, wood);
+  return grp;
+}
+
 // ---------------------------------------------------------------- the trains on the viaduct: long, lit, rumbling
 function trainSide(len) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 64;
@@ -331,6 +354,7 @@ function trainCar(len, lead) {
 export function decorateTokyo(scene, { meta }) {
   const signs = meta.signs.map((s) => { const g = makeSign(s); scene.add(g); return g; });
   scene.add(wires(meta));
+  scene.add(stairRails());
   const city = new THREE.Group(); const around = cityAround(); city.add(around); city.add(skyline(windowTexture())); city.add(tower());
   signs.push(...around.userData.signs);
   scene.add(city);

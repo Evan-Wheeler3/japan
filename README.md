@@ -24,10 +24,12 @@ On a phone: left thumb walks, drag on the right to look, tap to use.
 
 The shop stands shoulder to shoulder with its neighbours on a narrow, snowy street of little bars and shops, under a
 brick railway viaduct. Inside it's the same shop as ever: the kaiten island with its booths and stools, the glass front
-room looking onto the street, the genkan and register by the door, the kitchen, and the restroom hall. At the end of
-the hall the stairs turn the corner up to your flat (tatami, a kotatsu, the futon by the window), through the back
-room over the shop. The kitchen's back door opens onto a little yard with the walk-in freezer and an old shed at the
-back of it.
+room looking onto the street, the genkan and register by the door, the kitchen, and the restroom hall.
+A narrow flight of stairs runs up one side of the restroom hall, a rail either side, and the whole floor upstairs
+is your flat: a hall along the back, the living room with the kotatsu and the long front windows, the bedroom, the
+back room with the little kitchen, a spare tatami room full of boxes and closets, a bathroom with a hinoki tub, and a
+storeroom with the futons and the cleaning things. The kitchen's back door opens onto a little yard with the walk-in
+freezer and an old shed at the back of it.
 
 Outside: an izakaya and a standing bar either side, a tiny Inari shrine down a passage between them, a row of vending
 machines under a canopy, a tobacconist, a coin laundry; across the road a konbini, a ramen shop, a drugstore, an old

@@ -913,14 +913,17 @@ export function placeProps(batch, opts = {}) {
 
   // back wall: wooden menu boards over the back bar, sake and daruma on the shelf, signs for the restrooms
   [4.8, 6.8, 8.8, 12.6].forEach((x, i) => batch.add(menuBoards[i](), x, 2.62, 9.99, 0, false));
-  batch.add(sakeBottles(), 2.3, 2.0, 9.87, 0, false);
-  batch.add(darumaRow(), 3.15, 2.0, 9.9, 0, false);
-  batch.add(restroomPlaque(), 1.0, 2.62, 9.86, 0, false);
-  for (const x of [1.0, 10.56, 14.56]) batch.add(noren(), x, 2.4, 9.92, 0, false); // the restroom hall and kitchen doorways
+  const hallDoor = city ? 1.94 : 1.0; // (in town the restroom hall's doorway is further along: the stairs run up beside it)
+  batch.add(sakeBottles(), city ? 3.1 : 2.3, 2.0, 9.87, 0, false);
+  if (!city) batch.add(darumaRow(), 3.15, 2.0, 9.9, 0, false);
+  else batch.add(darumaRow(), 0.38, 2.2, 8.6, 3, false);
+  batch.add(restroomPlaque(), hallDoor, 2.62, 9.86, 0, false);
+  for (const x of [hallDoor, 10.56, 14.56]) batch.add(noren(), x, 2.4, 9.92, 0, false); // the restroom hall and kitchen doorways
 
   // ================= back of house
   // hallway
-  batch.add(prints[6](), 0.26, 1.6, 11.6, 3, false);
+  if (!city) batch.add(prints[6](), 0.26, 1.6, 11.6, 3, false);
+  else batch.add(prints[6](), 1.385, 1.6, 12.4, 3, false); // on the half wall beside the stairs
   if (!city) { batch.add(prints[1](), 0.26, 1.6, 13.4, 3, false); batch.add(exitSign(), 1.0, 2.4, 15.6, 0, false); }
   else batch.add(exitSign(), 15.72, 2.55, 15.0, 1, false); // over the back door, in the kitchen
   // two restrooms done the Japanese way: toilet slippers waiting inside the door, a ceramic bowl with a bamboo spout to
@@ -938,9 +941,10 @@ export function placeProps(batch, opts = {}) {
     batch.add(washBasin(), 3.1, F, rz0 + 0.3, 2);
     batch.add(roundMirror(), 3.1, 1.45, rz0 + 0.01, 2, false);
     batch.add(tenugui(), 4.15, 1.35, rz0 + 0.06, 2, false);
-    batch.add(slippers(), 2.4, F, doorZ, 3, false);
-    batch.add(ikebana(), 2.3, F, rz1 - 0.3, 0, false);
-    batch.add(bambooBin(), 2.3, F, rz0 + 0.3, 0);
+    const inX = city ? 3.05 : 2.3; // (the restroom's door side: in town its wall is further in)
+    batch.add(slippers(), inX + 0.1, F, doorZ, 3, false);
+    batch.add(ikebana(), inX, F, rz1 - 0.3, 0, false);
+    batch.add(bambooBin(), inX, F, rz0 + 0.3, 0);
   });
 
   // kitchen: the cook line along the back wall under the hood
@@ -1023,8 +1027,10 @@ function placeFlat(batch, city) {
   if (!city) {
     batch.add(shoeRack(), 15.3, F2, 8.0, 3);
     batch.add(noren(), 15.85, F2 + 2.1, 7.0, 1, false);
-  } else { // the way in is the back wall's doorway, from the back room
+  } else { // the way in is the back wall's doorway, from the hall upstairs
     batch.add(shoeRack(), 15.3, F2, 6.6, 3);
     batch.add(noren(), 14.81, F2 + 2.1, 8.56, 0, false);
+    for (const x of [4.6, 8.3]) batch.add(kakejiku(), x, F2 + 1.75, 10.11, 0, false); // scrolls along the hall
+    batch.add(pothos(), 12.3, F2 + 0.75, 10.0, 0, false);
   }
 }
