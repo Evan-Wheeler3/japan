@@ -38,11 +38,25 @@ export class Ambience {
     const hissG = ctx.createGain(); hissG.gain.value = 0.08; hiss.connect(hp).connect(hissG).connect(this.rainLP);
     // the sea, far below the cliff: slow swells of low rumble
     this.seaGain = ctx.createGain(); this.seaGain.gain.value = 0; this.seaGain.connect(this.master);
-    const surf = loop(brown); const surfLP = ctx.createBiquadFilter(); surfLP.type = 'lowpass'; surfLP.frequency.value = 380;
-    const swell = ctx.createGain(); swell.gain.value = 0.5;
-    const swellLfo = ctx.createOscillator(); swellLfo.frequency.value = 0.085; const swellLfoG = ctx.createGain(); swellLfoG.gain.value = 0.45;
-    swellLfo.connect(swellLfoG).connect(swell.gain); swellLfo.start();
-    surf.connect(surfLP).connect(swell).connect(this.seaGain);
+    if (!this.city) {
+      const surf = loop(brown); const surfLP = ctx.createBiquadFilter(); surfLP.type = 'lowpass'; surfLP.frequency.value = 380;
+      const swell = ctx.createGain(); swell.gain.value = 0.5;
+      const swellLfo = ctx.createOscillator(); swellLfo.frequency.value = 0.085; const swellLfoG = ctx.createGain(); swellLfoG.gain.value = 0.45;
+      swellLfo.connect(swellLfoG).connect(swell.gain); swellLfo.start();
+      surf.connect(surfLP).connect(swell).connect(this.seaGain);
+    } else {
+      // (in town there's no sea: the city instead, a low traffic rumble a few streets off, and tyres hissing through slush)
+      const far = loop(brown); const farLP = ctx.createBiquadFilter(); farLP.type = 'lowpass'; farLP.frequency.value = 240;
+      const farG = ctx.createGain(); farG.gain.value = 0.55;
+      const swellLfo = ctx.createOscillator(); swellLfo.frequency.value = 0.05; const swellLfoG = ctx.createGain(); swellLfoG.gain.value = 0.2;
+      swellLfo.connect(swellLfoG).connect(farG.gain); swellLfo.start();
+      far.connect(farLP).connect(farG).connect(this.seaGain);
+      const slush = loop(pink); const slushBP = ctx.createBiquadFilter(); slushBP.type = 'bandpass'; slushBP.frequency.value = 1300; slushBP.Q.value = 0.6;
+      const slushG = ctx.createGain(); slushG.gain.value = 0.0;
+      const passLfo = ctx.createOscillator(); passLfo.frequency.value = 0.11; const passLfoG = ctx.createGain(); passLfoG.gain.value = 0.05;
+      passLfo.connect(passLfoG).connect(slushG.gain); passLfo.start();
+      slush.connect(slushBP).connect(slushG).connect(this.seaGain);
+    }
 
     // room tone (fridge hum + low air)
     this.roomGain = ctx.createGain(); this.roomGain.gain.value = 0; this.roomGain.connect(this.master);

@@ -15,6 +15,7 @@ export const TK = {
   F2: 3.75,               // the flat's floor
   ceil1: 3.5, roof: 6.5,  // the shop's ceiling, the flat's roof slab
   overpass: { x0: -12.25, x1: -9.75, deck: 6.0 },
+  stair: { x0: 6.375, x1: 8.875 },  // the treads (a landing east of them, x 8.875..9.75, at the foot)
 };
 
 function vnoise(x, z, cell, seed) {
@@ -293,19 +294,23 @@ export function buildTokyo(W) {
     B(4.375, F, 10.5, 6.25, TK.ceil1, S.z1 - 0.25, (x, y, z) => { const px = mx(x), pz = mz(z); return (px < 4.5 || px > 6.125 || pz > S.z1 - 0.375 || my(y) > TK.ceil1 - 0.125) ? C('#dfe8ee', 0, 0.03) : 0; });
     for (let z = Z(10.5); z < Z(S.z1 - 0.375); z++) for (let x = X(4.5); x < X(6.125); x++) G.set(x, Y(F) - 1, z, C('#c8d0d8', 0, 0.04));
     light('freezer', [5.3, 2.8, 11.6], 0xcfe8ff, 2.4, 4);
-    // the stair: treads rising west along the north wall, from the hall up to the flat (x 9.75 -> 6.25, z 11.75..12.75)
+    // the stair: a landing at the foot in the north-east corner (step on from the hall), then steep treads rising
+    // west along the north wall to the flat (x 8.875 -> 6.375, z 11.75..12.75); you come out on the flat's floor
+    // heading west, by the shoe rack
     {
-      const sx1 = 9.75, sx0 = 6.375, rise = F2 - F;
+      const sx1 = TK.stair.x1, sx0 = TK.stair.x0, rise = F2 - F;
       for (let x = X(sx0); x < X(sx1); x++) {
-        const k = (sx1 - mx(x)) / (sx1 - sx0), ty = Y(F + k * rise);
-        for (let z = Z(11.75); z < Z(S.z1 - 0.25); z++) { G.set(x, ty - 1, z, P.oak[1]); G.set(x, ty - 2, z, P.timberD); }
-        // the stringer wall under it, closing the space beneath the stair
-        if (mx(x) > sx1 - 0.875) continue; // the foot of the stair is open to the hall
+        const k = Math.min(1, (sx1 - mx(x + 1)) / (sx1 - sx0 - 0.125)), ty = Y(F) + Math.round(k * (Y(F2) - Y(F)));
+        for (let z = Z(11.75); z < Z(S.z1 - 0.25); z++) { G.set(x, ty - 1, z, (z - Z(11.75)) % 8 === 0 ? P.timberD : P.oak[1]); if (ty - 2 >= Y(F)) G.set(x, ty - 2, z, P.timberD); }
+        // the stringer wall under it, closing the space beneath the stair, and the banister on the hall side
         for (let y = Y(F); y < ty - 2; y++) G.set(x, y, Z(11.75), (y & 3) === 0 ? P.timberD : P.oak[2]);
-        if ((X(sx1) - x) % 8 === 0) for (let y = ty; y < ty + 7; y++) G.set(x, y, Z(11.75) - 1, P.timber);   // banister posts
-        G.set(x, ty + 7, Z(11.75) - 1, P.timber);
+        if (ty < Y(F2) - 2) {
+          if ((X(sx1) - x) % 6 === 0) for (let y = ty; y < ty + 7; y++) G.set(x, y, Z(11.75) - 1, P.timber);
+          G.set(x, ty + 7, Z(11.75) - 1, P.timber);
+        }
       }
-      // the opening above it in the flat's floor
+      void rise;
+      // the opening above it in the flat's floor (the landing has the flat's floor over it, with room to stand)
       B(sx0, TK.ceil1, 11.75, sx1, F2, S.z1 - 0.25, 0);
       light('stair', [8.0, 3.2, 12.2], 0xffc890, 2, 4);
     }
@@ -326,7 +331,7 @@ export function buildTokyo(W) {
       };
       for (let z = Z(0.25); z < Z(S.z1 - 0.25); z++) for (let x = X(0.25); x < X(S.x1 - 0.25); x++) {
         const px = mx(x), pz = mz(z);
-        if (px > 6.25 && pz > 11.75) continue; // the stairwell
+        if (px > TK.stair.x0 && px < TK.stair.x1 && pz > 11.75) continue; // the stairwell
         G.set(x, Y(F2) - 1, z, pz < 6.0 || (px > 5.0 && pz < 11.0) ? tat(x, z) : P.floor[(x >> 1) % 4]);
       }
       // ceiling
@@ -338,8 +343,9 @@ export function buildTokyo(W) {
         for (let y = Y(F2 + 2.0); y < Y(TK.roof - 0.375); y++) G.set(x, y, Z(6.0), (x & 1) ? P.timberD : P.plaster[0]);
       }
       // a railing round the stairwell
-      for (let x = X(6.25); x < X(9.75); x++) { G.set(x, Y(F2 + 0.875), Z(11.75) - 1, P.timber); if (x % 6 === 0) for (let y = Y(F2); y < Y(F2 + 0.875); y++) G.set(x, y, Z(11.75) - 1, P.timber); }
-      for (let z = Z(11.75); z < Z(S.z1 - 0.25); z++) { G.set(X(6.25), Y(F2 + 0.875), z, P.timber); if (z % 6 === 0) for (let y = Y(F2); y < Y(F2 + 0.875); y++) G.set(X(6.25), y, z, P.timber); }
+      // (open on the west, where the stair comes up)
+      for (let x = X(TK.stair.x0 + 0.25); x < X(TK.stair.x1) + 1; x++) { G.set(x, Y(F2 + 0.875), Z(11.75) - 1, P.timber); if (x % 6 === 0) for (let y = Y(F2); y < Y(F2 + 0.875); y++) G.set(x, y, Z(11.75) - 1, P.timber); }
+      for (let z = Z(11.75) - 1; z < Z(S.z1 - 0.25); z++) { G.set(X(TK.stair.x1), Y(F2 + 0.875), z, P.timber); if (z % 6 === 0) for (let y = Y(F2); y < Y(F2 + 0.875); y++) G.set(X(TK.stair.x1), y, z, P.timber); }
       light('aptLiving', [5.0, 5.6, 3.0], 0xffa860, 5.5, 8);
       light('aptBed', [8.0, 4.6, 8.4], 0xff9a50, 3, 5);
       light('aptKitchen', [2.5, 5.6, 8.0], 0xffd8a8, 4, 6);
@@ -363,8 +369,8 @@ export function buildTokyo(W) {
   {
     block(18.0, 24.0, 3.0, 13, 7, (x, y) => P.concrete[(x + y) % 3]);
     const hx = 19.25;
-    for (const x of [18.5, 20.0]) { B(x, 0.125, 0.75, x + 0.125, 2.0, 0.875, P.vermilion); }
-    B(18.25, 1.75, 0.6875, 20.375, 1.875, 0.9375, P.vermilion); B(18.125, 2.0, 0.625, 20.5, 2.125, 1.0, P.black);
+    for (const x of [18.375, 20.0]) { B(x, 0.125, 0.75, x + 0.125, 2.625, 0.875, P.vermilion); }
+    B(18.125, 2.25, 0.6875, 20.375, 2.375, 0.9375, P.vermilion); B(18.0, 2.625, 0.625, 20.5, 2.75, 1.0, P.black);
     B(hx - 0.5, 0.125, 2.0, hx + 0.5, 0.5, 3.0, P.stone);
     B(hx - 0.375, 0.5, 2.125, hx + 0.375, 1.25, 2.875, (x, y, z) => (z === Z(2.125) && my(y) < 1.0 && Math.abs(mx(x) - hx) < 0.2 ? P.lantern : P.oak[(y >> 1) & 1]));
     for (let i = 0; i < 3; i++) B(hx - 0.625 + i * 0.125, 1.25 + i * 0.125, 1.875 + i * 0.125, hx + 0.625 - i * 0.125, 1.375 + i * 0.125, 3.125 - i * 0.125, P.roofTile[i & 1]);
@@ -437,7 +443,7 @@ export function buildTokyo(W) {
   facadeWindows(24.0, 36, SZ0, 1, 4, 51, { litP: 0.3 });
 
   // ============================================================ utility poles, wires and street lamps
-  const poles = [[-4.5, -0.45], [11.0, -0.45], [26.5, -0.45], [-7.0, -6.55], [3.0, -6.55], [16.5, -6.55], [30.0, -6.55]];
+  const poles = [[-4.5, -0.45], [12.3, -0.45], [26.5, -0.45], [-7.0, -6.55], [3.0, -6.55], [16.5, -6.55], [30.0, -6.55]];
   for (const [px, pz] of poles) {
     for (let y = Y(0.125); y < Y(8.5); y++) for (let z = Z(pz - 0.125); z < Z(pz + 0.125); z++) for (let x = X(px - 0.125); x < X(px + 0.125); x++) G.set(x, y, z, (y % 16 === 0) ? P.concreteD : P.concrete[2]);
     B(px - 0.75, 7.75, pz - 0.0625, px + 0.75, 7.875, pz + 0.0625, P.metalD);       // the crossarm

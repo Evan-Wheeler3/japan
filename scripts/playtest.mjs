@@ -46,6 +46,25 @@ try {
   await page.click('#screen [data-act="solo"]');
   let st = await page.evaluate(() => { const d = window.__yoake; return { y: d.player.pos.y, waiting: d.shift.waiting, n: d.shift.n }; });
   check(st.y > 3.5 && st.waiting && st.n === 1, 'night 1 starts upstairs with the shop closed');
+  // ---- on foot (no teleporting): down the stairs to the shop and back up, with real input and collision
+  st = await page.evaluate(() => {
+    const d = window.__yoake, pl = d.player, routes = d.map.test.walk || [], log = [];
+    for (const path of routes) for (const [wx, wz, wy] of path) {
+      let best = 1e9, still = 0, t = 0;
+      for (;;) {
+        const dx = wx - pl.pos.x, dz = wz - pl.pos.z, dist = Math.hypot(dx, dz);
+        if (dist < 0.15) break;
+        pl.locked = true; pl.keys = { KeyW: true }; pl.yaw = Math.atan2(-dx, -dz); pl.update(1 / 30); t += 1 / 30;
+        if (dist < best - 0.01) { best = dist; still = 0; } else still += 1 / 30;
+        if (still > 1.5 || t > 60) { pl.keys = {}; pl.locked = false; return { ok: false, at: [pl.pos.x, pl.pos.y, pl.pos.z].map((v) => +v.toFixed(2)), to: [wx, wz] }; }
+      }
+      if (wy !== undefined && Math.abs(pl.pos.y - wy) > 0.2) { pl.keys = {}; pl.locked = false; return { ok: false, floor: pl.pos.y, want: wy }; }
+      log.push(wx);
+    }
+    pl.keys = {}; pl.locked = false;
+    return { ok: true, legs: log.length };
+  });
+  check(st.ok, `walking down the stairs into the shop and back up to the flat works on foot (${JSON.stringify(st)})`);
 
   // ---- the catalog: new dishes, an upgrade and things for home
   st = await page.evaluate(() => {

@@ -37,6 +37,7 @@ const pickMap = () => {
 
 async function boot() {
   setMap(pickMap()); Object.assign(L, MAP.L);
+  for (const [id, words] of Object.entries(MAP.catalog || {})) Object.assign(itemById(id) || {}, words); // the catalog in this map's words
   // ---------------------------------------------------------------- renderer
   const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
   const touchDevice = isTouch();
@@ -170,6 +171,7 @@ async function boot() {
   const player = new Player(camera, world, renderer.domElement);
   { const T = MAP.shop.title; player.pos.set(T.x, L.floor, T.z); player.yaw = T.yaw; player.pitch = T.pitch; } // the view behind the menu
   const audio = new Ambience();
+  audio.city = !!(MAP.view.sky && MAP.view.sky.city); // the street hums with traffic where the mountain has the sea
   player.onStep = () => audio.step(indoor);
   const { composer, bloom, grade, outline } = makeComposer(renderer, scene, camera);
   const resize = () => {

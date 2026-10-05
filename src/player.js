@@ -113,6 +113,7 @@ export class Player {
     // only step up if there's headroom up there, otherwise we'd climb walls one step per frame
     if (g > p.y + 0.01 && this.blocked(p.x, p.z, g)) { this.vy = 0; }
     else if (g >= p.y - 0.01) { p.y = g; this.vy = 0; }
+    else if (this.vy === 0 && g >= p.y - 0.3) { p.y = g; } // walking down steps: keep your feet on them rather than hop
     else { this.vy -= 9.8 * dt; p.y = Math.max(g, p.y + this.vy * dt); }
 
     // head bob + footsteps

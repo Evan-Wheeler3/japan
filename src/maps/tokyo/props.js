@@ -35,16 +35,16 @@ export function placeTokyo(batch) {
   batch.add(P.register(), 8.9, 1.0, 1.85, 2, false, 'register');
   batch.add(P.maneki(), 9.45, 1.0, 1.75, 0, false);
   batch.add(P.mikan(), 8.35, 1.0, 1.85, 0, false);
-  batch.add(P.umbrellaStand(), 5.35, F, 0.55);
+  batch.add(P.umbrellaStand(), 7.3, F, 0.5);
   // plastic food in the window: a little parade of dishes on the shelf
   batch.add(P.prepStuff(), 8.5, 0.875, 0.5, 0, false);
 
   // ================= the walls of the dining room: menu boards, sake, the daruma, a scroll
   [2.2, 4.0, 5.8, 7.6].forEach((x, i) => batch.add(P.menuBoards[i](), x, 2.95, 8.97, 0, false));
-  batch.add(P.sakeBottles(), 0.38, 2.0, 2.4, 1, false);
-  batch.add(P.darumaRow(), 0.38, 2.2, 3.4, 1, false);
-  batch.add(P.kakejiku(), 9.72, 2.6, 2.6, 3, false);
-  for (let z = 0.8, k = 2; z < 2.3; z += 0.75, k++) batch.add(P.prints[k % 10](), 9.74, 2.0, z, 3, false);
+  batch.add(P.sakeBottles(), 0.38, 2.0, 2.4, 3, false);
+  batch.add(P.darumaRow(), 0.38, 2.2, 3.4, 3, false);
+  batch.add(P.kakejiku(), 9.72, 2.6, 2.6, 1, false);
+  for (let z = 0.8, k = 2; z < 2.3; z += 0.75, k++) batch.add(P.prints[k % 10](), 9.74, 2.0, z, 1, false);
   batch.add(P.noren(), 8.5, 2.4, 9.0, 0, false);            // the kitchen doorway to the hall
 
   // ================= the kitchen: the cook line under the hood, the sink on the west wall, the side counter
@@ -57,7 +57,7 @@ export function placeTokyo(batch) {
   batch.add(P.ticketRail(), 4.6, 2.1, 4.95, 0, false);
   batch.add(P.dishRack(), 0.625, 0.875, 8.05, 0, false, 'dishRack');
   batch.add(P.faucetSpray(), 0.425, 0.875, 7.05, 3, false);
-  batch.add(P.radio(), 0.45, 2.0, 5.3, 1, false);
+  batch.add(P.radio(), 0.45, 2.0, 5.3, 3, false);
   // the side counter: plates, the sushi case, the rice cookers, the tea urns; the cups on the shelf above
   const SC = 9.3, T = 1.125;
   batch.add(P.plates(), SC, T, 5.15, 0, false, 'platesK'); batch.add(P.plates(), SC, T, 5.45, 0, false, 'platesK');
@@ -69,20 +69,20 @@ export function placeTokyo(batch) {
 
   // ================= the back: the washroom, the freezer, the storeroom
   batch.add(P.washlet(), 3.5, F, 12.35, 2);
-  batch.add(P.paperHolder(), 4.18, 0.75, 12.2, 3, false);
-  batch.add(P.washBasin(), 3.1, F, 10.9, 1);
-  batch.add(P.roundMirror(), 2.79, 1.45, 10.95, 1, false);
-  batch.add(P.tenugui(), 4.2, 1.35, 11.1, 3, false);
-  batch.add(P.slippers(), 3.5, F, 10.75, 0, false);
-  batch.add(P.ikebana(), 4.05, F, 11.6, 0, false);
+  batch.add(P.paperHolder(), 4.18, 0.75, 12.2, 1, false);
+  batch.add(P.washBasin(), 3.95, F, 11.1, 1);
+  batch.add(P.roundMirror(), 4.21, 1.45, 11.1, 1, false);
+  batch.add(P.tenugui(), 2.79, 1.35, 11.4, 3, false);
+  batch.add(P.slippers(), 3.2, F, 11.5, 0, false);
+  batch.add(P.ikebana(), 2.95, F, 12.45, 0, false);
   batch.add(P.restroomPlaque(), 3.5, 2.3, 10.36, 2, false);
   batch.add(P.chestFreezer(), 5.25, F, 12.35, 0);
-  batch.add(P.freezerShelf(), 6.0, F, 11.55, 3);
+  batch.add(P.freezerShelf(), 6.0, F, 11.55, 1);
   for (let i = 0; i < 3; i++) batch.add(P.sakeTaru(), 0.75 + i * 0.7 - 0.0, F, 12.25, 0);
   for (let i = 0; i < 2; i++) batch.add(P.sakeTaru(), 1.1 + i * 0.7, F + 0.75, 12.25, 0, false);
-  batch.add(P.sakeRack(), 2.25, F, 10.5, 3);
+  batch.add(P.sakeRack(), 2.25, F, 10.5, 1);
   batch.add(P.chochin(5, 'red'), 1.4, 3.2, 11.0, 0, false);
-  batch.add(P.exitSign(), 9.72, 2.4, 9.9, 3, false);
+  batch.add(P.exitSign(), 9.72, 2.4, 9.9, 1, false);
   batch.add(P.sacks(), 7.1, F, 10.95, 1);
   batch.add(P.prints[6](), 7.5, 1.6, 9.26, 2, false);
 
@@ -93,7 +93,7 @@ export function placeTokyo(batch) {
   for (const x of [-3.3, -5.2]) batch.add(P.chochin(4, 'red', 1 / 16), x, 2.1, -0.3, 0, false);  // the izakaya's
   batch.add(P.chochin(3, 'red', 1 / 16), -7.8, 2.0, -0.3, 0, false);                                // the yakitori stall's
   for (const x of [21.25, 22.4, 23.55]) batch.add(P.vending(), x, 0.125, -0.4, 0);
-  batch.add(P.postbox(), 11.6, 0.125, -0.5);
+  batch.add(P.postbox(), 13.4, 0.125, -0.5);
   batch.add(P.nobori(), 4.9, 0.125, -0.35, 0); batch.add(P.nobori(), 9.2, 0.125, -0.35, 0);
   batch.add(P.cat(), 20.4, 0.125, -0.35, 1, false);               // a stray, keeping warm by the vending machines
   batch.add(P.pothosBasket(), 7.8, 2.4, -0.25, 0, false);
@@ -110,13 +110,13 @@ export function placeTokyo(batch) {
   }
   batch.add(P.mikan(), KX - 0.2, F2 + 0.5, KZ, 0, false);
   batch.add(P.catalogBook(), KX + 0.35, F2 + 0.5, KZ + 0.1, 0, false);
-  batch.add(P.kakejiku(), 9.72, F2 + 1.75, 4.6, 3, false);
-  batch.add(P.bookshelf(), 9.5, F2, 1.6, 3);
-  batch.add(P.radio(), 9.45, F2 + 1.0, 1.6, 3, false);
+  batch.add(P.kakejiku(), 9.72, F2 + 1.75, 4.6, 1, false);
+  batch.add(P.bookshelf(), 9.5, F2, 1.6, 1);
+  batch.add(P.radio(), 9.45, F2 + 1.0, 1.6, 1, false);
   batch.add(P.futon(), 8.0, F2, 8.6, 0, false);
   batch.add(P.andon(), 6.5, F2, 7.4, 0);
-  batch.add(P.tansu(), 9.4, F2, 10.4, 3);
+  batch.add(P.tansu(), 9.4, F2, 10.4, 1);
   batch.add(P.kitchenette(), 1.6, F2, 6.55, 2);
-  batch.add(P.shoeRack(), 5.0, F2, 12.4, 0);
+  batch.add(P.shoeRack(), 4.3, F2, 12.45, 0);
   batch.add(P.noren(), 2.6, F2 + 2.0, 6.0, 0, false);
 }

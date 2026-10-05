@@ -113,12 +113,12 @@ export const TOKYO = {
     sizzle: [4.2, 8.6],
     faucets: [
       { stream: [0.585, 1.55, 0.75, 7.05], box: [0.445, 1.45, 7.05, 0.09, 0.14, 0.12] },
-      { stream: [3.04, 1.3, 1.13, 10.9], box: [3.1, 1.2, 10.9, 0.3, 0.2, 0.34] },
+      { stream: [3.89, 1.3, 1.13, 11.1], box: [3.95, 1.2, 11.1, 0.3, 0.2, 0.34] },
     ],
     acts: [
       { box: [3.5, 0.6, 12.35, 0.3, 0.45, 0.4], act: 'flush' },
       { box: [3.25, 0.74, 12.1, 0.14, 0.08, 0.16], act: 'princess' },
-      { box: [4.18, 1.1, 11.1, 0.08, 0.28, 0.22], act: 'towel' },
+      { box: [2.82, 1.1, 11.4, 0.08, 0.28, 0.22], act: 'towel' },
       { box: [0.45, 2.1, 5.3, 0.14, 0.16, 0.22], act: 'radio' },
       { box: [20.4, 0.25, -0.35, 0.28, 0.16, 0.2], act: 'cat' },
       { box: [22.4, 1.2, -0.75, 0.45, 0.6, 0.12], act: 'vending' },
@@ -135,18 +135,31 @@ export const TOKYO = {
     fixed: {
       lanterns: [[2.6, 5.95, 0.45, 0], [7.4, 5.95, 0.45, 0]],
       print: [[9.73, F2 + 1.3, 7.4, 1]],
-      heaters: [[0.55, 0.25, 2.55, 1], [9.45, 0.25, 3.1, 3]],
-      fridge: [[5.2, 0.25, 1.6, 3]],
+      heaters: [[0.55, 0.25, 2.55, 3], [9.45, 0.25, 3.1, 1]],
+      fridge: [[5.25, 0.25, 0.62, 2]],
     },
     at: {
       bonsai: [8.9, 0.75, 0], plant1: [0.7, 0.75, 0], plant2: [9.3, 5.4, 0], catbed: [9.3, 9.0, 0], fishtank: [0.55, 4.6, 3],
       record: [9.45, 3.8, 1], telescope: [7.6, 0.85, 0], irori: [2.8, 8.6, 0], crt: [2.3, KZ, 3],
     },
-    noGo: [[5.25, 9.8, 11.6, 12.8], [3.25, 4.5, 5.6, 6.4], [6.5, 7.75, 5.6, 6.4], [KX - 1.1, KX + 1.5, KZ - 1.25, KZ + 1.25],
-      [7.4, 8.6, 7.5, 9.7], [0.3, 2.9, 6.1, 7.0], [9.2, 9.8, 0.9, 2.3], [9.1, 9.8, 9.7, 11.1], [4.5, 5.5, 12.1, 12.7], [6.2, 6.8, 7.1, 7.7], [4.6, 6.3, 9.2, 11.6]],
+    noGo: [[4.85, 9.8, 11.3, 12.8], [3.25, 4.5, 5.6, 6.4], [6.5, 7.75, 5.6, 6.4], [KX - 1.1, KX + 1.5, KZ - 1.25, KZ + 1.25],
+      [7.4, 8.6, 7.5, 9.7], [0.3, 2.9, 6.1, 7.0], [9.2, 9.8, 0.9, 2.3], [9.1, 9.8, 9.7, 11.1], [3.85, 4.75, 12.1, 12.75], [6.2, 6.8, 7.1, 7.7], [4.6, 6.3, 9.2, 11.6]],
     room: { x0: 0.4, x1: 9.6, z0: 0.4, z1: 12.6 },
   },
+  // the catalog in this map's words
+  catalog: {
+    backdoor: { name: 'Clear the back door', text: "Shovel the drift and the empty crates off the back door to the alley. Regulars from the bars round the back start coming in that way: one more guest in every rush." },
+    freezer: { text: 'The old walk-in off the back hall, fixed up and humming. Matcha ice cream goes on the menu (¥450), scooped from the chest freezer inside.' },
+    kura: { name: 'Clear out the storeroom', text: "Haul the last owner's junk out of the storeroom and keep your own sake there. A cup of house sake goes on every bill: ¥400 more." },
+    lanterns: { text: "Little lanterns across the flat's front window, over the street." },
+    bonsai: { text: 'On a stand by the window. Older than the building.' },
+    telescope: { text: 'At the front window. Look at Tokyo Tower up close.' },
+    fridge: { text: 'Ramune, tea and beer by the front door. Guests take a bottle with their meal: ¥250 more on every bill.' },
+  },
   test: {
+    // on foot from the futon down the stairs to the back hall, and back up (the playtest walks these with real input)
+    walk: [[[5.6, 10.5], [5.6, 12.25], [6.2, 12.25, 3.75], [9.3, 12.25, 0.25], [9.3, 10.9], [8.5, 10.0, 0.25]],
+           [[9.3, 10.9], [9.3, 12.25], [6.0, 12.25, 3.75], [5.6, 11.0], [6.9, 8.8, 3.75]]],
     sink: [1.25, 7.0], beltCam: [[9.0, 1.8, 5.2], [9.0, 1.125, 4.4]],
     bowFrom: [19.25, 0.125, 0.9], bonsaiTo: [1.4, 1.6, 1], iroriNo: [4.5, 4.5], tvTo: [7.0, 2.6],
   },
