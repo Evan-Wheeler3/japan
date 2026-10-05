@@ -191,13 +191,12 @@ export class Ambience {
     const r = this.src(), hp = ctx.createBiquadFilter(), rg = ctx.createGain(); hp.type = 'bandpass'; hp.frequency.value = 3000; hp.Q.value = 1.5;
     this.env(rg, t + 2.6, 0.4, 0.06, 3.5, 1.5); r.connect(hp).connect(rg).connect(this.master); r.start(t + 2.6, Math.random() * 2); r.stop(t + 8.5);
   }
-  dryer() {
-    if (!this.ctx) return; const ctx = this.ctx, t = ctx.currentTime;
-    const s = this.src(), bp = ctx.createBiquadFilter(), g = ctx.createGain(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 0.6;
-    this.env(g, t, 0.3, 0.35, 3.2, 0.6); s.connect(bp).connect(g).connect(this.master); s.start(t, Math.random() * 2); s.stop(t + 4.5);
-    const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.setValueAtTime(900, t); o.frequency.linearRampToValueAtTime(2300, t + 0.4);
-    this.env(og, t, 0.3, 0.012, 3.2, 0.6); o.connect(og).connect(this.master); o.start(t); o.stop(t + 4.5);
+  // drying your hands on a cotton towel
+  cloth() {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    this.burst(t, 0.16, 1700, 0.7, 0.14); this.burst(t + 0.14, 0.12, 1300, 0.7, 0.1);
   }
+
   kaching() {
     if (!this.ctx) return; const t = this.ctx.currentTime;
     this.burst(t, 0.05, 2500, 3, 0.25); this.burst(t + 0.06, 0.04, 3200, 3, 0.2);

@@ -31,7 +31,9 @@ where the belt comes out through the wall. You work on the chef's side behind it
 is made; a doorway leads straight from there into the kitchen. More booths are backed onto the shoji partition,
 and behind it a front room of booths looks out through the glass over the bay; the belt doesn't reach those, so
 they're served by hand. The register is by the entrance, in the stone-floored genkan; stand behind it to ring
-guests up.
+guests up. Down the hall behind a noren are two restrooms done the Japanese way, toilet slippers waiting inside
+sliding lattice doors: a washlet in one, an old squat toilet with a pull-chain cistern in the other, and a bamboo
+spout over a ceramic bowl to wash your hands.
 
 Guests with a **!** want to order: click them. Then make what they asked for:
 
@@ -46,8 +48,8 @@ Guests with a **!** want to order: click them. Then make what they asked for:
 | Miso ramen *(catalog)* | start a bowl on the stove in the kitchen; it takes a while |
 
 Serve it by hand, or set it on the **sushi belt**, anywhere along it: it starts on the plating station in the
-kitchen, right by the sushi case, slips out under the pass and goes round the counter past the stools and the
-booths. Every guest at the counter lifts off whatever they ordered as it passes their seat. Anything nobody takes goes back round; you can take it off again. The orders panel counts dishes already
+kitchen, right by the sushi case, rides straight out through the pass and goes round the counter's rounded
+corners past the stools and the booths. Every guest at the counter lifts off whatever they ordered as it passes their seat. Anything nobody takes goes back round; you can take it off again. The orders panel counts dishes already
 on the belt, so it only asks for what still needs making.
 
 When guests are done they line up at the register (**¥**). Carry dirty dishes to the sink in the kitchen, stay

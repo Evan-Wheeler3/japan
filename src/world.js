@@ -319,7 +319,7 @@ export function buildWorld(W) {
   B(1.875, 1.875, 9.75, 3.625, 2.0, 10.0, P.walnutD);
   for (const bx of [2.0, 3.375]) B(bx, 1.625, 9.875, bx + 0.125, 1.875, 10.0, P.walnutD);
 
-  // the kitchen pass over the counter's east leg: the belt comes through under it; heat lamps above
+  // the kitchen pass over the counter's east leg: the belt runs straight through it from the kitchen; heat lamps above
   B(11.375, 1.125, 9.875, 13.75, 2.0, 10.25, 0);
   B(12.75, 1.0, 9.75, 13.75, 1.125, 10.25, P.steel);
   B(11.375, 1.875, 9.875, 13.75, 2.0, 10.25, P.steelD);
@@ -336,24 +336,24 @@ export function buildWorld(W) {
   // ================= back of house (z 10.25..15.75): restroom hallway, two restrooms, the kitchen
   {
     const cream = C('#d8c8a4', 0, 0.04), creamD = C('#b8a47e', 0, 0.04);
-    const sub = [C('#e8e8e2', 0, 0.03), C('#dcdcd4', 0, 0.03)], teal = C('#3a8a8a', 0, 0.05), mint = C('#bcd8c8', 0, 0.04);
+    const restClay = [C('#d4bc94', 0, 0.04), C('#cdb48c', 0, 0.04)]; // warm clay plaster in the restrooms
     const ktile = [C('#ecebe4', 0, 0.03), C('#dfded6', 0, 0.03)], kUpper = C('#c8cac4', 0, 0.04);
     const ceilT = C('#e4e2da', 0, 0.04), ceilG = C('#b8b6ae', 0, 0.03);
-    const blackT = C('#1c1c1e', 0, 0.04), whiteT = C('#e8e6e0', 0, 0.03);
     const quarry = [C('#8a3a24', 0, 0.07), C('#7a3220', 0, 0.07)], mat = C('#18181a', 0, 0.05);
     const region = (mx, mz) => (mx < 1.75 ? 'hall' : mx < 5.0 ? 'rest' : 'kitchen');
     const wallFinish = (reg, u, y) => {
       const my = myOf(y);
       if (reg === 'hall') return my < 1.125 ? P.oak[(u >> 1) & 1] : my < 1.25 ? P.walnutD : cream;
-      if (reg === 'rest') return my < 1.5 ? sub[((u >> 1) + (y & 1)) & 1] : my < 1.625 ? teal : mint;
+      // the restrooms: vertical hinoki boards to the dado, a dark rail, warm clay plaster above
+      if (reg === 'rest') return my < 1.125 ? ((u & 3) === 0 ? P.hinokiE : P.hinoki) : my < 1.25 ? P.walnutD : restClay[hash01(u >> 1, y >> 1, 41) > 0.5 ? 1 : 0];
       return my < 2.25 ? ktile[((u >> 1) + (y & 1)) & 1] : kUpper;
     };
     // floors
     B(0, -0.25, 10.25, 16, 0.25, 15.75, (x, y, z) => {
       if (y < Y(0.25) - 1) return P.floorSeam;
       const mx = OX + (x + 0.5) * VS, mz = OZ + (z + 0.5) * VS, reg = region(mx, mz);
-      if (reg === 'hall') return ((x + z) & 1) ? blackT : whiteT;
-      if (reg === 'rest') return ((x >> 1) + (z >> 1)) & 1 ? blackT : whiteT;
+      if (reg === 'hall') { const row = x >> 1, seg = Math.floor((z + row * 5) / 18); return (z + row * 5) % 18 === 0 ? P.floorSeam : P.floor[Math.floor(hash01(seg, row, 9) * 3.999)]; } // boards
+      if (reg === 'rest') { const seam = (x & 3) === 0 || ((z + ((x >> 2) & 1) * 2) & 3) === 0; return seam ? P.stoneD : P.flag[Math.floor(hash01(x >> 2, z >> 2, 31) * 3.999)]; } // slate
       if (mz > 14.0 && mz < 14.875 && mx > 6.0 && mx < 14.75) return ((x + z) % 3 === 0) ? quarry[0] : mat; // rubber mat at the line
       return quarry[((x >> 1) + (z >> 1)) & 1];
     });
@@ -368,7 +368,7 @@ export function buildWorld(W) {
       if (G.get(x, y, Z(10.125)) === 0) continue; // keep the doorways and pass open
       G.set(x, y, Z(10.125), wallFinish(region(OX + (x + 0.5) * VS, 11), x, y));
     }
-    B(0.25, 3.0, 10.25, 15.75, 3.125, 15.75, (x, y, z) => ((x & 3) === 0 || (z & 3) === 0 ? ceilG : ceilT));
+    B(0.25, 3.0, 10.25, 15.75, 3.125, 15.75, (x, y, z) => (mx(x) < 5.0 ? ((x & 3) === 0 ? P.timberD : P.sugi[(z >> 3) % 3]) : (x & 3) === 0 || (z & 3) === 0 ? ceilG : ceilT));
     B(0, 3.125, 10.25, 16, 3.75, 16, P.plasterD);
     // interior walls: hallway | restrooms | kitchen, restroom divider
     // two-voxel shared walls so each side gets its own finish
@@ -381,17 +381,18 @@ export function buildWorld(W) {
     B(5.0, 0.25, 10.25, 5.125, 3.0, 15.75, (x, y, z) => wallFinish('kitchen', z, y));
     // hallway end: back exit door with push bar
     B(0.375, 0.25, 15.625, 1.625, 2.25, 15.75, (x, y) => (y === Y(1.1) ? P.chrome : (x === X(0.375) || x === X(1.625) - 1 || y === Y(2.25) - 1) ? P.steelD : C('#7a7e84', 0, 0.04)));
-    // restroom ceiling lights
-    for (const lz of [11.625, 14.375]) B(3.0, 2.875, lz - 0.25, 3.875, 3.0, lz + 0.25, C('#f4f8ff', 2.4, 0.03));
-    B(0.75, 2.875, 12.75, 1.25, 3.0, 13.25, C('#fff0d0', 2.0, 0.03));
-    meta.lights.push({ pos: [3.45, 2.6, 13.06], color: 0xeef4ff, intensity: 3.5, distance: 5.5, name: 'restrooms' });
+    // square washi ceiling lamps in the restrooms and the hall
+    const washi = (x0, z0, s) => B(x0, 2.875, z0, x0 + s, 3.0, z0 + s, (x, y, z) => (x === X(x0) || z === Z(z0) || x === X(x0 + s) - 1 || z === Z(z0 + s) - 1 ? P.timberD : C('#ffe2b0', 1.6, 0.04)));
+    for (const lz of [11.375, 14.125]) washi(3.125, lz, 0.75);
+    washi(0.75, 12.75, 0.5);
+    meta.lights.push({ pos: [3.45, 2.6, 13.06], color: 0xffd8a8, intensity: 3.2, distance: 5.5, name: 'restrooms' });
 
     // ---- kitchen: cook line under a big hood, prep island, plating shelf, dish station, walk-in, dry storage
     B(6.0, 2.25, 14.25, 14.75, 3.0, 15.75, (x, y, z) => (y === Y(2.25) && z === Z(14.375) && (x % 10 < 3) ? C('#fff4d8', 3.0, 0.03) : P.steel));
     B(7.0, 0.75, 12.25, 12.0, 0.875, 13.125, P.steel);                      // prep island top
     B(7.125, 0.375, 12.375, 11.875, 0.5, 13.0, P.steelD);                  // undershelf
     for (const [lx, lz] of [[7.0, 12.25], [11.875, 12.25], [7.0, 13.0], [11.875, 13.0]]) B(lx, 0.25, lz, lx + 0.125, 0.75, lz + 0.125, P.steelD);
-    B(11.375, 0.25, 10.25, 13.875, 0.875, 11.25, (x, y, z) => (y === Y(0.875) - 1 ? P.steel : P.steelD)); // plating station under the pass: the belt, the sushi case, the rice
+    B(11.375, 0.25, 10.25, 13.875, 1.125, 11.25, (x, y, z) => (y === Y(1.125) - 1 ? P.steel : P.steelD)); // plating station under the pass, level with the belt: the sushi case, the rice
     // dish station: three-well sink against the restroom wall
     B(5.125, 0.25, 10.75, 5.875, 0.875, 13.75, (x, y, z) => (y === Y(0.25) ? P.black : P.steel));
     B(5.125, 0.875, 10.75, 5.25, 1.375, 13.75, P.steel);

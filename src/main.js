@@ -96,7 +96,7 @@ async function boot() {
   const snow = makeSnow(7000, snowLights, L.roofDry); scene.add(snow);
   const steam = makeSteam([
     { pos: [6.0, 1.95, 9.65], size: 0.35 }, { pos: [6.6, 1.95, 9.65], size: 0.3 },        // the tea urns on the back bar
-    { pos: [11.92, 1.3, 10.98], size: 0.3 },                                                  // the rice cookers by the pass
+    { pos: [11.74, 1.55, 10.98], size: 0.3 },                                                 // the rice cookers by the pass
     { pos: [11.75, 1.6, 15.1], size: 0.7 }, { pos: [13.4, 1.4, 15.1], size: 0.5 },
     { pos: [9.65, 1.3, 15.2], size: 0.9 }, { pos: [10.65, 1.3, 15.2], size: 0.9 }, { pos: [8.1, 1.2, 15.1], size: 0.6 },
     ...meta.steam,
@@ -104,7 +104,7 @@ async function boot() {
   scene.add(steam);
 
   // ---------------------------------------------------------------- living things
-  // the front door slides into its pocket; the kitchen and restroom doors swing
+  // the front door and the restroom doors slide into their pockets; the kitchen door swings
   const door = Props.doorModel().mesh(litMat, emitMat);
   const doorGlass = new THREE.Mesh(new THREE.PlaneGeometry(15 / 16, 26 / 16), glassMat);
   doorGlass.position.set(9.5 / 16, 22.5 / 16, 0); door.add(doorGlass);
@@ -114,14 +114,14 @@ async function boot() {
   const doors = [];
   const frontDoor = new Door(door, { hinge: { x: L.door.hinge, z: L.door.z }, plusDir: [0, -1], max: 1.6, block: [12.75, 14.0, -3.375, -3.125], bell: true, slide: 1.12 });
   doors.push(frontDoor);
-  const addDoor = (kind, hx, hz, base, plusDir, block) => {
+  const addDoor = (kind, hx, hz, base, plusDir, block, slide = null) => {
     const mesh = Props.swingDoor(kind).mesh(litMat, emitMat);
     mesh.position.set(hx, L.floor, hz); mesh.rotation.y = base; scene.add(mesh);
-    const d = new Door(mesh, { hinge: { x: hx, z: hz }, base, plusDir, max: 1.45, block }); doors.push(d); return d;
+    const d = new Door(mesh, { hinge: { x: hx, z: hz }, base, plusDir, max: 1.45, block, ...(slide ? { slide: 0.95, slideDir: slide } : {}) }); doors.push(d); return d;
   };
   const kitchenDoor = addDoor('kitchen', 14.0, 10.0625, 0, [0, -1], [14.0, 15.125, 9.875, 10.25]);
-  const restDoorA = addDoor('restroom', 1.8125, 11.0, -Math.PI / 2, [1, 0], [1.75, 2.0, 11.0, 12.0]);
-  const restDoorB = addDoor('restroom', 1.8125, 13.75, -Math.PI / 2, [1, 0], [1.75, 2.0, 13.75, 14.75]);
+  const restDoorA = addDoor('restroom', 1.8125, 11.0, -Math.PI / 2, [1, 0], [1.75, 2.0, 11.0, 12.0], [0, 1]);   // slide along into the wall
+  const restDoorB = addDoor('restroom', 1.8125, 13.75, -Math.PI / 2, [1, 0], [1.75, 2.0, 13.75, 14.75], [0, 1]);
   world.blockers = doors;
 
   // shoji panels in the partition: paper with a kumiko lattice, drawn once to a canvas
@@ -248,10 +248,12 @@ async function boot() {
       if (w.h) { w.h.on = !w.h.on; audio.clickSound(); }
     });
   };
-  for (const rz0 of [10.25, 13.125]) addFaucet(3.1, 1.12, 1.0, rz0 + 0.33, [3.1, 1.05, rz0 + 0.27, 0.32, 0.16, 0.26], 'water');
+  for (const rz0 of [10.25, 13.125]) addFaucet(3.1, 1.3, 1.13, rz0 + 0.24, [3.1, 1.2, rz0 + 0.3, 0.34, 0.2, 0.3], 'water'); // the bamboo spouts
   addFaucet(5.46, 1.55, 0.75, 12.3, [5.32, 1.45, 12.3, 0.09, 0.14, 0.12], 'water');
-  for (const [tz] of [[12.45], [15.2]]) interactions.add([4.49, 0.6, tz, 0.4, 0.45, 0.3], () => 'Flush', () => audio.flush());
-  for (const rz0 of [10.25, 13.125]) interactions.add([4.0, 1.25, rz0 + 0.1, 0.16, 0.16, 0.14], () => 'Dry your hands', () => audio.dryer());
+  interactions.add([4.49, 0.6, 12.45, 0.4, 0.45, 0.3], () => 'Flush', () => audio.flush());
+  interactions.add([4.3, 0.74, 12.2, 0.14, 0.08, 0.16], () => 'Press the sound princess button', () => { audio.clickSound(); toast('a recording of a babbling brook plays, very politely.'); });
+  interactions.add([4.66, 1.5, 14.26, 0.14, 0.22, 0.14], () => 'Pull the chain', () => audio.flush());
+  for (const rz0 of [10.25, 13.125]) interactions.add([4.15, 1.1, rz0 + 0.08, 0.22, 0.28, 0.08], () => 'Dry your hands on the tenugui', () => audio.cloth());
   interactions.add([4.3, 1.12, 9.75, 0.22, 0.16, 0.14], () => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => {
     audio.musicOn = !audio.musicOn; audio.clickSound(); toast(audio.musicOn ? 'radio on' : 'radio off');
   });

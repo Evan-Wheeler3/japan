@@ -428,7 +428,7 @@ function board(lines, scale, bg, ink, frame) {
 }
 const menuWood = C('#d8b07c', 0, 0.05), menuInk = C('#2a1a10', 0, 0.03), menuFrame = C('#4a2c18', 0, 0.05);
 const menuBoards = [['TEA 300'], ['SUSHI 600'], ['YAKITORI 800'], ['GYOZA 700']].map((l) => memo(() => board(l, 1 / 64, menuWood, menuInk, menuFrame)));
-const restroomPlaque = memo(() => board(['RESTROOM'], 1 / 56, C('#2a2420', 0, 0.05), C('#e8dcc0', 0.3, 0.04), C('#6a4022', 0, 0.05)));
+const restroomPlaque = memo(() => board(['TOILET'], 1 / 56, C('#c49a66', 0, 0.05), C('#2a1a10', 0, 0.04), C('#6a4022', 0, 0.05)));
 // big sake bottles on top of the drinks fridge
 const sakeBottles = memo(() => {
   const m = new Model(36, 14, 4, 1 / 32);
@@ -502,62 +502,86 @@ export const drinksFridge = memo(() => {
 });
 
 // ---------------------------------------------------------------- restrooms
-const porcelain = C('#f2f0ea', 0, 0.03), porcelainD = C('#d8d6ce', 0, 0.03);
-// toilet, faces -z (tank against the wall at +z)
-export const toilet = memo(() => {
-  const m = new Model(8, 13, 12, 1 / 16);
-  m.box(2, 0, 2, 6, 5, 8, porcelain);
-  m.box(1, 5, 0, 7, 7, 8, (x, y, z) => (y === 6 && x > 1 && x < 6 && z > 0 && z < 7 ? C('#9ab8c0', 0, 0.04) : porcelain));
-  m.box(1, 7, 0, 7, 8, 8, porcelainD);
-  m.box(1, 7, 8, 7, 13, 12, porcelain); m.box(1, 13, 8, 7, 13, 12, porcelainD); m.box(0, 12, 8, 8, 13, 12, porcelainD);
-  m.set(1, 11, 8, K.chrome);
+const porcelain = C('#f2f0ea', 0, 0.03), porcelainD = C('#d8d6ce', 0, 0.03), bamboo = C('#8f9a5c', 0, 0.06), bambooD = C('#6e7a44', 0, 0.06);
+// a washlet: heated beige seat and lid, the control arm at its side, and the little hand basin on top of the cistern
+// that fills as it flushes (faces -z, cistern against the wall at +z)
+export const washlet = memo(() => {
+  const m = new Model(10, 15, 12, 1 / 16);
+  const beige = C('#e8e0cc', 0, 0.03);
+  m.box(3, 0, 2, 7, 5, 8, porcelain);
+  m.box(2, 5, 0, 8, 7, 8, porcelain);
+  m.box(2, 7, 0, 8, 8, 8, beige);
+  m.box(8, 6, 1, 10, 8, 5, C('#d8d0bc', 0, 0.03));
+  m.set(9, 7, 2, C('#4a8aff', 0.8, 0.03)); m.set(9, 7, 3, C('#f08ab0', 0.8, 0.03)); m.set(9, 7, 4, C('#ffa040', 0.8, 0.03));
+  m.box(2, 7, 8, 8, 12, 12, porcelain);
+  m.box(2, 12, 8, 8, 13, 12, porcelainD); m.box(3, 12, 9, 7, 13, 11, C('#9ab8c0', 0, 0.04));
+  m.box(5, 13, 11, 6, 15, 12, K.chrome); m.set(5, 14, 10, K.chrome);
   return m;
 });
-// wall-hung sink with faucet, faces -z (wall at +z)
-export const sink = memo(() => {
-  const m = new Model(10, 15, 8, 1 / 16);
-  m.box(0, 10, 0, 10, 13, 7, porcelain); m.box(2, 12, 1, 8, 13, 6, C('#c8d4d8', 0, 0.04));
-  m.box(4, 13, 5, 6, 15, 7, K.chrome); m.box(4, 14, 3, 6, 15, 5, K.chrome);
-  m.box(4, 0, 6, 6, 10, 8, K.chrome);
+// an old squat toilet (washiki) set into a low tiled step, its hood at the far end (faces -z, hood at +z)
+export const squatToilet = memo(() => {
+  const m = new Model(14, 5, 24, 1 / 16);
+  m.box(0, 0, 0, 14, 2, 24, (x, y, z) => (((x >> 1) + (z >> 1)) & 1 ? C('#3a4448', 0, 0.05) : C('#4a5458', 0, 0.05)));
+  for (let z = 4; z < 20; z++) for (let x = 3; x < 11; x++) {
+    const ex = (x + 0.5 - 7) / 4, ez = (z + 0.5 - 12) / 8, r = ex * ex + ez * ez;
+    if (r <= 1) m.set(x, 1, z, r > 0.5 ? porcelain : C('#9ab8c0', 0, 0.04));
+  }
+  m.box(4, 2, 17, 10, 5, 21, (x, y, z) => (y === 4 || z === 20 || x === 4 || x === 9 ? porcelain : null));
   return m;
 });
-export const mirror = memo(() => {
-  const m = new Model(10, 13, 1, 1 / 16, [5, 0, 0.5]);
-  for (let y = 0; y < 13; y++) for (let x = 0; x < 10; x++) m.set(x, y, 0, x === 0 || y === 0 || x === 9 || y === 12 ? K.chrome : C(hash01(x, y >> 1, 4) > 0.85 ? '#d8e8f0' : '#9ab0bc', 0.25, 0.05));
+// the high wooden cistern for the squat toilet, its pipe down the wall and a pull chain (faces -z, wall at +z)
+export const highTank = memo(() => {
+  const m = new Model(10, 42, 6, 1 / 16);
+  m.box(0, 35, 0, 10, 42, 6, (x, y) => (y === 35 || y === 41 ? K.woodD : K.wood));
+  m.box(2, 4, 4, 3, 35, 5, K.chrome); m.box(2, 4, 0, 3, 5, 4, K.chrome);
+  for (let y = 21; y < 35; y += 2) m.set(8, y, 1, K.chrome);
+  m.box(7, 19, 0, 10, 21, 2, K.woodD);
   return m;
 });
-// grab bars: one long horizontal bar with stand-offs (along x), and a short vertical one
-export const grabBar = memo(() => {
-  const m = new Model(28, 3, 3, 1 / 32, [14, 0, 2.5]);
-  m.box(0, 1, 0, 28, 2, 1, K.chrome); m.box(1, 1, 1, 2, 2, 3, K.chrome); m.box(26, 1, 1, 27, 2, 3, K.chrome);
+// a round indigo-glazed bowl on a dark wooden stand, water from a bamboo spout (faces -z, wall at +z)
+export const washBasin = memo(() => {
+  const m = new Model(10, 18, 9, 1 / 16);
+  m.box(0, 0, 1, 10, 12, 9, (x, y) => (y === 11 || x === 0 || x === 9 ? K.woodD : K.wood));
+  m.box(0, 12, 1, 10, 13, 9, K.hinoki);
+  m.cyl(5, 4.5, 3.6, 13, 15, C('#2a3a60', 0, 0.05), 2.8); m.cyl(5, 4.5, 2.8, 13, 14, C('#3a4a70', 0, 0.05));
+  m.box(4, 13, 7, 6, 18, 9, (x, y) => (y % 3 === 0 ? bambooD : bamboo));
+  m.box(4, 17, 4, 6, 18, 7, bamboo);
   return m;
 });
-export const grabBarV = memo(() => {
-  const m = new Model(3, 14, 3, 1 / 32, [1.5, 0, 2.5]);
-  m.box(1, 0, 0, 2, 14, 1, K.chrome); m.box(1, 1, 1, 2, 2, 3, K.chrome); m.box(1, 12, 1, 2, 13, 3, K.chrome);
+export const roundMirror = memo(() => {
+  const m = new Model(12, 12, 1, 1 / 16, [6, 0, 0.5]);
+  for (let y = 0; y < 12; y++) for (let x = 0; x < 12; x++) {
+    const d = Math.hypot(x + 0.5 - 6, y + 0.5 - 6);
+    if (d <= 6) m.set(x, y, 0, d > 5 ? K.wood : C(hash01(x, y >> 1, 4) > 0.85 ? '#d8e8f0' : '#9ab0bc', 0.25, 0.05));
+  }
   return m;
 });
-const towelDispenser = memo(() => { const m = new Model(9, 11, 4, 1 / 32); m.box(0, 0, 0, 9, 11, 4, C('#d8d8d4', 0, 0.03)); m.box(2, 0, 0, 7, 1, 1, K.white); m.box(1, 6, 0, 8, 7, 1, C('#8a8c8e', 0, 0.03)); return m; });
-const handDryer = memo(() => { const m = new Model(9, 8, 6, 1 / 32); m.box(0, 2, 0, 9, 8, 6, K.chrome); m.box(3, 0, 1, 6, 2, 4, K.chrome); m.set(4, 5, 0, C('#40d0ff', 2, 0.02)); return m; });
-const soap = memo(() => { const m = new Model(4, 7, 3, 1 / 32); m.box(0, 0, 0, 4, 6, 3, K.white); m.box(1, 6, 1, 3, 7, 2, K.chrome); m.box(1, 2, 0, 3, 4, 1, C('#e88ab8', 0, 0.04)); return m; });
-const paperHolder = memo(() => { const m = new Model(5, 5, 4, 1 / 32); m.box(0, 3, 0, 5, 4, 4, K.chrome); m.cyl(2.5, 2, 2, 0, 3, K.white); return m; });
-const binSmall = memo(() => { const m = new Model(8, 12, 8, 1 / 32); m.cyl(4, 4, 3.8, 0, 12, K.chrome, 3); m.cyl(4, 4, 3.8, 0, 1, K.chrome); return m; });
-// accessibility sign: white wheelchair symbol on blue
-const wheelchairSign = memo(() => {
-  const art = ['............', '.....##.....', '.....##.....', '....##......', '....#####...', '....##......', '...#.##.....', '..#...####..', '..#.....#...', '..#....#....', '...###......', '............'];
-  const m = new Model(12, 12, 1, 1 / 40, [6, 0, 0.5]);
-  for (let y = 0; y < 12; y++) for (let x = 0; x < 12; x++) m.set(11 - x, 11 - y, 0, art[y][x] === '#' ? C('#ffffff', 0.4, 0.02) : C('#1d4fb0', 0.15, 0.03));
+// a tenugui hand towel on a bamboo rod (hangs from its top)
+const tenugui = memo(() => {
+  const m = new Model(10, 9, 2, 1 / 16, [5, 9, 1]);
+  m.box(0, 8, 0, 10, 9, 1, bamboo);
+  m.box(2, 0, 1, 8, 8, 2, (x, y) => ((x + y) % 3 === 0 ? K.white : K.indigo));
   return m;
 });
-const washSign = memo(() => board(['EMPLOYEES', 'MUST WASH', 'HANDS'], 1 / 64, C('#efece4', 0, 0.03), C('#1d3a8a', 0, 0.03), C('#8a8a8a', 0, 0.03)));
+// toilet slippers waiting inside the door
+const slippers = memo(() => {
+  const m = new Model(5, 1, 5, 1 / 16);
+  for (const x0 of [0, 3]) { m.box(x0, 0, 0, x0 + 2, 1, 5, C('#5a7a4a', 0, 0.05)); m.box(x0, 0, 1, x0 + 2, 1, 2, C('#3a5a2a', 0, 0.05)); }
+  return m;
+});
+// a single camellia branch in a dark vase
+const ikebana = memo(() => {
+  const m = new Model(6, 22, 6, 1 / 32);
+  m.cyl(3, 3, 2.6, 0, 8, C('#2e2e34', 0, 0.05));
+  for (let y = 8; y < 20; y++) m.set(3 + ((y >> 2) & 1), y, 3, C('#4a3020', 0, 0.06));
+  for (const [x, y] of [[2, 19], [5, 15], [3, 21]]) m.set(x, y, 3, C('#c8302a', 0, 0.05));
+  for (const [x, y] of [[4, 18], [2, 14], [5, 12]]) m.set(x, y, 3, C('#2e5a2a', 0, 0.08));
+  return m;
+});
+const paperHolder = memo(() => { const m = new Model(5, 5, 4, 1 / 32); m.box(0, 3, 0, 5, 5, 4, K.wood); m.cyl(2.5, 2, 2, 0, 3, K.white); return m; });
+const bambooBin = memo(() => { const m = new Model(8, 11, 8, 1 / 32); m.cyl(4, 4, 3.8, 0, 11, (x, y) => (y & 1 ? bamboo : bambooD), 3); m.cyl(4, 4, 3.8, 0, 1, bambooD); return m; });
 const exitSign = memo(() => board(['EXIT'], 1 / 40, C('#0a3a1a', 0, 0.03), C('#5aff8a', 4, 0.03), C('#e8e8e8', 0, 0.03)));
-const mopBucket = memo(() => {
-  const m = new Model(10, 22, 9, 1 / 32);
-  m.box(0, 1, 0, 10, 8, 9, C('#f0c020', 0, 0.05)); m.box(1, 0, 1, 2, 1, 2, K.black); m.box(8, 0, 7, 9, 1, 8, K.black);
-  m.box(1, 6, 1, 9, 7, 8, C('#6a8a8a', 0, 0.05)); m.box(6, 7, 4, 7, 22, 5, C('#8a6a40', 0, 0.05));
-  return m;
-});
-// a swinging door panel, hinge at local x 0
+// a door panel, hinge (or leading edge, for a sliding door) at local x 0
 const doorCache = {};
 export const swingDoor = (kind) => doorCache[kind] || (doorCache[kind] = (() => {
   const w = kind === 'kitchen' ? 18 : 16, h = 34;
@@ -567,7 +591,11 @@ export const swingDoor = (kind) => doorCache[kind] || (doorCache[kind] = (() => 
     let c = face;
     if (y < 4) c = kick;
     if (kind === 'kitchen') { const d = Math.hypot(x + 0.5 - w / 2, y + 0.5 - 24); if (d < 3) c = C('#ffe8c0', 1.4, 0.04); else if (d < 4) c = K.chrome; }
-    else { if (x === 1 || x === w - 2 || y === 4 || y === h - 2 || y === 18) c = C('#5a3820', 0, 0.05); if (x === w - 3 && y === 17) c = K.chrome; }
+    else { // a sliding koshi door: slats over paper above, a plain board below
+      if (y >= 14 && y < h - 2) c = x % 2 ? C('#efe4cc', 0.2, 0.03) : C('#5a3820', 0, 0.05);
+      if (x === 0 || x === w - 1 || y === 4 || y === 13 || y === 14 || y >= h - 2) c = C('#4a2c18', 0, 0.05);
+      if (x === w - 3 && y === 10) c = K.black;
+    }
     m.set(x, y, 0, c);
   }
   return m;
@@ -778,8 +806,8 @@ export function placeProps(batch) {
     batch.add(stool(), 2.38, 0.375, z, 3);
     seats.push({ x: 2.38, z, y: 1.06, yaw: -Math.PI / 2, kind: 'stool', surf: 1.125, beltAt: [3.15, z, 1.125] });
   }
-  // the belt comes out of a hatch under the pass and goes back into one at the end of the west return
-  batch.add(beltHatch(), 12.35, 1.125, 9.95, 0, false); batch.add(beltHatch(), 3.15, 1.125, 7.95, 0, false);
+  // the belt comes in through the pass and goes back into the kitchen through a hatch at the end of the west return
+  batch.add(beltHatch(), 3.15, 1.125, 7.95, 0, false);
   for (const x of [4.0, 6.5, 9.0, 11.25]) batch.add(chochin(6, x === 6.5 || x === 11.25 ? 'red' : 'cream'), x, 2.7, 6.2, 0, false);
   for (const x of [5.5, 9.5]) batch.add(chochin(4, 'cream'), x, 2.75, 8.4, 0, false);
 
@@ -826,32 +854,32 @@ export function placeProps(batch) {
   [4.8, 6.8, 8.8, 12.6].forEach((x, i) => batch.add(menuBoards[i](), x, 2.62, 9.99, 0, false));
   batch.add(sakeBottles(), 2.3, 2.0, 9.87, 0, false);
   batch.add(darumaRow(), 3.15, 2.0, 9.9, 0, false);
-  batch.add(restroomPlaque(), 1.0, 2.55, 9.86, 0, false);
-  batch.add(wheelchairSign(), 2.05, 1.6, 9.99, 0, false);
-  for (const x of [10.56, 14.56]) batch.add(noren(), x, 2.4, 9.92, 0, false); // the kitchen doorways
+  batch.add(restroomPlaque(), 1.0, 2.62, 9.86, 0, false);
+  for (const x of [1.0, 10.56, 14.56]) batch.add(noren(), x, 2.4, 9.92, 0, false); // the restroom hall and kitchen doorways
 
   // ================= back of house
   // hallway
   batch.add(prints[6](), 0.26, 1.6, 11.6, 3, false); batch.add(prints[1](), 0.26, 1.6, 13.4, 3, false);
   batch.add(exitSign(), 1.0, 2.4, 15.6, 0, false);
-  batch.add(mopBucket(), 0.6, F, 14.9, 0);
-  // two restrooms, both accessible: toilet 0.55 m off the side wall, grab bars beside and behind, clear turning space
-  for (const [rz0, rz1, doorZ] of [[10.25, 13.0, 11.5], [13.125, 15.75, 14.25]]) {
-    const tz = rz1 - 0.55;
-    batch.add(toilet(), 4.49, F, tz, 1);
-    batch.add(paperHolder(), 4.15, 0.85, rz1 - 0.07, 0, false);
-    batch.add(grabBar(), 3.95, 1.0, rz1 - 0.02, 0, false);             // side bar
-    batch.add(grabBarV(), 3.4, 0.9, rz1 - 0.02, 0, false);
-    batch.add(grabBar(), 4.84, 1.18, tz, 1, false);                   // rear bar above the tank
-    batch.add(sink(), 3.1, F, rz0 + 0.27, 2);
-    batch.add(mirror(), 3.1, 1.4, rz0 + 0.01, 2, false);
-    batch.add(soap(), 2.55, 1.15, rz0 + 0.05, 2, false);
-    batch.add(towelDispenser(), 2.25, 1.2, rz0 + 0.07, 2, false);
-    batch.add(handDryer(), 4.0, 1.15, rz0 + 0.1, 2, false);
-    batch.add(binSmall(), 2.2, F, rz0 + 0.25, 0);
-    batch.add(washSign(), 3.1, 2.3, rz0 + 0.01, 2, false);
-    batch.add(wheelchairSign(), 1.74, 1.6, doorZ + 0.8, 1, false);
-  }
+  // two restrooms done the Japanese way: toilet slippers waiting inside the door, a ceramic bowl with a bamboo spout to
+  // wash your hands, a round mirror, a tenugui, a camellia in a vase. A washlet in the first, an old squat toilet
+  // with a pull-chain cistern up on the wall in the second.
+  [[10.25, 13.0, 11.5, 'washlet'], [13.125, 15.75, 14.25, 'squat']].forEach(([rz0, rz1, doorZ, kind]) => {
+    if (kind === 'washlet') {
+      batch.add(washlet(), 4.49, F, rz1 - 0.55, 1);
+      batch.add(paperHolder(), 4.15, 0.75, rz1 - 0.07, 0, false);
+    } else {
+      batch.add(squatToilet(), 4.0, F, (rz0 + rz1) / 2, 1);
+      batch.add(highTank(), 4.78, F, (rz0 + rz1) / 2, 1, false);
+      batch.add(paperHolder(), 3.4, 0.6, rz1 - 0.07, 0, false);
+    }
+    batch.add(washBasin(), 3.1, F, rz0 + 0.3, 2);
+    batch.add(roundMirror(), 3.1, 1.45, rz0 + 0.01, 2, false);
+    batch.add(tenugui(), 4.15, 1.35, rz0 + 0.06, 2, false);
+    batch.add(slippers(), 2.4, F, doorZ, 3, false);
+    batch.add(ikebana(), 2.3, F, rz1 - 0.3, 0, false);
+    batch.add(bambooBin(), 2.3, F, rz0 + 0.3, 0);
+  });
 
   // kitchen: the cook line along the back wall under the hood
   const KL = 15.31;
@@ -863,12 +891,11 @@ export function placeProps(batch) {
   batch.add(prepStuff(), 9.5, 0.875, 12.65, 0, false);
   batch.add(sacks(), 9.5, 0.5, 12.65, 0, false);
   batch.add(ticketRail(), 12.6, 2.2, 10.32, 2, false);
-  // the plating station under the pass: plates, the rice cookers and the sushi case right by the belt, which runs
-  // along it and out through a hatch under the pass into the dining room
-  batch.add(plates(), 11.6, 0.875, 10.48, 0, false, 'platesK'); batch.add(plates(), 11.9, 0.875, 10.48, 0, false, 'platesK');
-  batch.add(riceCooker(), 11.7, 0.875, 10.98, 2, false, 'rice'); batch.add(riceCooker(), 12.15, 0.875, 10.98, 2, false, 'rice');
-  batch.add(sushiCase(), 13.1, 0.875, 10.98, 2, false, 'sushi');
-  batch.add(beltHatch(), 12.35, 0.875, 10.32, 2, false);
+  // the plating station under the pass: plates and the rice cookers on one side of the belt, the sushi case on the
+  // other; the belt runs straight down the middle and out through the pass into the dining room
+  batch.add(plates(), 11.6, 1.125, 10.48, 0, false, 'platesK'); batch.add(plates(), 11.9, 1.125, 10.48, 0, false, 'platesK');
+  batch.add(riceCooker(), 11.55, 1.125, 10.98, 2, false, 'rice'); batch.add(riceCooker(), 11.93, 1.125, 10.98, 2, false, 'rice');
+  batch.add(sushiCase(), 13.1, 1.125, 10.98, 2, false, 'sushi');
   batch.add(dishRack(), 5.5, 0.875, 13.3, 0, false, 'dishRack');
   batch.add(faucetSpray(), 5.3, 0.875, 12.3, 3, false);
   batch.add(sacks(), 15.4, 0.25, 15.3, 1);

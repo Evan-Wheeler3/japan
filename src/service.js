@@ -554,13 +554,13 @@ export class Service {
     const plateLabel = () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean plate (${this.stock.plates} left)`);
     I.add([7.95, 1.2, 9.7, 0.35, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesA'));
     I.add([9.5, 1.2, 9.7, 0.2, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesB'));
-    I.add([11.75, 1.1, 10.48, 0.32, 0.24, 0.18], plateLabel, R('plate'), null, shape('platesK'));
+    I.add([11.75, 1.35, 10.48, 0.32, 0.24, 0.18], plateLabel, R('plate'), null, shape('platesK'));
     // tea urns
     I.add([6.3, 1.45, 9.65, 0.55, 0.45, 0.25], () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn'), null, shape('urns'));
     // the sushi case on the plating station, right by the belt
-    I.add([13.1, 1.05, 10.98, 0.42, 0.2, 0.2], () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi'), null, shape('sushi'));
+    I.add([13.1, 1.3, 10.98, 0.42, 0.2, 0.2], () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi'), null, shape('sushi'));
     // the rice cookers: onigiri, once they're on the menu
-    I.add([11.92, 1.05, 10.98, 0.45, 0.2, 0.2], () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri'), () => this.menuKinds.has('onigiri'), shape('rice'));
+    I.add([11.74, 1.3, 10.98, 0.4, 0.2, 0.2], () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri'), () => this.menuKinds.has('onigiri'), shape('rice'));
     // the sushi belt: put finished dishes on it (in the kitchen, in the well or anywhere along it), or take one off
     I.add(() => this.beltBox, () => {
       const h = this.hands[this.hands.length - 1];

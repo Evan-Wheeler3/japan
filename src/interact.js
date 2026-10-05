@@ -73,10 +73,10 @@ export class Interactions {
 }
 
 // A hinged door that swings away from whoever opens it. Positive angle swings toward plusDir.
-// With `slide` set, it's a sliding door instead: it runs `slide` metres toward -x into its pocket.
+// With `slide` set, it's a sliding door instead: it runs `slide` metres along `slideDir` (default -x) into its pocket.
 export class Door {
-  constructor(mesh, { hinge, base = 0, plusDir, max = 1.55, block, bell = false, slide = 0 }) {
-    Object.assign(this, { mesh, hinge, base, plusDir, max, block, bell, slide });
+  constructor(mesh, { hinge, base = 0, plusDir, max = 1.55, block, bell = false, slide = 0, slideDir = [-1, 0] }) {
+    Object.assign(this, { mesh, hinge, base, plusDir, max, block, bell, slide, slideDir });
     this.a = 0; this.target = 0; this.wasNear = false; this.openFor = 0; this.onAutoClose = null;
     this.width = Math.max(block[1] - block[0], block[3] - block[2]);
     this.center = { x: (block[0] + block[1]) / 2, z: (block[2] + block[3]) / 2 };
@@ -116,7 +116,10 @@ export class Door {
       }
     }
     this.a += (this.target - this.a) * Math.min(1, dt * (this.target ? 4 : 2.2));
-    if (this.slide) this.mesh.position.x = this.hinge.x - Math.abs(this.a) / this.max * this.slide;
+    if (this.slide) {
+      const k = Math.abs(this.a) / this.max * this.slide;
+      this.mesh.position.x = this.hinge.x + this.slideDir[0] * k; this.mesh.position.z = this.hinge.z + this.slideDir[1] * k;
+    }
     else this.mesh.rotation.y = this.base + this.a;
   }
   // closed doors are solid
