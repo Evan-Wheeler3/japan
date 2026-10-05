@@ -139,8 +139,14 @@ try {
     const stats = window.stats = { ordered: 0, served: 0, belt: 0, washes: 0, kinds: {} };
     const act = (n, ...a) => s.request(n, ...a);
     const atSink = () => d.player.pos.set(5.9, 0.25, 12.3);
+    let looks = 0;
     window.botStep = () => {
       const H = s.hands;
+      // now and then look at the belt the way a player does, so the reticle code runs too
+      if (looks++ % 7 === 0) {
+        const cam = d.camera; cam.position.set(12.35, 1.8, 11.75); cam.lookAt(12.35, 1.125, 10.9); cam.updateMatrixWorld();
+        d.interactions.update();
+      }
       if (s.washing > 0) { atSink(); return; }
       if (s.has('tub')) { atSink(); act('sink'); act('sink'); stats.washes++; return; }
       if (s.has('clean')) { act('mug'); return; }
@@ -154,7 +160,7 @@ try {
       if (H.length) {
         const k = H[0].type, q = people.find((p) => p.svc.phase === 'food' && p.svc.items.some((i) => !i.done && i.kind === k));
         // guests round the island get it by belt; the window booths get theirs carried
-        if (q && s.beltS(q.seat) !== null) { const free = [0.1, 0.45, 0.8, 1.15].find((x) => s.belt.isFree(x)); if (free !== undefined) { act('beltPut', free); stats.belt++; } return; }
+        if (q && s.seatBeltS(q.seat) !== null) { const free = [0.1, 0.45, 0.8, 1.15].find((x) => s.belt.isFree(x)); if (free !== undefined) { act('beltPut', free); stats.belt++; } return; }
         if (q) { act('cust', q.id); stats.served++; stats.kinds[k] = (stats.kinds[k] || 0) + 1; } else act('drop');
         return;
       }

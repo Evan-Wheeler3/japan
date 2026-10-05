@@ -326,8 +326,8 @@ export class Service {
     this.belt.update(dt);
     if (sim) for (const p of [...this.belt.plates]) {
       if (!p.seg || p.seg === 'kitchen') continue;
-      const q = this.crowd.people.find((c) => c.svc && c.svc.phase === 'food' && c.state === 'sit' && c.seat && this.beltS(c.seat) !== null &&
-        this.belt.gap(this.beltS(c.seat), p.s) < 0.2 && c.svc.items.some((i) => !i.done && i.kind === p.type));
+      const q = this.crowd.people.find((c) => c.svc && c.svc.phase === 'food' && c.state === 'sit' && c.seat && this.seatBeltS(c.seat) !== null &&
+        this.belt.gap(this.seatBeltS(c.seat), p.s) < 0.2 && c.svc.items.some((i) => !i.done && i.kind === p.type));
       if (!q) continue;
       this.belt.remove(p);
       this.serveItem(q, q.svc.items.find((i) => !i.done && i.kind === p.type));
@@ -619,8 +619,9 @@ export class Service {
     this.queue = [];
     this.refreshUI(true);
   }
-  // where along the belt a seat meets it (null for a seat the belt doesn't pass)
-  beltS(seat) {
+  // where along the belt a seat meets it (null for a seat the belt doesn't pass). Not to be confused with this.beltS,
+  // the spot on the belt you're pointing at.
+  seatBeltS(seat) {
     if (seat.beltS === undefined) seat.beltS = seat.beltAt ? this.belt.sAt(...seat.beltAt) : null;
     return seat.beltS;
   }

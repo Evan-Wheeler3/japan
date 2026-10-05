@@ -26,7 +26,7 @@ function rounded(pts, r, steps = 12) {
   return out;
 }
 // the visible run: from the plating station, straight out under the pass, round the U, into the hatch
-const PATH = rounded([[12.35, 11.1], [12.35, 6.15], [3.15, 6.15], [3.15, 7.85]], RADIUS);
+const PATH = rounded([[12.35, 11.1], [12.35, 10.0], [12.35, 6.15], [3.15, 6.15], [3.15, 7.85]], RADIUS); // (10.0: the wall)
 const SEGS = [];
 for (let i = 0; i < PATH.length - 1; i++) {
   const a = PATH[i], b = PATH[i + 1];
