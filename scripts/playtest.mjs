@@ -141,6 +141,34 @@ try {
   });
   check(!st.blocked && st.at.join() === '6.5,2.5,1' && st.solid && st.oldClear && st.saved, 'furniture moves, takes its collision with it, and the spot is saved');
 
+  // ---- before opening: upgrade the kitchen's stations, hire help, and do the chores
+  st = await page.evaluate(() => {
+    const d = window.__yoake, s = d.service;
+    d.save.devYen = true; s.cashBox = 1e9;
+    const label = s.upLabel(s.upNext('tea'));
+    for (const k of ['tea', 'tea', 'yakitori', 'yakitori']) s.upBuy(s.upNext(k));
+    for (const id of ['staff_wash', 'staff_sushi', 'staff_hall']) s.request('buy', id);
+    d.save.devYen = false;
+    // the twin taps fill a second cup into your free hand
+    s.handCap = 2; s.request('mug'); s.request('urn'); const teas = s.hands.filter((h) => h.type === 'tea').length;
+    s.request('drop'); s.request('drop'); s.handCap = 1;
+    // a big batch of yakitori plates twice
+    const yak = s.stations[0], gy = s.stations[2];
+    yak.state = 'cooking'; yak.t = yak.cook; s.update(0.01);
+    const left = yak.left;
+    s.request('plate'); s.request('station', 0); s.request('drop');
+    const still = yak.state;
+    s.request('plate'); s.request('station', 0); s.request('drop');
+    // sweep every patch, shovel every drift
+    for (const kind of ['sweep', 'shovel']) s.chores.left[kind].forEach((_, i) => { for (let k = 0; k < 3; k++) s.request('chore', kind, i); });
+    return { label, teas, left, still, after: yak.state, fast: Math.abs(yak.cook / yak.baseCook - 0.75 * gy.cook / gy.baseCook) < 1e-9, bonus: s.priceBonus.tea,
+      staff: [...s.staff].length, wages: s.wages, nextTea: s.upNext('tea'), tip: s.tipMul, wait: s.choreP };
+  });
+  check(/^Upgrade 1\/2: twin urn taps/.test(st.label) && st.teas === 2 && st.bonus === 100 && !st.nextTea, `station upgrades between nights: "${st.label}", two cups at once, gyokuro +¥100`);
+  check(st.fast && st.left === 2 && st.still === 'ready' && st.after === 'idle', 'upgraded grills cook 25% faster and a batch plates twice');
+  check(st.staff === 3 && st.wages === 2100, 'hired a dishwasher, a sushi chef and a hall server (¥2,100 a night)');
+  check(st.tip === 1.3 && st.wait === 1.25, 'sweeping and shovelling before opening: better tips and more patient guests tonight');
+
   // ---- open the shop and work the night
   await page.evaluate(() => {
     const d = window.__yoake, s = d.service;
@@ -190,7 +218,7 @@ try {
       if (si >= 0) act('bus', si);
     };
   });
-  check(await page.evaluate(() => !window.__yoake.shift.waiting), 'turning the sign opens the shop');
+  check(await page.evaluate(() => !window.__yoake.shift.waiting && !window.__yoake.service.upNext('sushi')), 'turning the sign opens the shop (and closes the upgrade counter)');
 
   let result = null;
   for (let i = 0; i < 5000 && !result; i++) {
@@ -200,7 +228,8 @@ try {
       window.botStep();
       if (!document.body.classList.contains('summary')) return null;
       const s = d.service;
-      return { served: s.served, walkouts: s.walkouts, beltServed: s.beltServed || 0, washed: s.washed, money: s.money, stats: window.stats, save: { ...d.save } };
+      return { served: s.served, walkouts: s.walkouts, beltServed: s.beltServed || 0, washed: s.washed, money: s.money, stats: window.stats, save: { ...d.save },
+        crew: s.crew.did, card: document.querySelector('#summary').textContent };
     });
   }
   if (!result) throw new Error('the night never ended');
@@ -210,6 +239,7 @@ try {
   check(result.walkouts <= 1, 'almost nobody walked out');
   check(result.beltServed >= 1, 'the belt delivered at least one dish');
   check(result.washed >= 1, 'dishes were washed');
+  check(Object.values(result.crew).some((n) => n > 0) && result.card.includes('¥2,100 in staff wages'), `the staff pitched in (${JSON.stringify(result.crew)}) and were paid at sunrise`);
   check(result.save.night === 2 && result.save.yen > 0, `the save moved on to night 2 with ¥${result.save.yen}`);
 
   // ---- sunrise, then bed

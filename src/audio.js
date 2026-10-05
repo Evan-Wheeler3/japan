@@ -197,6 +197,17 @@ export class Ambience {
     this.burst(t, 0.16, 1700, 0.7, 0.14); this.burst(t + 0.14, 0.12, 1300, 0.7, 0.1);
   }
 
+  // a stroke of the broom over wet boards, and a shovel biting into a drift
+  sweep() {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    this.burst(t, 0.28, 2600, 0.6, 0.12); this.burst(t + 0.05, 0.22, 5200, 0.8, 0.06);
+  }
+  shovel() {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    this.burst(t, 0.18, 700, 0.9, 0.3); this.burst(t + 0.02, 0.1, 3800, 2, 0.08);
+    for (let i = 0; i < 5; i++) this.burst(t + 0.32 + i * 0.03 + Math.random() * 0.02, 0.06, 900 + Math.random() * 1400, 1.4, 0.1);
+  }
+
   kaching() {
     if (!this.ctx) return; const t = this.ctx.currentTime;
     this.burst(t, 0.05, 2500, 3, 0.25); this.burst(t + 0.06, 0.04, 3200, 3, 0.2);

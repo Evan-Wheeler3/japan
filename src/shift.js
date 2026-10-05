@@ -107,7 +107,7 @@ export class Shift {
     this.redraw = 10;
     const next = this.waves[this.waveIdx];
     let status, calm = true;
-    if (this.waiting) status = 'closed · turn the sign by the door to open';
+    if (this.waiting) status = 'closed · upgrade stations, do chores, then turn the sign by the door';
     else if (this.closing) status = `closing · ${this.activeCustomers()} still here`;
     else if (this.pending.length) { status = `rush on · ${this.pending.length} more coming`; calm = false; }
     else if (this.t >= LAST_CALL) status = 'last orders · no more walk-ins';
@@ -125,13 +125,14 @@ export class Shift {
   end() {
     this.active = false;
     const s = this.service, d = (k) => s[k] - this.snap[k];
+    const wages = s.wages || 0; s.money -= wages; // the hired help is paid at sunrise, out of the till
     const served = d('served'), walk = d('walkouts');
     const stars = Math.max(1, Math.min(5, Math.round(5 * served / Math.max(1, served + walk * 1.5) + (d('burnt') ? -0.5 : 0))));
     const unlock = UNLOCKS[this.n - 1];
     if (unlock) unlock.apply(s);
     this.onEnd({
       n: this.n, range: this.range, closedAt: clockText(HOURS * 60).toLowerCase(), stars, unlock,
-      fed: served, earned: d('money'), tips: d('tips'), walkouts: walk, washed: d('washed'), burnt: d('burnt'), till: s.money,
+      fed: served, earned: d('money'), wages, tips: d('tips'), walkouts: walk, washed: d('washed'), burnt: d('burnt'), till: s.money,
     });
   }
 }

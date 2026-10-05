@@ -78,6 +78,10 @@ The **catalog** on the kotatsu sells, for the yen in your cash box:
   rush), get the walk-in freezer off the kitchen running (matcha ice cream on the menu, scooped from the chest
   freezer inside), and, once the back door's open, restore the old kura across the yard as your sake cellar (house
   sake on every bill).
+- **help wanted** (paid out of the till at sunrise): a dishwasher (¥500 a night) who washes whatever's left in the
+  sink and carries full racks back to the shelves; a sushi chef (¥700) who sends nigiri down the belt for guests
+  around the island who are waiting on it; a hall server (¥900) who takes orders you haven't got to and rings
+  people up at the register. They stand at their posts all night.
 - **for home:** paper lanterns, houseplants, a bonsai, a big woodblock print, a cat bed (a black cat moves
   in), a goldfish tank, a record player, a brass telescope at the front window (put your eye to it and it swings round to Fuji), and an
   irori hearth to sit by, a CRT television, and a Fami-Com console that plugs into it.
@@ -86,6 +90,18 @@ The **catalog** on the kotatsu sells, for the yen in your cash box:
   *Daruma Break* (breakout with daruma dolls). The TV comes with a floor cushion in front of it. Click the
   console to play: you sit down on the cushion, eye level with the set, and the game plays on the CRT itself.
   Arrow keys or WASD, space, Esc to put the controller down. High scores are saved.
+
+**Before you open** (while the sign still says CLOSED):
+
+- **Upgrade the kitchen.** Walk up to a station with empty hands and it offers its next upgrade, paid from the
+  cash box. Each station has two levels. The tea urns, sushi case and rice cookers first make two at once (into
+  your other hand), then earn more per dish (gyokuro tea +¥100, otoro +¥150, koshihikari onigiri +¥100). The
+  yakitori grills, gyoza teppan, fryers and ramen stove first cook 25% faster, then make two plates a batch. The
+  catalog lists them all under "kitchen stations". Once the shop opens, the stations go back to cooking.
+- **Do the chores (optional).** Slush has been tracked across the floors and snow has drifted over the front
+  path. Three broom strokes clear each patch and three scoops clear each drift. Sweep all six patches and tonight's
+  tips are 30% better. Shovel all six drifts and guests wait 25% longer. Anything left undone when you open is
+  forgotten until tomorrow.
 
 **Rearranging:** anything you bought that stands on the apartment floor can be moved. Look at it and press
 **F** (or click it, if it has nothing else to do) to pick it up; it follows your gaze across the floor. **R** or
@@ -120,6 +136,7 @@ coin on the offering box.
 | `src/interact.js` | Click-to-use raycasting, hinged and sliding doors |
 | `src/npc.js` | Guests: voxel people, walk/sit animation, nav grid + A*, the crowd |
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
+| `src/staff.js`, `src/chores.js` | The hired help at their posts, and the sweeping and shovelling before opening |
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen round the island, the plates riding it |
 | `src/home.js` | The save file, the catalog, what each upgrade does, and the things you can buy for the apartment |
 | `src/arcade.js` | The Fami-Com: a 256×224 canvas that is the CRT's picture, and its four games |

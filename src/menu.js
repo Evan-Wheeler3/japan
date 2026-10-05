@@ -3,6 +3,7 @@
 // Your character, settings and a few lifetime stats are remembered on this device.
 import * as THREE from 'three';
 import { Person, LOOK_OPTIONS, randomLook } from './npc.js';
+const STATION_NAMES = { tea: 'Tea urns', sushi: 'Sushi case', onigiri: 'Rice cookers', yakitori: 'Yakitori grills', gyoza: 'Gyoza teppan', tempura: 'Fryers', ramen: 'Ramen stove' };
 
 const KEY = 'yoake.profile';
 const HAIR_STYLES = [[0, 'short'], [1, 'swept back'], [2, 'long'], [4, 'bun'], [3, 'bald']];
@@ -166,6 +167,9 @@ export class Menu {
         <div class="look glass catalog"><div class="scroll">
           <section><div class="lbl">for the shop</div>${c.items.filter((i) => i.kind === 'shop').map(row).join('')}</section>
           <section><div class="lbl">for the property</div>${c.items.filter((i) => i.kind === 'property').map(row).join('')}</section>
+          <section><div class="lbl">kitchen stations · buy at the station itself, before opening</div>${c.items.filter((i) => i.kind === 'station').map((it) => `<div class="buy${it.owned ? '' : ' later'}"><div class="what"><b>${esc(STATION_NAMES[it.station])} · ${esc(it.name.toLowerCase())}</b><span>${esc(it.short)}</span></div>
+            <button class="chip${it.owned ? ' on' : ''}" disabled>${it.owned ? 'yours' : `¥${it.price.toLocaleString('en-US')}`}</button></div>`).join('')}</section>
+          <section><div class="lbl">help wanted · paid at sunrise</div>${c.items.filter((i) => i.kind === 'staff').map(row).join('')}</section>
           <section><div class="lbl">for home</div>${c.items.filter((i) => i.kind === 'home').map(row).join('')}</section>
           <section><div class="lbl">for the fami-com</div>${c.items.filter((i) => i.kind === 'games').map(row).join('')}</section>
         </div></div>`;

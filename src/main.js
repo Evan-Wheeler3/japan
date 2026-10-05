@@ -9,7 +9,9 @@ import { Interactions, Door } from './interact.js';
 import { Crowd } from './npc.js';
 import { Service } from './service.js';
 import { Shift, clockText, START_HOUR, UNLOCKS } from './shift.js';
-import { loadSave, writeSave, clearSave, CATALOG, itemById, applyUpgrades, ownedGames, Home } from './home.js';
+import { loadSave, writeSave, clearSave, CATALOG, STATION_UPS, itemById, applyUpgrades, ownedGames, Home } from './home.js';
+import { Staff } from './staff.js';
+import { Chores } from './chores.js';
 import { Arcade } from './arcade.js';
 import { Menu } from './menu.js';
 import { Net, newCode } from './net.js';
@@ -517,7 +519,8 @@ async function boot() {
     if (!save.devYen) save.yen -= it.price;
     service.owned.push(id); save.owned = [...service.owned]; writeSave(save);
     applyAll(); audio.kaching();
-    service.sayAll(it.kind === 'shop' ? `${it.name.toLowerCase()}: ready tonight` : `${it.name.toLowerCase()}: delivered upstairs`);
+    service.sayAll(it.kind === 'shop' ? `${it.name.toLowerCase()}: ready tonight` : it.kind === 'station' ? `${it.name.toLowerCase()}: installed (${it.short})`
+      : it.kind === 'staff' ? `${it.name.replace('Hire a ', '').toLowerCase()} hired: starts tonight` : it.kind === 'property' ? `${it.name.toLowerCase()}: done` : `${it.name.toLowerCase()}: delivered upstairs`);
   };
   service.onBuy = buyItem;
   const openCatalog = () => { catalogOpen = true; unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false); };
@@ -567,7 +570,7 @@ async function boot() {
   const showSummary = (r, canStart) => {
     menu.addShift(r.tips);
     sunriseStart();
-    const extra = [r.walkouts && `${r.walkouts} walked out`, r.burnt && `${r.burnt} burnt`, r.washed && `${r.washed} dishes washed`].filter(Boolean).join(' · ');
+    const extra = [r.wages && `${money(r.wages)} in staff wages`, r.walkouts && `${r.walkouts} walked out`, r.burnt && `${r.burnt} burnt`, r.washed && `${r.washed} dishes washed`].filter(Boolean).join(' · ');
     $('summary').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
         <div class="when hand">sunrise · night ${r.n}</div>
         <div class="closed neon amber">YOAKE</div>
@@ -589,12 +592,18 @@ async function boot() {
     unlock();
   };
   const shift = new Shift({ service, crowd, audio, toast, ui: { schedule: $('schedule') }, onEnd: (r) => {
-    save.night = r.n + 1; save.yen += r.earned; save.owned = [...service.owned]; writeSave(save);
+    save.night = r.n + 1; save.yen = Math.max(0, save.yen + r.earned); save.owned = [...service.owned]; writeSave(save);
     if (coop) net.send({ t: 'summary', r: { ...r, unlock: r.unlock && { name: r.unlock.name, text: r.unlock.text } } });
     showSummary(r, true);
   } });
   shift.players = () => (coop && net ? Math.max(1, net.players.length) : 1);
   shift.onStart = (n) => { if (coop && coop.isHost) net.send({ t: 'shiftStart', n }); };
+  // between nights (the sign still says CLOSED) you can upgrade the kitchen's stations and do the chores
+  service.between = () => shift.active && shift.waiting;
+  service.isOpen = () => shift.active && !shift.waiting;
+  service.stationUps = STATION_UPS;
+  service.crew = new Staff({ scene, service, litMat, emitMat });
+  service.chores = new Chores({ scene, service, interactions, audio, litMat, emitMat, between: service.between });
   if (dev) { shift.start(1); shift.openShop(); }
 
   // ---------------------------------------------------------------- main menu + co-op

@@ -35,6 +35,9 @@ export const CATALOG = [
   { id: 'backdoor', kind: 'property', name: 'Dig out the back door', price: 2000, text: "Shovel the drift off the hall's back door. Guests coming down from the shrine path come in the back way: one more guest in every rush." },
   { id: 'freezer', kind: 'property', name: 'Get the walk-in freezer running', price: 4500, text: 'The old walk-in off the kitchen, fixed up and humming. Matcha ice cream goes on the menu (¥450), scooped from the chest freezer inside.' },
   { id: 'kura', kind: 'property', needs: 'backdoor', name: 'Restore the old kura', price: 10000, text: 'Clear out the storehouse and keep your own sake there. A cup of house sake goes on every bill: ¥400 more.' },
+  { id: 'staff_wash', kind: 'staff', name: 'Hire a dishwasher', price: 1500, wage: 500, text: 'Taro takes the sink. Dirty dishes left in it get washed and carried back to the shelves on their own. ¥500 a night in wages.' },
+  { id: 'staff_sushi', kind: 'staff', name: 'Hire a sushi chef', price: 2500, wage: 700, text: 'Kenji works the sushi case. Whenever a guest along the belt is waiting on nigiri, he sends a plate out from the kitchen. ¥700 a night.' },
+  { id: 'staff_hall', kind: 'staff', name: 'Hire a hall server', price: 3500, wage: 900, text: 'Hana takes the orders of guests you haven\'t got to and rings people up at the register. ¥900 a night.' },
   { id: 'lanterns', kind: 'home', name: 'A string of paper lanterns', price: 600, text: 'Little lanterns along the engawa, over the bay windows.' },
   { id: 'plants', kind: 'home', name: 'Houseplants', price: 700, text: 'A monstera and a fern, for the corners.' },
   { id: 'bonsai', kind: 'home', name: 'Bonsai pine', price: 900, text: 'On a stand by the window. Older than the shop.' },
@@ -49,7 +52,24 @@ export const CATALOG = [
   { id: 'game_dash', kind: 'games', needs: 'famicom', game: 'dash', name: 'Snow Dash', price: 600, text: 'Run through the snow, jump the snowmen, duck the crows.' },
   { id: 'game_koi', kind: 'games', needs: 'famicom', game: 'koi', name: 'Koi Pond', price: 700, text: 'A koi grows longer with every pellet. Mind the stones.' },
   { id: 'game_daruma', kind: 'games', needs: 'famicom', game: 'daruma', name: 'Daruma Break', price: 900, text: 'Bounce a ball and knock down every daruma on the shelf.' },
+  // the kitchen's own stations: not in the catalog. Walk up to one before the sign turns to OPEN (see service.upNext)
+  ...stationUps([
+    ['tea', 'Twin urn taps', 'two cups at a time', 1200, 'Gyokuro leaves', '+¥100 a cup', 3000],
+    ['sushi', 'A second cutting board', 'two plates at a time', 1800, 'Otoro from the market', '+¥150 a plate', 4000],
+    ['onigiri', 'An onigiri mold', 'two plates at a time', 1500, 'Koshihikari rice', '+¥100 a plate', 3500, 'onigiri'],
+    ['yakitori', 'Bamboo fans for the coals', 'cooks 25% faster', 2000, 'Longer skewer racks', 'two plates a batch', 4500],
+    ['gyoza', 'A heavy lid', 'cooks 25% faster', 1800, 'A double pan', 'two plates a batch', 4000],
+    ['tempura', 'Fresh frying oil', 'cooks 25% faster', 2000, 'A wide fryer basket', 'two plates a batch', 4500, 'tempura'],
+    ['ramen', 'A pressure stockpot', 'cooks 25% faster', 2500, 'A second burner', 'two bowls a batch', 5000, 'ramen'],
+  ]),
 ];
+function stationUps(rows) {
+  return rows.flatMap(([station, n1, s1, p1, n2, s2, p2, needs]) => [
+    { id: `up_${station}1`, kind: 'station', station, name: n1, short: s1, price: p1, needs },
+    { id: `up_${station}2`, kind: 'station', station, name: n2, short: s2, price: p2, needs: `up_${station}1` },
+  ]);
+}
+export const STATION_UPS = CATALOG.filter((c) => c.kind === 'station');
 // the cartridges you own (Sushi Catch comes with the console)
 export const ownedGames = (owned) => (owned.includes('famicom') ? ['sushi', ...CATALOG.filter((c) => c.game && owned.includes(c.id)).map((c) => c.game)] : []);
 export const itemById = (id) => CATALOG.find((c) => c.id === id);
@@ -64,7 +84,17 @@ export function applyUpgrades(service, owned) {
   service.extraGuests = has('backdoor') ? 1 : 0;
   service.belt.speed = has('beltMotor2') ? 0.84 : has('beltMotor') ? 0.63 : 0.42;
   const grill = has('binchotan2') ? 0.5 : has('binchotan') ? 0.7 : 1;
-  for (const st of service.stations) st.cook = st.baseCook * (st.kind === 'yakitori' || st.kind === 'gyoza' ? grill : 1);
+  // station upgrades: level 1 is speed (or a second dish at once), level 2 is a bigger batch (or a better price)
+  const lv = (k) => (has(`up_${k}2`) ? 2 : has(`up_${k}1`) ? 1 : 0);
+  service.twin = new Set(['tea', 'sushi', 'onigiri'].filter((k) => lv(k) >= 1));
+  service.priceBonus = { tea: lv('tea') > 1 ? 100 : 0, sushi: lv('sushi') > 1 ? 150 : 0, onigiri: lv('onigiri') > 1 ? 100 : 0 };
+  for (const st of service.stations) {
+    st.cook = st.baseCook * (st.kind === 'yakitori' || st.kind === 'gyoza' ? grill : 1) * (lv(st.kind) >= 1 ? 0.75 : 1);
+    st.batch = lv(st.kind) > 1 ? 2 : 1; st.burn = st.batch > 1 ? 40 : 30;
+  }
+  // staff on the payroll
+  service.staff = new Set(CATALOG.filter((c) => c.kind === 'staff' && has(c.id)).map((c) => c.id));
+  service.wages = CATALOG.filter((c) => c.kind === 'staff' && has(c.id)).reduce((a, c) => a + c.wage, 0);
 }
 
 // ---------------------------------------------------------------- models for the apartment
