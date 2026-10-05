@@ -1,8 +1,8 @@
 # Yoake (夜明け)
 
-A cozy voxel night shift in a little Japanese shop on a snowy cliff above the sea. You keep it open from
-10 PM until dawn: pour green tea, make salmon nigiri, grill yakitori and fry gyoza, then bus the tables,
-wash up and restock the cups and plates. When the last guest leaves, the sun comes up over Mt Fuji across the bay.
+A cozy voxel night shift in a hole-in-the-wall shop on a narrow Tokyo street, late at night, in the snow. You keep
+it open from 10 PM until dawn: pour green tea, make salmon nigiri, grill yakitori and fry gyoza, then bus the tables,
+wash up and restock the cups and plates. When the last guest leaves, the sun comes up behind Tokyo Tower.
 
 Built on **My Cozy Diner**, a friend's voxel diner game, used with permission: the voxel engine, lighting,
 customers, shift loop, menus, co-op and touch controls are theirs. This version swaps the rainy NYC diner
@@ -19,6 +19,21 @@ step; three.js loads from a CDN). `serve.py` disables caching so edits show up o
 
 Controls: **WASD** walk · mouse look · **Shift** walk faster · **click** use things · **Q** put down what you're holding · **M** radio · **Esc** pause.
 On a phone: left thumb walks, drag on the right to look, tap to use.
+
+## The street
+
+The shop is nine stools along a little sushi belt, two booths in the front window, a register by the door, and a
+kitchen line under the hood behind the counter. Through the noren at the back: a washroom, a walk-in freezer, a
+storeroom, the back door to the alley, and the stairs up to your flat (tatami, a kotatsu, a futon).
+
+Outside, it's a back street between the bars and the izakaya: a konbini across the road lit up all night, a coin
+laundry, karaoke, utility poles strung with wires, vending machines (one has a cat asleep beside it), coin parking,
+and an elevated line at the west end where a train rumbles over now and then. People with umbrellas pass by all
+night; some of them come in.
+
+The game used to be set in a shop on a snowy cliff above the sea, looking across the bay at Mt Fuji. That map is
+still there: add `?map=mountain` to the URL to run the shop up there (it keeps its own furniture layout). The night
+parade is always played on the mountain.
 
 ## How a night goes
 
@@ -56,7 +71,7 @@ When guests are done they line up at the register (**¥**). Carry dirty dishes t
 there while they wash, then take the clean ones from the rack back to the shelf. You can set anything down on
 a counter. Each night you finish unlocks a perk.
 
-At 6 AM the last guests leave and the sun comes up over Fuji. Then go up to bed: you sleep through the short
+At 6 AM the last guests leave and the sun comes up. Then go up to bed: you sleep through the short
 winter day and wake for the next night. Your night, your yen, your perks and everything you've bought are
 saved in this browser ("start a new game" in settings wipes it).
 
@@ -83,7 +98,7 @@ The **catalog** on the kotatsu sells, for the yen in your cash box:
   around the island who are waiting on it; a hall server (¥900) who takes orders you haven't got to and rings
   people up at the register. They stand at their posts all night.
 - **for home:** paper lanterns, houseplants, a bonsai, a big woodblock print, a cat bed (a black cat moves
-  in), a goldfish tank, a record player, a brass telescope at the front window (put your eye to it and it swings round to Fuji), and an
+  in), a goldfish tank, a record player, a brass telescope at the front window (put your eye to it and it swings round to Tokyo Tower, or Fuji on the mountain), and an
   irori hearth to sit by, a CRT television, and a Fami-Com console that plugs into it.
 - **for the Fami-Com:** the console comes with *Sushi Catch* (catch falling sushi, dodge the wasabi). Three more
   cartridges: *Snow Dash* (jump snowmen, duck crows), *Koi Pond* (a snake game in a koi pond) and
@@ -116,18 +131,18 @@ shares one arrangement of the apartment.
 **Dev switch:** the **`** key (or "dev · infinite yen" in settings) toggles a cash box that never runs out, for
 testing. It's remembered until you switch it off.
 
-The vending machine outside, along the path past the stair, takes ¥130 from the cash box for a hot drink. It warms you
+The vending machines up the street (on the mountain, the one along the path past the stair) take ¥130 from the cash box for a hot drink. It warms you
 up: you walk 25% faster for two minutes of play (the cash box shows the time left, and another can tops it up).
 
-West of the shop, a flagstone path leads past a stone lantern and through a torii to a little hokora in the
-pines. Bow there (click the shrine: two bows, two claps, one bow) and once a day the kami leave a ¥100
+Down the street past the coin laundry, a little Inari shrine is tucked between two buildings: a red torii, a
+hokora and two stone foxes (on the mountain it's up a flagstone path in the pines). Bow there (click the shrine: two bows, two claps, one bow) and once a day the kami leave a ¥100
 coin on the offering box.
 
 ## 百鬼夜行 · the night parade
 
 A survival mode on the title screen, separate from the shop: your save, yen and purchases are never touched.
 
-It's the same shop after dark, boarded up, with the gaki (the hungry dead, in tattered burial white) coming up out
+It's the old shop up on the snowy mountain, boarded up, with the gaki (the hungry dead, in tattered burial white) coming up out
 of the snow in rounds. The round number is drawn as a kanji numeral in the corner. You start in the front room with
 500 points and nothing in your hands. The dishes on the booth tables are your first weapons: grab them with **E** and
 throw them with the mouse or **G** (plates, tea cups and sake flasks all break on whatever they hit). With no weapon
@@ -208,7 +223,8 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
 | File | What it is |
 |---|---|
 | `src/voxel.js` | Palette, voxel grid, face-culled mesher with baked AO, `Model` (props) and `PropBatch` (merged static props), 5×7 pixel font |
-| `src/world.js` | The 1/8 m voxel world: the snowy lot, the shop (kaiten island, front booth room, genkan, kitchen), the flat upstairs and its outdoor stair, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
+| `src/maps/` | The maps: `index.js` holds the current one (`MAP`), `tokyo.js` and `mountain.js` give every position the shop needs (counters, stations, the sink, the belt, doors, seats, where guests walk in, furniture spots). `tokyo/world.js` builds the street in voxels, `tokyo/props.js` furnishes it, `tokyo/decor.js` adds the neon signs, wires, skyline, Tokyo Tower and trains |
+| `src/world.js` | The mountain map's 1/8 m voxel world: the snowy lot, the shop (kaiten island, front booth room, genkan, kitchen), the flat upstairs and its outdoor stair, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
 | `src/props.js` | Finer-scale prop models: furniture, lanterns, the sushi case, kitchen gear, signs, the cat, the vending machine, and where they're placed |
 | `src/effects.js` | Night-to-dawn sky, snowfall, frosted glass, steam, the cliff, the sea, the hills and Mt Fuji, post FX |
 | `src/audio.js` | Fully synthesized sound: wind, the sea, room tone, a generative koto radio, the door chime, snowy footsteps |

@@ -199,6 +199,8 @@ export class Crowd {
     this.puppet = false; // co-op guest: customers are positioned by the host, not simulated here
     this.r = Math.random; // a different crowd every night: looks, seats, timing
     this.spawns = C.spawns.map((s) => [...s]);
+    for (const r of C.blocked || []) this.nav.setBlocked(r, true); // staff only
+    this.passers = C.passersby || null; this.nextPasser = 0.5;      // people just walking by on a busy street
     this.nextArrival = 12;
     this.max = 10;
     this.auto = true; // random walk-ins; the shift turns this off and sends people in waves
@@ -235,6 +237,18 @@ export class Crowd {
     const q = this.make(randomLook(this.r));
     q.pos.set(sp[0], 0.125, sp[1]); q.seat = seat; seat.occupant = q;
     q.path = path; q.state = 'walk'; q.then = 'sitdown';
+  }
+  // someone walking past: from one end of the street to the other, keeping to their own line
+  passby() {
+    const S = this.spawns; if (S.length < 2) return;
+    const i = Math.floor(this.r() * S.length), a = S[i], b = S[(i + 1 + Math.floor(this.r() * (S.length - 1))) % S.length];
+    const path = this.nav.path(a[0], a[1], b[0], b[1]); if (!path) return;
+    const off = (this.r() - 0.5) * 3.2;
+    for (const p of path) if (p[1] < -0.6) p[1] = Math.max(-6.1, Math.min(-0.9, p[1] + off));
+    path.push([b[0], Math.max(-6.1, Math.min(-0.9, b[1] + off))]);
+    const q = this.make(randomLook(this.r));
+    q.pos.set(a[0], 0.125, Math.max(-6.1, Math.min(-0.9, a[1] + off))); q.path = path; q.state = 'walk'; q.then = 'despawn';
+    q.passer = true; q.pace = 0.85 + this.r() * 0.45;
   }
   leave(q) {
     const sp = this.spawns[Math.floor(this.r() * this.spawns.length)];
@@ -302,6 +316,11 @@ export class Crowd {
   update(dt) {
     if (this.puppet) return this.updatePuppets(dt);
     this.nextArrival -= dt;
+    if (this.passers && (this.nextPasser -= dt) <= 0) {
+      const [lo, hi] = this.passers.every;
+      this.nextPasser = lo + this.r() * (hi - lo);
+      if (this.people.filter((q) => q.passer).length < this.passers.max) this.passby();
+    }
     if (this.auto && this.nextArrival < 0) { if (this.people.length < this.max) this.arrive(); this.nextArrival = 25 + this.r() * 45; }
     for (let i = this.people.length - 1; i >= 0; i--) {
       const q = this.people[i];
@@ -325,17 +344,17 @@ export class Crowd {
             const nx = q.pos.x + sx * 0.6 * dt, nz = q.pos.z + sz * 0.6 * dt, k = this.nav.idx(nx, nz);
             if (k >= 0 && this.nav.ok[k]) { q.pos.x = nx; q.pos.z = nz; }
           }
-          // open doors on the way
-          for (const door of this.doors) {
+          // open doors on the way (people only passing by don't come in)
+          if (!q.passer) for (const door of this.doors) {
             if (!door.open && Math.hypot(door.center.x - q.pos.x, door.center.z - q.pos.z) < 1.3) {
               door.toggle(q.pos);
               this.audio.doorSound(true);
               if (door.bell) this.audio.doorBell(Math.max(0.15, 1 - Math.hypot(this.player.pos.x - q.pos.x, this.player.pos.z - q.pos.z) / 18));
             }
           }
-          const doorShut = this.doors.some((door) => Math.abs(door.a) < 0.6 && Math.hypot(door.center.x - q.pos.x, door.center.z - q.pos.z) < 0.9);
+          const doorShut = !q.passer && this.doors.some((door) => Math.abs(door.a) < 0.6 && Math.hypot(door.center.x - q.pos.x, door.center.z - q.pos.z) < 0.9);
           if (!blockedByYou && !doorShut) {
-            speed = 1.15;
+            speed = 1.15 * (q.pace || 1);
             const step = Math.min(d, speed * dt);
             if (d > 1e-4) { q.pos.x += dx / d * step; q.pos.z += dz / d * step; }
             const want = Math.atan2(-dx, -dz);

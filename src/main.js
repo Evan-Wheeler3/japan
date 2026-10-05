@@ -20,6 +20,7 @@ import { TouchControls, isTouch } from './touch.js';
 import { Parade } from './survival/mode.js';
 import { MAP, setMap } from './maps/index.js';
 import { MOUNTAIN } from './maps/mountain.js';
+import { TOKYO } from './maps/tokyo.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { const el = document.querySelector('#screen .loading'); if (el) el.textContent = t; };
@@ -27,7 +28,7 @@ const frame = () => new Promise((r) => { requestAnimationFrame(() => setTimeout(
 
 // which map to build: the night parade (and ?map=mountain) are on the mountain; the shop is on the Tokyo street
 const paradeNext = (() => { try { const v = sessionStorage.getItem('yoake.parade'); sessionStorage.removeItem('yoake.parade'); return v; } catch { return null; } })();
-const MAPS = { mountain: MOUNTAIN };
+const MAPS = { mountain: MOUNTAIN, tokyo: TOKYO };
 const pickMap = () => {
   const asked = new URLSearchParams(location.search).get('map');
   if (paradeNext) return MOUNTAIN;
@@ -46,7 +47,7 @@ async function boot() {
   $('app').appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(FOG_COLOR.clone(), FOG_DENSITY);
+  scene.fog = new THREE.FogExp2(FOG_COLOR.clone(), FOG_DENSITY); // (the map's own density is set once it's chosen, in setDawn)
   const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.05, 1600);
 
   const litMat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -69,7 +70,9 @@ async function boot() {
   scene.add(batch.build(litMat, emitMat));
   console.log(`[yoake] build ${(T1 - T0) | 0}ms, mesh+props ${(performance.now() - T1) | 0}ms`);
   const backdrop = MAP.backdrop(); scene.add(backdrop);
-  const sky = makeSky(); scene.add(sky);
+  const sky = makeSky(MAP.view.sky); scene.add(sky);
+  // the map's own things that aren't voxels: signs, wires, trains (and how they change with the night)
+  const deco = MAP.decorate ? MAP.decorate(scene, { meta, audio: null, litMat, emitMat }) : null;
 
   // ---------------------------------------------------------------- lights
   const hemi = new THREE.HemisphereLight(0x4a5884, 0x2a1a12, 3.0); scene.add(hemi);
@@ -648,7 +651,8 @@ async function boot() {
   applySettings(menu.profile.settings);
   menu.h = {
     onSolo: () => enter(),
-    onParade: () => startParade(),
+    // the night parade is played on the mountain: off the street and up there (a reload, as the shop's world is built once)
+    onParade: () => { if (MAP === MOUNTAIN) return startParade(); try { sessionStorage.setItem('yoake.parade', '1'); } catch {} location.reload(); },
     onHost: async () => {
       menu.show('connecting');
       for (let tries = 0; tries < 5 && !net; tries++) {
@@ -776,9 +780,9 @@ async function boot() {
   // sky, light and haze all follow one number
   function setDawn(d) {
     sunDir(d, sunV);
-    hazeColor(d, haze);
+    hazeColor(d, haze, MAP.view.nightHaze);
     scene.fog.color.copy(haze);
-    scene.fog.density = THREE.MathUtils.lerp(FOG_DENSITY, 0.018, THREE.MathUtils.smoothstep(d, 0.5, 1));
+    scene.fog.density = THREE.MathUtils.lerp(MAP.view.fog ?? FOG_DENSITY, 0.018, THREE.MathUtils.smoothstep(d, 0.5, 1));
     const u = sky.material.uniforms; u.dawn.value = d; u.sun.value.copy(sunV); u.haze.value.copy(haze);
     for (const m of mats) { m.uniforms.dawn.value = d; m.uniforms.sun.value.copy(sunV); m.uniforms.haze.value.copy(haze); }
     const k = THREE.MathUtils.smoothstep(d, 0.4, 1);
@@ -887,6 +891,7 @@ async function boot() {
     mats[mats.length - 1].uniforms.time.value = time; // the sea
     for (const st of homeSteam) { st.material.uniforms.time.value = time; st.material.uniforms.scale.value = innerHeight * renderer.getPixelRatio(); }
     grade.uniforms.time.value = time;
+    if (deco) deco.update(dt, time, dawn, camera, audio);
 
     audio.update(dt, {
       indoor, listener: camera.position, musicDist: Math.min(camera.position.distanceTo(radioPos), home.recordOn ? camera.position.distanceTo(home.recordPos) : Infinity), sizzleDist: Math.hypot(p.x - MAP.shop.sizzle[0], p.z - MAP.shop.sizzle[1]), gust, dawn,

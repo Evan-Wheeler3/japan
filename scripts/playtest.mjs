@@ -266,7 +266,12 @@ try {
   // ---- 百鬼夜行: the night parade (a survival mode that leaves the shop's save alone)
   await page.reload(); await ready();
   const saveBefore = await page.evaluate(() => localStorage.getItem('yoake.save'));
-  await page.click('#screen [data-act="parade"]');
+  check(await page.evaluate(() => window.__yoake.map.id) === 'tokyo', 'the shop is on the Tokyo street');
+  // the parade is played up on the mountain: the menu item reloads onto that map, and a click goes in
+  await Promise.all([page.waitForEvent('load', { timeout: 240000 }), page.click('#screen [data-act="parade"]')]);
+  await page.waitForFunction(() => window.__yoake && document.querySelector('#screen [data-act="enter"]'), null, { timeout: 240000 });
+  check(await page.evaluate(() => window.__yoake.map.id) === 'mountain', 'the night parade loads the snowy mountain');
+  await page.click('#screen [data-act="enter"]');
   st = await page.evaluate(() => {
     const d = window.__yoake, P = d.parade;
     d.player.locked = true;
@@ -316,6 +321,9 @@ try {
   await page.waitForFunction(() => document.getElementById('zm-over').classList.contains('on'), null, { timeout: 30000 });
   st = await page.evaluate(() => ({ text: document.getElementById('zm-over').textContent, save: localStorage.getItem('yoake.save') }));
   check(/the night parade took you/.test(st.text) && /round 5/.test(st.text) && st.save === saveBefore, "falling ends the night with its card, and the shop's save is untouched");
+  // and back to the shop: the street again
+  await page.reload(); await ready();
+  check(await page.evaluate(() => window.__yoake.map.id) === 'tokyo', 'leaving the parade goes back to the shop on the street');
 
   if (errors.length) throw new Error(`page errors:\n${errors.join('\n')}`);
   console.log('PLAYTEST PASSED');

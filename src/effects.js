@@ -18,8 +18,8 @@ export const MOON_DIR = new THREE.Vector3(0.6, 0.3, -0.75).normalize();
 
 // The horizon/haze color for a given dawn, shared by the sky, the fog and the sea so they meet seamlessly.
 const NIGHT_HAZE = new THREE.Color(0x141b2a), BLUE_HOUR = new THREE.Color(0x46506e), DAWN_HAZE = new THREE.Color(0xc0928a);
-export function hazeColor(dawn, out = new THREE.Color()) {
-  if (dawn < 0.55) return out.copy(NIGHT_HAZE).lerp(BLUE_HOUR, THREE.MathUtils.smoothstep(dawn, 0.15, 0.55));
+export function hazeColor(dawn, out = new THREE.Color(), night = NIGHT_HAZE) {
+  if (dawn < 0.55) return out.copy(night).lerp(BLUE_HOUR, THREE.MathUtils.smoothstep(dawn, 0.15, 0.55));
   return out.copy(BLUE_HOUR).lerp(DAWN_HAZE, THREE.MathUtils.smoothstep(dawn, 0.55, 1));
 }
 
@@ -31,13 +31,14 @@ float fbm(vec2 p){ float a=.5, s=0.; for(int i=0;i<4;i++){ s+=a*vnoise(p); p*=2.
 `;
 
 // ---------------------------------------------------------------- sky: stars, moon, a snowy cloud deck, then dawn
-export function makeSky() {
+// city: no stars or moon through the snow clouds, which glow orange from the streets below
+export function makeSky({ city = false } = {}) {
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { time: { value: 0 }, dawn: { value: 0 }, sun: { value: new THREE.Vector3() }, moon: { value: MOON_DIR.clone() }, haze: { value: new THREE.Color() } },
+    uniforms: { time: { value: 0 }, dawn: { value: 0 }, sun: { value: new THREE.Vector3() }, moon: { value: MOON_DIR.clone() }, haze: { value: new THREE.Color() }, city: { value: city ? 1 : 0 } },
     vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); vec4 p = projectionMatrix*modelViewMatrix*vec4(position,1.); gl_Position = p.xyww; }`,
     fragmentShader: NOISE + `
-      varying vec3 vDir; uniform float time; uniform float dawn; uniform vec3 sun; uniform vec3 moon; uniform vec3 haze;
+      varying vec3 vDir; uniform float time; uniform float dawn; uniform vec3 sun; uniform vec3 moon; uniform vec3 haze; uniform float city;
       void main(){
         vec3 d = normalize(vDir);
         float y = d.y;
@@ -58,16 +59,20 @@ export function makeSky() {
         st *= 0.6 + 0.4*sin(time*2.0 + h21(floor(sp)+3.0)*30.0);
         // clouds: a slow deck with gaps
         vec2 cuv = d.xz/(max(y,0.05)) * 0.35 + vec2(time*0.004, time*0.0015);
-        float c = smoothstep(0.42, 0.85, fbm(cuv*1.6)) * smoothstep(0.02, 0.25, y);
+        float c = smoothstep(0.42 - city*0.3, 0.85, fbm(cuv*1.6)) * smoothstep(0.02, 0.25, y);
+        st *= 1.0 - city;
         col += vec3(1.0) * st * (1.0 - c) * (1.0 - k) * 0.9;
         vec3 cloudCol = mix(vec3(0.07,0.08,0.11), mix(vec3(0.9,0.55,0.55), vec3(1.4,0.8,0.5), toward), k);
         // moonlight on the cloud edges
-        cloudCol += vec3(0.12,0.13,0.16) * pow(max(dot(d, moon),0.), 6.0) * (1.0-k);
+        cloudCol += vec3(0.12,0.13,0.16) * pow(max(dot(d, moon),0.), 6.0) * (1.0-k) * (1.0 - city);
+        cloudCol += vec3(0.16,0.07,0.05) * city * (1.0 - k) * (1.0 - smoothstep(0.0, 0.6, y));   // lit from the streets
         col = mix(col, cloudCol, c * 0.85);
         // moon
         float md = dot(d, moon);
-        col += vec3(1.0,0.97,0.9) * smoothstep(0.9993, 0.9996, md) * (1.0 - c*0.8) * (1.0 - k) * 1.6;
-        col += vec3(0.25,0.28,0.35) * pow(max(md,0.), 300.0) * (1.0 - k);
+        col += vec3(1.0,0.97,0.9) * smoothstep(0.9993, 0.9996, md) * (1.0 - c*0.8) * (1.0 - k) * 1.6 * (1.0 - city);
+        col += vec3(0.25,0.28,0.35) * pow(max(md,0.), 300.0) * (1.0 - k) * (1.0 - city);
+        // the glow of the city low all round the horizon
+        col += vec3(0.30,0.13,0.10) * city * (1.0 - k) * pow(1.0 - smoothstep(-0.05, 0.35, y), 2.0);
         // sun
         float sd = dot(d, sun);
         col += vec3(1.6,1.0,0.55) * pow(max(sd,0.), 18.0) * k * 0.9;

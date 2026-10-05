@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Model, C, rng, hash01, glyphPixels, textWidth } from './voxel.js';
 
-const memo = (fn) => { let m; return () => m || (m = fn()); };
+export const memo = (fn) => { let m; return () => m || (m = fn()); };
 
 // ---------------------------------------------------------------- shared colors
 const K = {
@@ -92,11 +92,11 @@ function tableSet(variant) {
   chopsticksAt(m, 10, 1); soyAt(m, 15, 1); shichimiAt(m, 7, 1); m.box(19, 0, 1, 21, 3, 3, K.white); menuStandAt(m, 1 + (variant & 1), 1);
   return m;
 }
-const tableSets = [0, 1, 2, 3].map((v) => memo(() => tableSet(v)));
+export const tableSets = [0, 1, 2, 3].map((v) => memo(() => tableSet(v)));
 
 // ---------------------------------------------------------------- counter + back-bar stuff
 // glass sushi case: neta on crushed ice (where the nigiri come from)
-const sushiCase = memo(() => {
+export const sushiCase = memo(() => {
   const m = new Model(26, 11, 12, 1 / 32);
   m.box(0, 0, 0, 26, 2, 12, K.hinoki);
   m.box(1, 2, 1, 25, 3, 11, (x, y, z) => ((x * 3 + z) % 5 === 0 ? C('#d8e8f0', 0, 0.04) : C('#f0f6fa', 0, 0.03)));
@@ -115,7 +115,7 @@ const sushiCase = memo(() => {
   return m;
 });
 // tea urn: a tall glazed hot-water urn with a tap (faces -z)
-const urn = memo(() => {
+export const urn = memo(() => {
   const m = new Model(8, 14, 8, 1 / 16);
   const glaze = C('#6a7a5a', 0, 0.05), band = C('#3a2a1a', 0, 0.05);
   m.box(1, 0, 1, 7, 1, 7, K.woodD);
@@ -126,7 +126,7 @@ const urn = memo(() => {
   return m;
 });
 // two rice cookers keeping the rice warm
-const riceCooker = memo(() => {
+export const riceCooker = memo(() => {
   const m = new Model(12, 11, 12, 1 / 32);
   m.cyl(6, 6, 5.6, 0, 8, (x, y) => (y === 2 ? C('#d8d4cc', 0, 0.03) : K.white));
   m.cyl(6, 6, 5.0, 8, 10, C('#c8c4bc', 0, 0.03)); m.box(5, 10, 5, 7, 11, 7, K.black);
@@ -134,18 +134,18 @@ const riceCooker = memo(() => {
   return m;
 });
 // tins of tea leaves
-const teaTins = memo(() => {
+export const teaTins = memo(() => {
   const m = new Model(8, 10, 5, 1 / 32);
   m.cyl(2, 2.5, 1.8, 0, 9, (x, y) => (y === 8 ? K.chrome : C('#3a6a3a', 0, 0.05)));
   m.cyl(6, 2.5, 1.8, 0, 7, (x, y) => (y === 6 ? K.chrome : C('#8a3020', 0, 0.05)));
   return m;
 });
-const plates = memo(() => {
+export const plates = memo(() => {
   const m = new Model(9, 14, 9, 1 / 32);
   m.cyl(4.5, 4.5, 4.4, 0, 14, (x, y) => (y % 2 ? K.white : C('#2a4a7a', 0, 0.04)));
   return m;
 });
-const register = memo(() => {
+export const register = memo(() => {
   const m = new Model(12, 12, 10, 1 / 32);
   m.box(0, 0, 2, 12, 5, 10, K.brass); m.box(1, 5, 4, 11, 8, 10, K.brass);
   for (let x = 2; x < 10; x += 2) for (let z = 3; z < 9; z += 2) m.set(x, 5, z - 1, K.white);
@@ -154,7 +154,7 @@ const register = memo(() => {
   return m;
 });
 // maneki-neko: the beckoning cat, paw up, by the register (faces -z)
-const maneki = memo(() => {
+export const maneki = memo(() => {
   const m = new Model(8, 14, 7, 1 / 32);
   const w = C('#f4f0e6', 0, 0.03), pink = C('#f0a0a0', 0, 0.03), gold = C('#e8c040', 0.6, 0.03);
   m.box(1, 0, 1, 7, 7, 6, w); m.box(1, 7, 1, 7, 12, 6, w);
@@ -165,7 +165,7 @@ const maneki = memo(() => {
   m.box(2, 2, 0, 6, 5, 1, gold);                         // koban coin
   return m;
 });
-const glassesRow = memo(() => {
+export const glassesRow = memo(() => {
   const m = new Model(36, 4, 3, 1 / 32);
   const gl = C('#cfe2ea', 0, 0.05), glD = C('#a9c2cc', 0, 0.05);
   for (let x = 0; x < 36; x += 3) m.box(x, 0, 0, x + 2, 4, 2, (vx, y) => (y === 3 ? glD : gl));
@@ -173,7 +173,7 @@ const glassesRow = memo(() => {
 });
 // a row of yunomi tea cups on the shelf
 const cupColors = ['#6d7a5a', '#3d5f90', '#8a5a3c', '#d8cfc0', '#4a5a3a', '#a86a4a'];
-const cupRow = memo(() => {
+export const cupRow = memo(() => {
   const m = new Model(64, 5, 4, 1 / 32);
   for (let i = 0; i < 12; i++) {
     const c = C(cupColors[i % cupColors.length], 0, 0.05), x = 1 + i * 5.3;
@@ -182,7 +182,7 @@ const cupRow = memo(() => {
   }
   return m;
 });
-const pothos = memo(() => {
+export const pothos = memo(() => {
   const m = new Model(10, 16, 7, 1 / 32, [5, 10, 3.5]);
   const terr = C('#a4572e', 0, 0.06);
   m.box(2, 10, 1, 8, 15, 6, terr); m.box(3, 15, 2, 7, 16, 5, C('#2a1a10', 0, 0.05));
@@ -230,7 +230,7 @@ export const cat = memo(() => {
 });
 
 // umbrella stand by the door: snowy wagasa and a clear plastic one
-const umbrellaStand = memo(() => {
+export const umbrellaStand = memo(() => {
   const m = new Model(8, 30, 8, 1 / 32);
   m.cyl(4, 4, 3.6, 0, 14, (x, y) => (y % 4 === 0 ? K.woodD : C('#5a3a20', 0, 0.05)));
   const ind = C('#2a3a60', 0, 0.06), rd = C('#a82a24', 0, 0.06), clear = C('#d8e4ea', 0, 0.04);
@@ -275,8 +275,8 @@ function lanternStrand(len, withLantern, seed) {
   }
   return m;
 }
-const strands = [0, 1, 2, 3, 4, 5].map((i) => memo(() => lanternStrand(14 + i * 7, i % 2 === 0 || i === 5, i)));
-const topString = memo(() => {
+export const strands = [0, 1, 2, 3, 4, 5].map((i) => memo(() => lanternStrand(14 + i * 7, i % 2 === 0 || i === 5, i)));
+export const topString = memo(() => {
   const m = new Model(64, 1, 1, 1 / 32, [32, 1, 0.5]);
   for (let x = 0; x < 64; x++) m.set(x, 0, 0, x % 4 === 0 ? C('#ffd590', 1.5, 0.06) : C('#2a2620', 0, 0.02));
   return m;
@@ -305,9 +305,9 @@ function print(kind) {
   }
   return m;
 }
-const prints = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => memo(() => print(k)));
+export const prints = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => memo(() => print(k)));
 // hanging scroll: brocade mount, a brush stroke and a red seal (hangs from its top)
-const kakejiku = memo(() => {
+export const kakejiku = memo(() => {
   const m = new Model(10, 26, 1, 1 / 32, [5, 26, 0.5]);
   const mount = C('#5a4a3a', 0, 0.05), paper = C('#efe6d0', 0, 0.03), ink = C('#1a1614', 0, 0.03), seal = C('#c03020', 0, 0.03);
   for (let y = 0; y < 26; y++) for (let x = 0; x < 10; x++) m.set(x, y, 0, x === 0 || x === 9 || y < 2 || y > 22 ? mount : paper);
@@ -330,7 +330,7 @@ export const noren = memo(() => {
   return m;
 });
 // nobori: tall banner on a pole (pole at local x 0)
-const nobori = memo(() => {
+export const nobori = memo(() => {
   const m = new Model(8, 42, 2, 1 / 16, [0.5, 0, 1]);
   const red = C('#b83226', 0, 0.05), wht = C('#f0e8d8', 0, 0.03);
   m.box(0, 0, 0, 1, 42, 1, K.black);
@@ -342,7 +342,7 @@ const nobori = memo(() => {
   return m;
 });
 // a glowing drink vending machine with snow on its roof (faces -z)
-const vending = memo(() => {
+export const vending = memo(() => {
   const m = new Model(14, 30, 11, 1 / 16);
   const body = C('#e8eaee', 0, 0.03), blue = C('#2a5ab0', 0, 0.04), back = C('#f4f8ff', 2.0, 0.03);
   m.box(0, 0, 0, 14, 29, 11, (x, y, z) => (y < 2 ? K.black : x === 0 || x === 13 ? blue : body));
@@ -358,7 +358,7 @@ const vending = memo(() => {
   return m;
 });
 // a red Japan Post box with a cap of snow
-const postbox = memo(() => {
+export const postbox = memo(() => {
   const m = new Model(8, 17, 8, 1 / 16);
   const red = C('#c8282a', 0, 0.05);
   m.cyl(4, 4, 3.2, 0, 1, K.black); m.cyl(4, 4, 3.0, 1, 14, red);
@@ -427,10 +427,10 @@ function board(lines, scale, bg, ink, frame) {
   return m;
 }
 const menuWood = C('#d8b07c', 0, 0.05), menuInk = C('#2a1a10', 0, 0.03), menuFrame = C('#4a2c18', 0, 0.05);
-const menuBoards = [['TEA 300'], ['SUSHI 600'], ['YAKITORI 800'], ['GYOZA 700']].map((l) => memo(() => board(l, 1 / 64, menuWood, menuInk, menuFrame)));
-const restroomPlaque = memo(() => board(['TOILET'], 1 / 56, C('#c49a66', 0, 0.05), C('#2a1a10', 0, 0.04), C('#6a4022', 0, 0.05)));
+export const menuBoards = [['TEA 300'], ['SUSHI 600'], ['YAKITORI 800'], ['GYOZA 700']].map((l) => memo(() => board(l, 1 / 64, menuWood, menuInk, menuFrame)));
+export const restroomPlaque = memo(() => board(['TOILET'], 1 / 56, C('#c49a66', 0, 0.05), C('#2a1a10', 0, 0.04), C('#6a4022', 0, 0.05)));
 // big sake bottles on top of the drinks fridge
-const sakeBottles = memo(() => {
+export const sakeBottles = memo(() => {
   const m = new Model(36, 14, 4, 1 / 32);
   const glass = ['#2a4a2a', '#4a2a14', '#c8d8d0', '#1e3a2a', '#5a3018', '#2a3a4a'];
   for (let i = 0; i < 6; i++) {
@@ -441,7 +441,7 @@ const sakeBottles = memo(() => {
   return m;
 });
 // daruma dolls along the shelf
-const darumaRow = memo(() => {
+export const darumaRow = memo(() => {
   const m = new Model(40, 5, 4, 1 / 32);
   for (let x = 1; x < 38; x += 6) {
     const c = x % 4 === 1 ? K.red : C('#e8c040', 0, 0.05);
@@ -460,15 +460,15 @@ export const mikan = memo(() => {
   return m;
 });
 // bamboo place mat with chopsticks on a rest and a little soy dish
-const placemat = (soy) => {
+export const placemat = (soy) => {
   const m = new Model(14, 3, 9, 1 / 32);
   for (let x = 0; x < 14; x++) for (let z = 0; z < 9; z++) m.set(x, 0, z, z & 1 ? K.bamboo : K.bambooD);
   m.box(10, 1, 2, 11, 2, 7, C('#6a7a5a', 0, 0.04)); m.box(9, 1, 1, 10, 2, 8, K.woodD); m.box(11, 1, 1, 12, 2, 8, K.woodD);
   if (soy) { m.box(2, 1, 3, 6, 2, 7, K.white); m.box(3, 1, 4, 5, 2, 6, C('#2a140a', 0, 0.03)); }
   return m;
 };
-const placematK = memo(() => placemat(true)), placematN = memo(() => placemat(false));
-const radio = memo(() => {
+export const placematK = memo(() => placemat(true)), placematN = memo(() => placemat(false));
+export const radio = memo(() => {
   const m = new Model(12, 8, 6, 1 / 32);
   m.box(0, 0, 0, 12, 8, 6, C('#6a3a1a', 0, 0.06));
   m.box(1, 1, 0, 6, 6, 1, (x, y) => ((x + y) & 1 ? C('#c8b080', 0, 0.05) : C('#8a7050', 0, 0.05)));
@@ -557,20 +557,20 @@ export const roundMirror = memo(() => {
   return m;
 });
 // a tenugui hand towel on a bamboo rod (hangs from its top)
-const tenugui = memo(() => {
+export const tenugui = memo(() => {
   const m = new Model(10, 9, 2, 1 / 16, [5, 9, 1]);
   m.box(0, 8, 0, 10, 9, 1, bamboo);
   m.box(2, 0, 1, 8, 8, 2, (x, y) => ((x + y) % 3 === 0 ? K.white : K.indigo));
   return m;
 });
 // toilet slippers waiting inside the door
-const slippers = memo(() => {
+export const slippers = memo(() => {
   const m = new Model(5, 1, 5, 1 / 16);
   for (const x0 of [0, 3]) { m.box(x0, 0, 0, x0 + 2, 1, 5, C('#5a7a4a', 0, 0.05)); m.box(x0, 0, 1, x0 + 2, 1, 2, C('#3a5a2a', 0, 0.05)); }
   return m;
 });
 // a single camellia branch in a dark vase
-const ikebana = memo(() => {
+export const ikebana = memo(() => {
   const m = new Model(6, 22, 6, 1 / 32);
   m.cyl(3, 3, 2.6, 0, 8, C('#2e2e34', 0, 0.05));
   for (let y = 8; y < 20; y++) m.set(3 + ((y >> 2) & 1), y, 3, C('#4a3020', 0, 0.06));
@@ -578,9 +578,9 @@ const ikebana = memo(() => {
   for (const [x, y] of [[4, 18], [2, 14], [5, 12]]) m.set(x, y, 3, C('#2e5a2a', 0, 0.08));
   return m;
 });
-const paperHolder = memo(() => { const m = new Model(5, 5, 4, 1 / 32); m.box(0, 3, 0, 5, 5, 4, K.wood); m.cyl(2.5, 2, 2, 0, 3, K.white); return m; });
-const bambooBin = memo(() => { const m = new Model(8, 11, 8, 1 / 32); m.cyl(4, 4, 3.8, 0, 11, (x, y) => (y & 1 ? bamboo : bambooD), 3); m.cyl(4, 4, 3.8, 0, 1, bambooD); return m; });
-const exitSign = memo(() => board(['EXIT'], 1 / 40, C('#0a3a1a', 0, 0.03), C('#5aff8a', 4, 0.03), C('#e8e8e8', 0, 0.03)));
+export const paperHolder = memo(() => { const m = new Model(5, 5, 4, 1 / 32); m.box(0, 3, 0, 5, 5, 4, K.wood); m.cyl(2.5, 2, 2, 0, 3, K.white); return m; });
+export const bambooBin = memo(() => { const m = new Model(8, 11, 8, 1 / 32); m.cyl(4, 4, 3.8, 0, 11, (x, y) => (y & 1 ? bamboo : bambooD), 3); m.cyl(4, 4, 3.8, 0, 1, bambooD); return m; });
+export const exitSign = memo(() => board(['EXIT'], 1 / 40, C('#0a3a1a', 0, 0.03), C('#5aff8a', 4, 0.03), C('#e8e8e8', 0, 0.03)));
 // a door panel, hinge (or leading edge, for a sliding door) at local x 0
 const doorCache = {};
 export const swingDoor = (kind) => doorCache[kind] || (doorCache[kind] = (() => {
@@ -706,7 +706,7 @@ export const fryer = memo(() => {
   m.box(0, 13, 12, 10, 17, 13, st);
   return m;
 });
-const hangingPans = memo(() => {
+export const hangingPans = memo(() => {
   const m = new Model(48, 10, 3, 1 / 32, [24, 10, 1.5]);
   m.box(0, 9, 1, 48, 10, 2, K.chrome);
   for (let i = 0; i < 6; i++) {
@@ -716,7 +716,7 @@ const hangingPans = memo(() => {
   }
   return m;
 });
-const prepStuff = memo(() => {
+export const prepStuff = memo(() => {
   const m = new Model(150, 8, 24, 1 / 32);
   const board2 = C('#c8a070', 0, 0.06);
   m.box(4, 0, 4, 22, 1, 16, board2);
@@ -730,24 +730,24 @@ const prepStuff = memo(() => {
   for (let x = 128; x < 144; x += 2) m.box(x, 6, 6, x + 1, 7, 16, (xx, y, z) => (z < 11 ? C('#f0f4e0', 0, 0.04) : C('#4a9a3a', 0, 0.08)));
   return m;
 });
-const ticketRail = memo(() => {
+export const ticketRail = memo(() => {
   const m = new Model(60, 6, 2, 1 / 32, [30, 6, 1]);
   m.box(0, 5, 0, 60, 6, 2, K.chrome);
   for (let x = 4; x < 56; x += 9) m.box(x, 0, 0, x + 5, 5, 1, (xx, y) => (y === 3 || y === 1 ? C('#8a8a8a', 0, 0.03) : K.white));
   return m;
 });
-const dishRack = memo(() => {
+export const dishRack = memo(() => {
   const m = new Model(16, 9, 16, 1 / 32);
   m.box(0, 0, 0, 16, 1, 16, C('#3a5a8a', 0, 0.05));
   for (let z = 1; z < 16; z += 3) for (const x of [1, 6, 10, 14]) m.box(x, 1, z, x + 1, 4, z + 1, K.chrome); // wire pegs
   return m;
 });
-const faucetSpray = memo(() => {
+export const faucetSpray = memo(() => {
   const m = new Model(4, 24, 6, 1 / 32, [2, 0, 5]);
   m.box(1, 0, 4, 3, 24, 6, K.chrome); m.box(1, 22, 0, 3, 24, 4, K.chrome); m.box(1, 14, 0, 3, 22, 2, C('#2a2a2a', 0, 0.03));
   return m;
 });
-const sacks = memo(() => {
+export const sacks = memo(() => {
   const m = new Model(14, 12, 10, 1 / 32);
   m.box(0, 0, 0, 7, 11, 9, C('#e8e2d0', 0, 0.06)); m.box(1, 5, 0, 6, 8, 1, C('#2a5a3a', 0, 0.04)); // rice sacks
   m.box(7, 0, 1, 14, 9, 10, C('#b08a5a', 0, 0.08));
@@ -757,7 +757,7 @@ const sacks = memo(() => {
 
 // ---------------------------------------------------------------- the apartment upstairs
 // the mail-order catalog lying on the kotatsu
-const catalogBook = memo(() => {
+export const catalogBook = memo(() => {
   const m = new Model(8, 2, 10, 1 / 32);
   m.box(0, 0, 0, 8, 2, 10, (x, y) => (y === 1 ? (x < 4 ? C('#c83a2a', 0, 0.04) : C('#f0e8d8', 0, 0.03)) : C('#e8e0d0', 0, 0.03)));
   return m;
