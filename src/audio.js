@@ -45,17 +45,10 @@ export class Ambience {
       swellLfo.connect(swellLfoG).connect(swell.gain); swellLfo.start();
       surf.connect(surfLP).connect(swell).connect(this.seaGain);
     } else {
-      // (in town there's no sea: the city instead, a low traffic rumble a few streets off, and tyres hissing through slush)
-      const far = loop(brown); const farLP = ctx.createBiquadFilter(); farLP.type = 'lowpass'; farLP.frequency.value = 240;
-      const farG = ctx.createGain(); farG.gain.value = 0.55;
-      const swellLfo = ctx.createOscillator(); swellLfo.frequency.value = 0.05; const swellLfoG = ctx.createGain(); swellLfoG.gain.value = 0.2;
-      swellLfo.connect(swellLfoG).connect(farG.gain); swellLfo.start();
+      // (in town there's no sea: a low, steady hum of the city a few streets off instead)
+      const far = loop(brown); const farLP = ctx.createBiquadFilter(); farLP.type = 'lowpass'; farLP.frequency.value = 200;
+      const farG = ctx.createGain(); farG.gain.value = 0.35;
       far.connect(farLP).connect(farG).connect(this.seaGain);
-      const slush = loop(pink); const slushBP = ctx.createBiquadFilter(); slushBP.type = 'bandpass'; slushBP.frequency.value = 1300; slushBP.Q.value = 0.6;
-      const slushG = ctx.createGain(); slushG.gain.value = 0.0;
-      const passLfo = ctx.createOscillator(); passLfo.frequency.value = 0.11; const passLfoG = ctx.createGain(); passLfoG.gain.value = 0.05;
-      passLfo.connect(passLfoG).connect(slushG.gain); passLfo.start();
-      slush.connect(slushBP).connect(slushG).connect(this.seaGain);
     }
 
     // room tone (fridge hum + low air)
@@ -286,11 +279,13 @@ export class Ambience {
     if (!ctx) return;
     const ind = s.indoor; // 0 outside .. 1 deep inside
     // indoors the wind is a steady, heavily muffled rumble through the walls; only outside do the gusts swell
-    const out = 1 - ind, gust = (s.gust || 0) * out;
-    this.set(this.rainLP.frequency, 260 + out * 3700 + gust * 800, 0.8);
+    // (a city street is sheltered: the wind is a softer, steadier breath between the buildings)
+    const shelter = this.city ? 0.5 : 1;
+    const out = 1 - ind, gust = (s.gust || 0) * out * shelter;
+    this.set(this.rainLP.frequency, 260 + out * (this.city ? 1600 : 3700) + gust * 800, 0.8);
     this.set(this.windBP.frequency, 320 + gust * 500, 1.2);
-    this.set(this.rainGain.gain, (0.07 + out * 0.28 + gust * 0.2) * this.windVol, 0.8);
-    this.set(this.seaGain.gain, (0.05 + (1 - ind) * 0.3) * this.windVol, 0.4);
+    this.set(this.rainGain.gain, (0.07 + out * 0.28 * shelter + gust * 0.2) * this.windVol, 0.8);
+    this.set(this.seaGain.gain, (this.city ? 0.03 + out * 0.12 : 0.05 + out * 0.3) * this.windVol, 0.4);
     this.set(this.roomGain.gain, ind * 0.8, 0.3);
     const md = s.musicDist;
     const mv = this.musicOn ? Math.min(1, 2.2 / (0.6 + md * 0.55)) * (0.25 + ind * 0.75) : 0;

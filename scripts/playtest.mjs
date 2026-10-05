@@ -159,7 +159,7 @@ try {
     const blocked = d.home.fits(irori, ...T.iroriNo, 0);
     const [ox, oz] = [p.x, p.z];
     d.service.request('placePiece', 'bonsai', ...T.bonsaiTo);
-    const places = d.save.places && d.save.places[d.map.id];
+    const places = d.save.places && d.save.places[d.map.homeKey || d.map.id];
     return { blocked, at: [p.x, p.z, p.rot].join(), want: T.bonsaiTo.join(), solid: d.world.solid(T.bonsaiTo[0], 3.95, T.bonsaiTo[1]), oldClear: !d.world.solid(ox, 3.95, oz), saved: places && places.bonsai };
   });
   check(!st.blocked && st.at === st.want && st.solid && st.oldClear && st.saved, 'furniture moves, takes its collision with it, and the spot is saved');

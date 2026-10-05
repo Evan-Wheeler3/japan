@@ -839,7 +839,10 @@ export const beltHatch = memo(() => {
 });
 
 // ---------------------------------------------------------------- placement
-export function placeProps(batch) {
+// opts.city: the shop on a city street (maps/tokyo): one restroom (the stair up takes the other's place), the back
+// door in the kitchen, nothing outside (the street furnishes itself), the flat entered from the back room
+export function placeProps(batch, opts = {}) {
+  const city = !!opts.city;
   const F = 0.25; // shop floor
   // every seat is recorded so people (and you) can sit: hip position, seat height, facing yaw
   const seats = batch.seats = [];
@@ -917,12 +920,13 @@ export function placeProps(batch) {
 
   // ================= back of house
   // hallway
-  batch.add(prints[6](), 0.26, 1.6, 11.6, 3, false); batch.add(prints[1](), 0.26, 1.6, 13.4, 3, false);
-  batch.add(exitSign(), 1.0, 2.4, 15.6, 0, false);
+  batch.add(prints[6](), 0.26, 1.6, 11.6, 3, false);
+  if (!city) { batch.add(prints[1](), 0.26, 1.6, 13.4, 3, false); batch.add(exitSign(), 1.0, 2.4, 15.6, 0, false); }
+  else batch.add(exitSign(), 15.72, 2.55, 15.0, 1, false); // over the back door, in the kitchen
   // two restrooms done the Japanese way: toilet slippers waiting inside the door, a ceramic bowl with a bamboo spout to
   // wash your hands, a round mirror, a tenugui, a camellia in a vase. A washlet in the first, an old squat toilet
   // with a pull-chain cistern up on the wall in the second.
-  [[10.25, 13.0, 11.5, 'washlet'], [13.125, 15.75, 14.25, 'squat']].forEach(([rz0, rz1, doorZ, kind]) => {
+  [[10.25, 13.0, 11.5, 'washlet'], [13.125, 15.75, 14.25, 'squat']].slice(0, city ? 1 : 2).forEach(([rz0, rz1, doorZ, kind]) => {
     if (kind === 'washlet') {
       batch.add(washlet(), 4.49, F, rz1 - 0.55, 1);
       batch.add(paperHolder(), 4.15, 0.75, rz1 - 0.07, 0, false);
@@ -956,7 +960,7 @@ export function placeProps(batch) {
   batch.add(sushiCase(), 13.1, 1.125, 10.98, 2, false, 'sushi');
   batch.add(dishRack(), 5.5, 0.875, 13.3, 0, false, 'dishRack');
   batch.add(faucetSpray(), 5.3, 0.875, 12.3, 3, false);
-  batch.add(sacks(), 15.4, 0.25, 15.3, 1);
+  if (!city) batch.add(sacks(), 15.4, 0.25, 15.3, 1);
   batch.add(radio(), 15.5, 2.125, 13.4, 1, false);
 
   // east wall: the Fuji mural, a hanging scroll, prints
@@ -969,12 +973,23 @@ export function placeProps(batch) {
   // ================= the walk-in freezer and the kura (both opened up from the catalog)
   batch.add(freezerShelf(), 17.2, 0.25, 12.78, 0);
   batch.add(chestFreezer(), 17.35, 0.25, 10.85, 2);
+  if (!city) placeKura(batch);
+
+  // ================= outside
+  if (!city) placeOutside(batch);
+
+  // ================= the apartment upstairs (nobody but you comes up here)
+  placeFlat(batch, city);
+}
+
+function placeKura(batch) {
   for (let i = 0; i < 7; i++) batch.add(sakeTaru(), 21.85 + i * 0.7, 0.5, 8.3, 0);           // barrels along the back wall
   for (let i = 0; i < 6; i++) batch.add(sakeTaru(), 22.2 + i * 0.7, 1.25, 8.3, 0, false);   // and a second tier on top
   batch.add(sakeRack(), 21.47, 0.5, 5.5, 3); batch.add(sakeRack(), 26.53, 0.5, 5.5, 1);
   batch.add(chochin(6, 'red'), 24.0, 3.1, 5.5, 0, false);
+}
 
-  // ================= outside
+function placeOutside(batch) {
   const S = 0.125;
   batch.add(noren(), 13.375, 2.75, -3.47, 0, false);
   batch.add(chochin(3, 'red', 1 / 16), 12.35, 1.7, -3.62, 0, false);
@@ -982,8 +997,9 @@ export function placeProps(batch) {
   batch.add(vending(), 19.2, S, -2.6, 0);
   batch.add(postbox(), 11.1, S, -5.75);
   batch.add(nobori(), 11.9, S, -5.6, 0); batch.add(nobori(), 15.0, S, -5.6, 0);
+}
 
-  // ================= the apartment upstairs (nobody but you comes up here)
+function placeFlat(batch, city) {
   const F2 = 3.75;
   const home = batch.homeSeats = [];
   const KX = 8.9, KZ = 3.6; // the kotatsu, facing the TV's spot by the west wall
@@ -1004,6 +1020,11 @@ export function placeProps(batch) {
   batch.add(andon(), 12.0, F2, 4.3, 0);
   batch.add(tansu(), 10.25, F2, 8.1, 0);
   batch.add(kitchenette(), 12.25, F2, 8.1, 0);
-  batch.add(shoeRack(), 15.3, F2, 8.0, 3);
-  batch.add(noren(), 15.85, F2 + 2.1, 7.0, 1, false);
+  if (!city) {
+    batch.add(shoeRack(), 15.3, F2, 8.0, 3);
+    batch.add(noren(), 15.85, F2 + 2.1, 7.0, 1, false);
+  } else { // the way in is the back wall's doorway, from the back room
+    batch.add(shoeRack(), 15.3, F2, 6.6, 3);
+    batch.add(noren(), 14.81, F2 + 2.1, 8.56, 0, false);
+  }
 }

@@ -32,7 +32,8 @@ function signTexture({ text, sub, color, bg, vertical, w, h }) {
 function makeSign(s) {
   const grp = new THREE.Group(); grp.position.set(...s.pos);
   const tex = signTexture(s);
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: !s.bg, toneMapped: false, color: new THREE.Color(1.6, 1.6, 1.6) });
+  const glow = s.glow ?? 1.6; // (a lit sign glows; a painted board, like the road works', just catches the light)
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: !s.bg, toneMapped: false, color: new THREE.Color(glow, glow, glow) });
   const depth = s.vertical ? 0.22 : 0.04;
   if (s.bg) { const box = new THREE.Mesh(new THREE.BoxGeometry(s.vertical ? depth : s.w, s.h, s.vertical ? s.w : depth), new THREE.MeshLambertMaterial({ color: 0x18181c })); grp.add(box); }
   for (const yaw of s.faces) {
@@ -41,11 +42,14 @@ function makeSign(s) {
     const off = depth / 2 + 0.006; m.position.set(Math.sin(yaw) * off, 0, Math.cos(yaw) * off);
     grp.add(m);
   }
-  grp.userData.mat = mat;
+  grp.userData.mat = mat; grp.userData.glow = glow;
   return grp;
 }
 
 // ---------------------------------------------------------------- wires: sagging lines between poles and buildings
+
+// ---------------------------------------------------------------- wires: sagging lines between the poles, across the
+// street, in to the buildings; and the cords the lantern strings hang from
 function wires(meta) {
   const pts = [];
   const sag = (a, b, drop, n = 14) => {
@@ -55,122 +59,208 @@ function wires(meta) {
       pts.push(...p(t0), ...p(t1));
     }
   };
-  const poles = meta.poles, north = poles.filter((p) => p[2] > -3.5).sort((a, b) => a[0] - b[0]), south = poles.filter((p) => p[2] < -3.5).sort((a, b) => a[0] - b[0]);
-  for (const row of [north, south]) for (let i = 0; i < row.length - 1; i++) for (const [dx, dy] of [[-0.6, 0], [0.6, 0], [0, -0.6], [-0.3, -1.2]]) {
-    const a = row[i], b = row[i + 1];
-    sag([a[0] + dx, a[1] + dy, a[2]], [b[0] + dx, b[1] + dy, b[2]], 0.6 + Math.abs(dx));
+  const poles = meta.poles, north = poles.filter((p) => p[2] > -8).sort((a, b) => a[0] - b[0]), south = poles.filter((p) => p[2] < -8).sort((a, b) => a[0] - b[0]);
+  for (const row of [north, south]) {
+    for (let i = 0; i < row.length - 1; i++) for (const [dx, dy] of [[-0.6, 0], [0.6, 0], [0, -0.6], [-0.3, -1.2]]) {
+      const a = row[i], b = row[i + 1];
+      sag([a[0] + dx, a[1] + dy, a[2]], [b[0] + dx, b[1] + dy, b[2]], 0.6 + Math.abs(dx));
+    }
+    // and on past the ends of the street, to poles out of sight
+    const a = row[0], b = row[row.length - 1];
+    for (const [dx, dy] of [[-0.6, 0], [0.6, 0], [0, -0.6]]) { sag([a[0] + dx, a[1] + dy, a[2]], [a[0] - 40 + dx, a[1] + dy, a[2]], 1.4, 20); sag([b[0] + dx, b[1] + dy, b[2]], [b[0] + 40 + dx, b[1] + dy, b[2]], 1.4, 20); }
   }
-  // across the street, and in to the buildings
   for (const a of north) { const b = south.reduce((q, s) => (Math.abs(s[0] - a[0]) < Math.abs(q[0] - a[0]) ? s : q)); sag([a[0], a[1] - 0.3, a[2]], [b[0], b[1] - 0.3, b[2]], 0.5); }
-  for (const a of north) for (const dx of [-2.5, 2.5]) sag([a[0], a[1] - 1.2, a[2]], [a[0] + dx, a[1] - 3.5, 0.0], 0.25, 6);
-  for (const a of south) for (const dx of [-2.0, 2.2]) sag([a[0], a[1] - 1.2, a[2]], [a[0] + dx, a[1] - 3.2, TK.street.z0], 0.25, 6);
+  for (const a of north) for (const dx of [-2.5, 2.5]) sag([a[0], a[1] - 1.2, a[2]], [a[0] + dx, a[1] - 3.0, TK.north], 0.25, 6);
+  for (const a of south) for (const dx of [-2.0, 2.2]) sag([a[0], a[1] - 1.2, a[2]], [a[0] + dx, a[1] - 3.0, TK.south], 0.25, 6);
+  for (const [gx, hN, hS, s] of TK.garlands) sag([gx, hN, TK.north], [gx, hS, TK.south], s, 22);
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
   return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x0a0a0c }));
 }
 
-// ---------------------------------------------------------------- the skyline: boxes of lit windows all round
+// ---------------------------------------------------------------- the city round about: textures
+// lit windows, 16 x 16 to a tile (a window every ~1.9 m, a storey every 3 m)
 function windowTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const g = c.getContext('2d');
-  g.fillStyle = '#07080c'; g.fillRect(0, 0, 256, 256);
+  g.fillStyle = '#0b0c12'; g.fillRect(0, 0, 256, 256);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const h = hash01(x, y, 5);
-    if (h < 0.42) continue;
-    g.fillStyle = h > 0.93 ? '#cfe4ff' : h > 0.8 ? '#ffd6a0' : h > 0.6 ? '#ffb870' : '#3a3024';
+    g.fillStyle = h < 0.4 ? '#191a22' : h > 0.93 ? '#cfe4ff' : h > 0.8 ? '#ffd6a0' : h > 0.6 ? '#ffb870' : '#5a4630';
     g.fillRect(x * 16 + 3, y * 16 + 4, 10, 8);
   }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
-function skyline() {
-  const pos = [], uv = [], col = [], idx = [];
-  const quad = (a, b, c, d, u0, v0, u1, v1, shade) => {
-    const base = pos.length / 3;
-    pos.push(...a, ...b, ...c, ...d); uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
-    for (let i = 0; i < 4; i++) col.push(shade, shade, shade);
-    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-  };
-  const box = (x, z, w, d, h, shade) => {
-    const x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2, s = 1 / 30, t = 1 / 52;
-    quad([x0, 0, z1], [x1, 0, z1], [x1, h, z1], [x0, h, z1], 0, 0, w * s, h * t, shade);
-    quad([x1, 0, z0], [x0, 0, z0], [x0, h, z0], [x1, h, z0], 0, 0, w * s, h * t, shade);
-    quad([x0, 0, z0], [x0, 0, z1], [x0, h, z1], [x0, h, z0], 0, 0, d * s, h * t, shade * 0.8);
-    quad([x1, 0, z1], [x1, 0, z0], [x1, h, z0], [x1, h, z1], 0, 0, d * s, h * t, shade * 0.8);
-    quad([x0, h, z1], [x1, h, z1], [x1, h, z0], [x0, h, z0], 0.01, 0.01, 0.02, 0.02, 0.05); // roofs: dark (snow, really)
-  };
-  let k = 0;
-  for (let i = 0; i < 420; i++) {
-    const a = hash01(i, 1, 3) * Math.PI * 2, r = 46 + hash01(i, 2, 3) ** 1.4 * 330;
-    const x = 10 + Math.cos(a) * r, z = Math.sin(a) * r * 0.9;
-    if (x > -100 && x < 120 && z > -30 && z < 32) continue;      // (the street itself runs on out that way: see streetEnds)
-    const near = r < 90, h = (near ? 12 : 18) + hash01(i, 4, 3) ** 2 * (near ? 28 : 110), w = 8 + hash01(i, 5, 3) * 18, d = 8 + hash01(i, 6, 3) * 18;
-    box(x, z, w, d, h, 0.65 + hash01(i, 7, 3) * 0.5 - r / 900); k++;
+// shopfronts at street level: a strip of lit doorways, glass, shutters and lanterns
+function shopTexture() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 32;
+  const g = c.getContext('2d');
+  const looks = ['#ffe0a8', '#f4f8ff', '#ffb070', '#3a3c40', '#ffd0a0', '#c8e8ff', '#ff9a60', '#2a2a2e', '#fff0c0', '#ffc8e8'];
+  for (let i = 0; i < 16; i++) {
+    const x = i * 32, col = looks[Math.floor(hash01(i, 3, 9) * looks.length)];
+    g.fillStyle = '#151518'; g.fillRect(x, 0, 32, 32);
+    g.fillStyle = col; g.fillRect(x + 3, 6, 26, 26);
+    if (col === '#3a3c40' || col === '#2a2a2e') { g.fillStyle = '#4a4c52'; for (let y = 6; y < 32; y += 3) g.fillRect(x + 3, y, 26, 1); }  // a shutter
+    else { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x + 15, 6, 2, 26); g.fillRect(x + 3, 6, 26, 2); }
+    if (hash01(i, 4, 9) < 0.45) { g.fillStyle = '#ff4a30'; g.beginPath(); g.ellipse(x + 6, 9, 3, 4, 0, 0, 7); g.ellipse(x + 26, 9, 3, 4, 0, 0, 7); g.fill(); }
   }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
-  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: windowTexture(), vertexColors: true, fog: false }));
-  m.frustumCulled = false;
-  return m;
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+// the road and pavements carried on: snow, two dark ruts, the edge lines, paving under trodden snow
+function roadTexture() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const g = c.getContext('2d');
+  const zz = (z) => ((z - TK.north) / (TK.south - TK.north)) * 256; // the texture's v runs across the street
+  g.fillStyle = '#8c8aa4'; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 1600; i++) { g.fillStyle = hash01(i, 1, 4) > 0.5 ? 'rgba(255,255,255,0.10)' : 'rgba(40,40,60,0.12)'; g.fillRect(hash01(i, 2, 4) * 256, hash01(i, 3, 4) * 256, 6, 4); }
+  g.fillStyle = 'rgba(70,72,84,0.85)';
+  for (const [a, b] of [[TK.walkN[1], TK.walkN[0]], [TK.walkS[1], TK.walkS[0]]]) for (let x = 0; x < 256; x += 8) for (let y = zz(a); y < zz(b); y += 8) if (hash01(x, y, 6) > 0.5) g.fillRect(x, y, 7, 7);
+  g.fillStyle = '#9a9c9e'; for (const z of TK.road) g.fillRect(0, zz(z) - 2, 256, 4);
+  g.fillStyle = '#e8e6dc'; for (const z of [TK.road[1] - 0.2, TK.road[0] + 0.2]) g.fillRect(0, zz(z) - 1, 256, 2);
+  g.fillStyle = '#1e2026'; for (const z of [-7.3, -9.4]) g.fillRect(0, zz(z) - 3, 256, 6);
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
-// ---------------------------------------------------------------- the street carries on past the end of the voxels,
-// both ways: a snowy road, blocks either side with their windows lit, a sign or two, and a crossing far off
-function streetEnds(tex) {
-  const grp = new THREE.Group();
-  const snow = new THREE.MeshLambertMaterial({ color: 0xc9cbd6 }), road = new THREE.MeshLambertMaterial({ color: 0x8a8c98 });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 400), snow); ground.rotation.x = -Math.PI / 2; ground.position.set(10, 0.05, 0); grp.add(ground);
-  for (const [x0, x1] of [[-300, -16], [36, 320]]) {
-    const r = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, 6.4), road); r.rotation.x = -Math.PI / 2; r.position.set((x0 + x1) / 2, 0.08, -3.5); grp.add(r);
-  }
-  const pos = [], uv = [], col = [], idx = [];
-  const quad = (a, b, c, d, u0, v0, u1, v1, shade) => {
-    const base = pos.length / 3;
-    pos.push(...a, ...b, ...c, ...d); uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
-    for (let i = 0; i < 4; i++) col.push(shade, shade, shade);
-    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+// boxes of buildings, merged into one mesh per material: front faces get the shopfront strip along the bottom storey
+function boxes(list, winTex, shopTex) {
+  const pos = [], uv = [], col = [], idx = [], spos = [], suv = [], sidx = [];
+  const quad = (P, U, I, a, b, c, d, u0, v0, u1, v1, shade, C) => {
+    const base = P.length / 3;
+    P.push(...a, ...b, ...c, ...d); U.push(u0, v0, u1, v0, u1, v1, u0, v1);
+    if (C) for (let i = 0; i < 4; i++) C.push(shade, shade, shade);
+    I.push(base, base + 1, base + 2, base, base + 2, base + 3);
   };
-  const box = (x0, x1, z0, z1, h, shade, u) => {
-    const s = 1 / 30, t = 1 / 52, o = u * 0.37;
-    quad([x0, 0, z1], [x1, 0, z1], [x1, h, z1], [x0, h, z1], o, 0, o + (x1 - x0) * s, h * t, shade);
-    quad([x1, 0, z0], [x0, 0, z0], [x0, h, z0], [x1, h, z0], o, 0, o + (x1 - x0) * s, h * t, shade);
-    quad([x0, 0, z0], [x0, 0, z1], [x0, h, z1], [x0, h, z0], o, 0, o + (z1 - z0) * s, h * t, shade * 0.75);
-    quad([x1, 0, z1], [x1, 0, z0], [x1, h, z0], [x1, h, z1], o, 0, o + (z1 - z0) * s, h * t, shade * 0.75);
-    quad([x0, h, z1], [x1, h, z1], [x1, h, z0], [x0, h, z0], 0.01, 0.01, 0.02, 0.02, 0.08);
-  };
-  const signs = [];
-  let k = 0;
-  for (const [from, to, dir] of [[-16, -230, -1], [36, 250, 1]]) {
-    for (const side of [1, -1]) {
-      let x = from;
-      while ((to - x) * dir > 0) {
-        const w = 5 + hash01(k, 1, 9) * 9, h = 7 + hash01(k, 2, 9) ** 1.6 * (Math.abs(x) > 80 ? 40 : 18);
-        const xa = x, xb = x + dir * w;
-        // a cross street every so often, so it doesn't run on like a corridor
-        if (hash01(k, 3, 9) < 0.12) { x = xb + dir * 4; k++; continue; }
-        const zf = side > 0 ? 0.6 + hash01(k, 4, 9) * 0.8 : -7.6 - hash01(k, 4, 9) * 0.8;
-        box(Math.min(xa, xb), Math.max(xa, xb), side > 0 ? zf : zf - 14, side > 0 ? zf + 14 : zf, h, 0.55 + hash01(k, 5, 9) * 0.45, k);
-        if (hash01(k, 6, 9) < 0.45 && Math.abs(x) < 120) signs.push([(xa + xb) / 2, Math.min(h - 1.5, 4 + hash01(k, 7, 9) * 5), side > 0 ? zf - 0.6 : zf + 0.6, k]);
-        x = xb; k++;
-      }
+  for (const { x0, x1, z0, z1, h, shade, front, u } of list) {
+    const s = 1 / 30, t = 1 / 48, o = u * 0.37, g0 = front ? 3.0 : 0;
+    const W = (a, b, c, d, len, sh) => quad(pos, uv, idx, a, b, c, d, o, g0 * t, o + len * s, h * t, sh, col);
+    W([x0, g0, z1], [x1, g0, z1], [x1, h, z1], [x0, h, z1], x1 - x0, shade);
+    W([x1, g0, z0], [x0, g0, z0], [x0, h, z0], [x1, h, z0], x1 - x0, shade);
+    W([x0, g0, z0], [x0, g0, z1], [x0, h, z1], [x0, h, z0], z1 - z0, shade * 0.75);
+    W([x1, g0, z1], [x1, g0, z0], [x1, h, z0], [x1, h, z1], z1 - z0, shade * 0.75);
+    quad(pos, uv, idx, [x0, h, z1], [x1, h, z1], [x1, h, z0], [x0, h, z0], 0.01, 0.01, 0.02, 0.02, 0.12, col);
+    if (front) { // the street-level storey: shopfronts on the street face, plain wall round the sides
+      const fz = front > 0 ? z1 : z0, a = front > 0 ? [x0, 0, fz] : [x1, 0, fz], b = front > 0 ? [x1, 0, fz] : [x0, 0, fz];
+      const c0 = Math.floor(hash01(u, 7, 3) * 16) / 16, n = Math.max(1, Math.round((x1 - x0) / 4));
+      quad(spos, suv, sidx, a, b, [b[0], 3.0, fz], [a[0], 3.0, fz], c0, 0, c0 + n / 16, 1, 1, null);
+      const back = front > 0 ? z0 : z1;
+      quad(pos, uv, idx, front > 0 ? [x1, 0, back] : [x0, 0, back], front > 0 ? [x0, 0, back] : [x1, 0, back], front > 0 ? [x0, 3, back] : [x1, 3, back], front > 0 ? [x1, 3, back] : [x0, 3, back], 0.01, 0.01, 0.02, 0.02, 0.1, col);
+      for (const sx of [x0, x1]) quad(pos, uv, idx, [sx, 0, sx === x0 ? z0 : z1], [sx, 0, sx === x0 ? z1 : z0], [sx, 3, sx === x0 ? z1 : z0], [sx, 3, sx === x0 ? z0 : z1], 0.01, 0.01, 0.02, 0.02, 0.1, col);
     }
   }
+  const grp = new THREE.Group();
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
-  grp.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: tex, vertexColors: true })));
-  const WORDS = [['居酒屋', '#ff5a3c'], ['焼肉', '#ffd24a'], ['ラーメン', '#ff8a3c'], ['薬', '#5ad0ff'], ['寿司', '#ff6a8a'], ['酒', '#ffe2b0'], ['バー', '#c58aff'], ['ホテル', '#7affc8'], ['喫茶', '#ffb86a'], ['質', '#5aff8a']];
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: winTex, vertexColors: true, side: THREE.DoubleSide }));
+  m.frustumCulled = false; grp.add(m);
+  if (sidx.length) {
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.Float32BufferAttribute(spos, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(suv, 2)); sg.setIndex(sidx);
+    const sm = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: shopTex, side: THREE.DoubleSide }));
+    sm.frustumCulled = false; grp.add(sm);
+  }
+  return grp;
+}
+
+// ---------------------------------------------------------------- the city round about the voxel street: the street
+// carried on past both ends (road, pavements, shops and signs both sides, the lamps), the viaduct running on north and
+// south, the blocks behind ours and behind the far side, and the skyline beyond
+function cityAround() {
+  const grp = new THREE.Group();
+  const winTex = windowTexture(), shopTex = shopTexture();
+  const N = TK.north, S = TK.south, V = TK.viaduct;
+  // the ground: snow everywhere, and the street's own surface carried on out of both ends
+  const snow = new THREE.MeshLambertMaterial({ color: 0xc9cbd6 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), snow); ground.rotation.x = -Math.PI / 2; ground.position.set(10, 0.04, 0); grp.add(ground);
+  const rt = roadTexture(); rt.repeat.set(1, 1);
+  for (const [x0, x1] of [[-400, -16], [36, 420]]) {
+    const geo = new THREE.PlaneGeometry(x1 - x0, N - S); const uvs = geo.attributes.uv;
+    for (let i = 0; i < uvs.count; i++) uvs.setXY(i, uvs.getX(i) * (x1 - x0) / 8, 1 - uvs.getY(i));
+    const r = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: rt })); r.rotation.x = -Math.PI / 2; r.position.set((x0 + x1) / 2, 0.126, (N + S) / 2); grp.add(r);
+  }
+  const list = [], signs = [], lamps = [];
+  let k = 0;
+  const rnd = (a) => hash01(k, a, 19);
+  // frontage along the street, both sides, both ways out
+  for (const [from, to, dir] of [[-16, -340, -1], [36, 360, 1]]) for (const side of [-1, 1]) {
+    let x = from === -16 && side < 0 ? V.x0 : from;       // (the viaduct crosses at the west end: start beyond it)
+    if (dir < 0) x = V.x0;
+    let lampAt = x + dir * 9;
+    while ((to - x) * dir > 0) {
+      k++;
+      const far = Math.abs(x - (dir < 0 ? -16 : 36));
+      const w = 3.5 + rnd(1) * 6.5, h = 7 + rnd(2) ** 1.5 * (far > 60 ? 34 : 15), d = 9 + rnd(3) * 8;
+      if (rnd(4) < 0.08 && far > 12) { x += dir * (6 + rnd(5) * 3); continue; }            // a side street
+      const xa = x, xb = x + dir * w, x0 = Math.min(xa, xb), x1 = Math.max(xa, xb);
+      if (side < 0) list.push({ x0, x1, z0: N, z1: N + d, h, shade: 0.55 + rnd(6) * 0.45, front: -1, u: k });
+      else list.push({ x0, x1, z0: S - d, z1: S, h, shade: 0.55 + rnd(6) * 0.45, front: 1, u: k });
+      // signs: vertical ones up the corners of the near buildings, a lit board over many shopfronts
+      if (far < 110 && rnd(7) < 0.75) signs.push({ x: (dir > 0 ? x0 : x1) + dir * 0.3, z: side < 0 ? N - 0.5 : S + 0.5, h, k });
+      x = xb;
+      if ((lampAt - x) * dir <= 0) { lamps.push([x, side < 0 ? N - 1.8 : S + 1.8]); lampAt = x + dir * (11 + rnd(8) * 4); }
+    }
+  }
+  // the blocks behind ours and behind the far side: deeper, taller, all windows
+  for (const [z0, z1] of [[18.2, 70], [-70, -16.2]]) {
+    let x = -160;
+    while (x < 180) {
+      k++;
+      const w = 6 + rnd(1) * 12;
+      if (x + w > V.x0 - 0.5 && x < V.x1 + 0.5) { x = V.x1 + 0.5; continue; }        // leave the viaduct's line clear
+      if (rnd(4) < 0.1) { x += 7; continue; }
+      const d = 10 + rnd(3) * 14, near = z0 > 0 ? z0 : z1 - d, h = 10 + rnd(2) ** 1.4 * 32;
+      list.push({ x0: x, x1: x + w, z0: z0 > 0 ? near : z1 - d, z1: z0 > 0 ? near + d : z1, h, shade: 0.5 + rnd(6) * 0.45, front: 0, u: k });
+      x += w + (rnd(9) < 0.3 ? 1.5 : 0);
+    }
+  }
+  grp.add(boxes(list, winTex, shopTex));
+  // the viaduct runs on north and south: a long brick spine, the trains' line on top
+  const brick = new THREE.MeshLambertMaterial({ color: 0x5a2c22 });
+  for (const [z0, z1] of [[18, 520], [-520, -16]]) {
+    const v = new THREE.Mesh(new THREE.BoxGeometry(V.x1 - V.x0, V.top, z1 - z0), brick); v.position.set((V.x0 + V.x1) / 2, V.top / 2, (z0 + z1) / 2); grp.add(v);
+  }
+  // street lamps out along the continued street: a glow on a pole
+  const lampMat = new THREE.MeshBasicMaterial({ color: 0xf0f4ff }), poleMat = new THREE.MeshLambertMaterial({ color: 0x8a8a88 });
+  for (const [x, z] of lamps) {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(0.25, 8.5, 0.25), poleMat); p.position.set(x, 4.25, z); grp.add(p);
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.3), lampMat); l.position.set(x, 5.4, z + (z > -8 ? -1.25 : 1.25)); grp.add(l);
+  }
+  // the signs: a lit board over the shopfront and a vertical stack up the corner
+  const WORDS = [['居酒屋', '#ff5a3c', '#2a0808'], ['焼肉', '#ffd24a', '#3a0a0a'], ['ラーメン', '#ff8a3c', '#2a1408'], ['薬', '#5ad0ff', '#08202a'], ['寿司', '#ff6a8a', '#2a0812'],
+    ['酒', '#ffe2b0', '#2a1a0a'], ['バー', '#c58aff', '#1a0828'], ['ホテル', '#7affc8', '#08201a'], ['喫茶', '#ffb86a', '#2a1408'], ['質', '#5aff8a', '#082a10'], ['カラオケ', '#ff8ae8', '#200828'],
+    ['焼鳥', '#ffb060', '#301808'], ['スナック', '#ffd060', '#401010'], ['うどん', '#fff0c0', '#203020'], ['麻雀', '#7affb0', '#0a2a1a']];
   const out = [];
-  for (const [x, y, z, i] of signs) {
-    const [text, color] = WORDS[i % WORDS.length];
-    const sg = makeSign({ text, color, bg: '#1a0f14', vertical: true, w: 0.7, h: 0.75 * [...text].length + 0.4, pos: [x, y, z], faces: [Math.PI / 2, -Math.PI / 2] });
-    grp.add(sg); out.push(sg);
+  for (const { x, z, h, k: kk } of signs) {
+    const [text, color, bg] = WORDS[kk % WORDS.length];
+    const n = Math.min(3, Math.max(1, Math.floor((h - 3.5) / 3)));
+    for (let i = 0; i < n; i++) {
+      const [t2, c2, b2] = i ? WORDS[(kk * 7 + i) % WORDS.length] : [text, color, bg];
+      const sh = 0.55 * [...t2].length + 0.4;
+      const sg = makeSign({ text: t2, color: c2, bg: b2, vertical: true, w: 0.65, h: sh, pos: [x, 3.6 + i * 2.9 + sh / 2, z], faces: [Math.PI / 2, -Math.PI / 2] });
+      grp.add(sg); out.push(sg);
+    }
   }
   grp.userData.signs = out;
   return grp;
 }
 
-// ---------------------------------------------------------------- Tokyo Tower: an orange lattice lit up, two white decks
+// the skyline beyond everything: boxes of lit windows all round, out to the horizon
+function skyline(tex) {
+  const list = [];
+  for (let i = 0; i < 520; i++) {
+    const a = hash01(i, 1, 3) * Math.PI * 2, r = 80 + hash01(i, 2, 3) ** 1.3 * 380;
+    const x = 10 + Math.cos(a) * r, z = Math.sin(a) * r * 0.9;
+    if (x > -190 && x < 200 && z > -80 && z < 80) continue;
+    if (Math.abs(x - (TK.viaduct.x0 + TK.viaduct.x1) / 2) < 6) continue;
+    const h = 20 + hash01(i, 4, 3) ** 2 * 120, w = 10 + hash01(i, 5, 3) * 20, d = 10 + hash01(i, 6, 3) * 20;
+    list.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2, h, shade: 0.6 + hash01(i, 7, 3) * 0.45 - r / 1000, front: 0, u: i });
+  }
+  const g = boxes(list, tex, null);
+  g.traverse((m) => { if (m.material) m.material.fog = false; });
+  return g;
+}
 function tower() {
   const grp = new THREE.Group();
   const orange = new THREE.MeshBasicMaterial({ color: 0xff7a2a, fog: false }), white = new THREE.MeshBasicMaterial({ color: 0xfff0dc, fog: false });
@@ -201,47 +291,92 @@ function tower() {
 }
 
 // ---------------------------------------------------------------- the trains on the overpass
-function trainCar(len) {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+
+// ---------------------------------------------------------------- the trains on the viaduct: long, lit, rumbling
+function trainSide(len) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 64;
   const g = c.getContext('2d');
-  g.fillStyle = '#b8bec6'; g.fillRect(0, 0, 256, 32);
-  g.fillStyle = '#2a8a3a'; g.fillRect(0, 22, 256, 4);               // a green line along the side
-  for (let i = 0; i < 9; i++) { g.fillStyle = '#fff1d8'; g.fillRect(8 + i * 28, 6, 20, 12); }
+  g.fillStyle = '#c4c9d0'; g.fillRect(0, 0, 512, 64);
+  g.fillStyle = '#2a9a3a'; g.fillRect(0, 44, 512, 6); g.fillStyle = '#e8eef4'; g.fillRect(0, 50, 512, 3);   // a green stripe
+  const doors = [0.12, 0.37, 0.62, 0.87];
+  for (let x = 6; x < 506; x += 22) {
+    if (doors.some((d) => Math.abs(x / 512 - d) < 0.04)) continue;
+    g.fillStyle = '#fff3dc'; g.fillRect(x, 10, 17, 24);
+    g.fillStyle = 'rgba(40,30,20,0.35)'; if (hash01(x, len, 3) < 0.5) g.fillRect(x + 3, 22, 6, 12);              // someone standing
+  }
+  for (const d of doors) { const x = d * 512 - 10; g.fillStyle = '#9aa0a8'; g.fillRect(x, 4, 20, 56); g.fillStyle = '#fff3dc'; g.fillRect(x + 3, 10, 6, 22); g.fillRect(x + 11, 10, 6, 22); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const side = new THREE.MeshBasicMaterial({ map: t }), body = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 });
-  return new THREE.Mesh(new THREE.BoxGeometry(2.6, 3.2, len), [side, side, body, body, body, body]);
+  return t;
+}
+function trainCar(len, lead) {
+  const grp = new THREE.Group();
+  const side = new THREE.MeshBasicMaterial({ map: trainSide(len), color: new THREE.Color(1.25, 1.25, 1.25), toneMapped: false });
+  const body = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }), dark = new THREE.MeshLambertMaterial({ color: 0x1a1c20 });
+  const ends = new THREE.MeshBasicMaterial({ color: 0x24262c });
+  const b = new THREE.Mesh(new THREE.BoxGeometry(2.95, 3.3, len), [side, side, body, dark, ends, ends]); b.position.y = 1.65 + 0.55; grp.add(b);
+  for (const z of [-len * 0.36, len * 0.36]) { const bog = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.55, 2.6), dark); bog.position.set(0, 0.28, z); grp.add(bog); }
+  // a pantograph on the roof, up to the wire
+  const pmat = new THREE.MeshBasicMaterial({ color: 0x2a2c30 });
+  for (const s of [-1, 1]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.3, 0.06), pmat); arm.position.set(0, 4.25 + 0.55, s * 0.3); arm.rotation.x = s * 0.45; grp.add(arm); }
+  const shoe = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.12), pmat); shoe.position.set(0, 4.85 + 0.55, 0); grp.add(shoe);
+  if (lead) { // headlights, and the destination board lit amber
+    const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.8, 2.4), toneMapped: false });
+    for (const x of [-0.9, 0.9]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.05), lamp); l.position.set(x, 1.3, -len / 2 - 0.03); grp.add(l); }
+    const dest = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 0.05), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.4, 0.3), toneMapped: false }));
+    dest.position.set(0, 3.55, -len / 2 - 0.03); grp.add(dest);
+  }
+  return grp;
 }
 
 export function decorateTokyo(scene, { meta }) {
   const signs = meta.signs.map((s) => { const g = makeSign(s); scene.add(g); return g; });
   scene.add(wires(meta));
-  const city = new THREE.Group(); const sky = skyline(); city.add(sky); city.add(tower());
-  const ends = streetEnds(sky.material.map); city.add(ends); signs.push(...ends.userData.signs);
+  const city = new THREE.Group(); const around = cityAround(); city.add(around); city.add(skyline(windowTexture())); city.add(tower());
+  signs.push(...around.userData.signs);
   scene.add(city);
-  // a train every so often, one way or the other
+  // the road works' lamps, blinking in turn
+  const amber = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 1.6, 0.2), toneMapped: false });
+  const blink = (meta.barriers || []).map(([x, y, z], i) => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), amber); m.position.set(x, y + 0.08, z); m.userData.i = i; scene.add(m); return m; });
+  // a train every so often, one way or the other: ten cars, lit up, along the viaduct and over the street
+  const V = TK.viaduct, CAR = 20, CARS = 10;
   const train = new THREE.Group(); const cars = [];
-  for (let i = 0; i < 6; i++) { const c = trainCar(19.5); c.position.z = i * 20; train.add(c); cars.push(c); }
-  const O = TK.overpass;
-  train.position.set((O.x0 + O.x1) / 2, O.deck + 0.75 + 1.75, -400); train.visible = false; scene.add(train);
-  let next = 12, dir = 1, clack = 0;
+  for (let i = 0; i < CARS; i++) { const c = trainCar(CAR - 0.6, i === 0); c.position.z = i * CAR; train.add(c); cars.push(c); }
+  train.position.set((V.x0 + V.x1) / 2, V.top + 0.1, -600); train.visible = false; scene.add(train);
+  // its light spills down off the girder onto the street as it passes over
+  const spill = new THREE.PointLight(0xfff0d8, 0, 22, 1.6); spill.position.set(V.x1 + 0.8, V.deck + 1.0, (TK.north + TK.south) / 2); scene.add(spill);
+  let next = 8, dir = 1, clack = 0, dong = 0, speed = 15;
+  const span = (CARS - 1) * CAR + CAR / 2;
   return {
+    // (for testing: run a train over the street now)
+    sendTrain(z = 60, d = -1) { dir = d; train.visible = true; train.rotation.y = d < 0 ? 0 : Math.PI; train.position.z = z; next = 0; },
     update(dt, time, dawn, camera, audio) {
       // neon flickers now and then, and fades as it gets light
-      for (const g of signs) { const m = g.userData.mat; const f = Math.random() < 0.004 ? 0.4 : 1; m.color.setScalar((1.6 - dawn * 0.8) * f); }
+      for (const g of signs) { const m = g.userData.mat, k = g.userData.glow / 1.6; const f = k < 1 ? 1 : Math.random() < 0.003 ? 0.4 : 1; m.color.setScalar((1.6 - dawn * 0.8) * k * f); }
+      const on = Math.floor(time / 0.45) & 1;
+      for (const m of blink) m.visible = ((m.userData.i + on) & 1) === 0;
       if (train.visible) {
-        train.position.z += dir * 17 * dt;
-        if (Math.abs(train.position.z) > 260) { train.visible = false; next = 25 + Math.random() * 35; }
-        // the rumble and the clack of the wheels, louder as it passes over
-        const d = Math.hypot(camera.position.x - train.position.x, camera.position.z - (train.position.z + 50 * dir * -1));
-        if (audio && audio.ctx && (clack -= dt) <= 0 && d < 140) {
-          clack = 0.16 + Math.random() * 0.05;
-          const v = Math.min(0.6, 18 / (8 + d));
-          audio.burst(audio.ctx.currentTime, 0.12, 180 + Math.random() * 80, 0.9, v, audio.master, 'lowpass');
-          if (Math.random() < 0.5) audio.burst(audio.ctx.currentTime + 0.05, 0.05, 1600, 3, v * 0.25);
+        train.position.z += dir * speed * dt;
+        // the lead car is at the group's origin, the rest trail behind it; turned round when running toward +z
+        const zA = dir < 0 ? train.position.z - CAR / 2 : train.position.z - span, zB = dir < 0 ? train.position.z + span : train.position.z + CAR / 2;
+        if ((dir > 0 && zA > 420) || (dir < 0 && zB < -420)) { train.visible = false; next = 18 + Math.random() * 24; spill.intensity = 0; }
+        const over = Math.max(0, Math.min(zB, TK.north + 6) - Math.max(zA, TK.south - 6));
+        spill.intensity = over > 0 ? 7 * (0.85 + Math.random() * 0.15) : 0;
+        const cz = Math.max(zA, Math.min(zB, camera.position.z)), d = Math.hypot(camera.position.x - train.position.x, camera.position.y - (V.top + 2), camera.position.z - cz);
+        if (audio && audio.ctx && d < 220) {
+          const v = Math.min(0.8, 26 / (6 + d));
+          if ((clack -= dt) <= 0) { // wheels over the rail joints: clack-clack, clack-clack
+            clack = 0.22 + Math.random() * 0.08;
+            const t = audio.ctx.currentTime;
+            audio.burst(t, 0.1, 160 + Math.random() * 60, 0.8, v, audio.master, 'lowpass');
+            audio.burst(t + 0.09, 0.08, 200 + Math.random() * 60, 0.8, v * 0.8, audio.master, 'lowpass');
+            if (Math.random() < 0.6) audio.burst(t + 0.02, 0.05, 1800, 3, v * 0.22);
+          }
+          if (over > 0 && (dong -= dt) <= 0) { dong = 0.35; audio.burst(audio.ctx.currentTime, 0.4, 70, 0.6, v * 0.9, audio.master, 'lowpass'); } // the steel span booms
         }
       } else if ((next -= dt) <= 0) {
-        dir = Math.random() < 0.5 ? 1 : -1; train.visible = true;
-        train.position.z = -dir * 250 - (dir > 0 ? 120 : 0);
+        dir = Math.random() < 0.5 ? 1 : -1; train.visible = true; speed = 13 + Math.random() * 5;
+        train.rotation.y = dir < 0 ? 0 : Math.PI;
+        train.position.z = dir < 0 ? 420 + CAR / 2 : -420 - CAR / 2;
       }
     },
   };

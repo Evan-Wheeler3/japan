@@ -66,12 +66,12 @@ function vnoise(x, z, cell, seed) {
   return a + (b - a) * tz;
 }
 
-export function buildWorld(W) {
+// The palette and the little helpers every builder here shares (the shop is built by the same code on every map)
+export function shopKit(W, meta = { lights: [], glass: [], etched: [], steam: [] }) {
   const G = W.grid;
   const X = (m) => W.vx(m), Y = (m) => W.vy(m), Z = (m) => W.vz(m);
   const B = (...a) => W.box(...a);
   const mx = (x) => OX + (x + 0.5) * VS, myOf = (y) => OY + (y + 0.5) * VS, mz = (z) => OZ + (z + 0.5) * VS;
-  const meta = { lights: [], glass: [], etched: [], steam: [] };
 
   // ------------------------------------------------------------ palette
   const P = {
@@ -97,6 +97,25 @@ export function buildWorld(W) {
   };
   const pick = (arr, x, y, z) => arr[Math.floor(hash01(x, y, z) * arr.length * 0.9999)];
   const snowAt = (x, z) => { const n = vnoise(x, z, 6, 3); return n > 0.7 ? P.snow[2] : n < 0.3 ? P.snow[3] : P.snow[(x * 7 + z * 3) & 1]; };
+  // ------------------------------------------------------------ little helpers
+  // snow settles on the topmost surface of each column in a box (trees, fences, lanterns)
+  const snowCap = (x0, x1, z0, z1, y0, y1, chance = 1, skip = null) => {
+    for (let z = Z(z0); z < Z(z1); z++) for (let x = X(x0); x < X(x1); x++) {
+      for (let y = Y(y1); y >= Y(y0); y--) {
+        const v = G.get(x, y, z);
+        if (!v) continue;
+        if (skip && skip(v)) break;
+        if (hash01(x, y, z + 99) < chance && !G.get(x, y + 1, z)) G.set(x, y + 1, z, snowAt(x, z));
+        break;
+      }
+    }
+  };
+  return { W, G, X, Y, Z, B, mx, myOf, mz, meta, P, pick, snowAt, snowCap };
+}
+
+export function buildWorld(W) {
+  const K = shopKit(W);
+  const { G, X, Y, Z, B, mx, myOf, mz, meta, P, pick, snowAt, snowCap } = K;
   // the lot ends at the cliff; beyond it the land falls away to the sea (see effects.makeBackdrop)
   const onLot = (z) => mz(z) > L.cliff;
 
@@ -141,19 +160,6 @@ export function buildWorld(W) {
   // the cliff edge: a rounded snow lip
   for (let x = 0; x < SX; x++) for (let i = 0; i < 2; i++) G.set(x, top - i, Z(L.cliff), i ? P.earth : P.snow[3]);
 
-  // ------------------------------------------------------------ little helpers
-  // snow settles on the topmost surface of each column in a box (trees, fences, lanterns)
-  const snowCap = (x0, x1, z0, z1, y0, y1, chance = 1, skip = null) => {
-    for (let z = Z(z0); z < Z(z1); z++) for (let x = X(x0); x < X(x1); x++) {
-      for (let y = Y(y1); y >= Y(y0); y--) {
-        const v = G.get(x, y, z);
-        if (!v) continue;
-        if (skip && skip(v)) break;
-        if (hash01(x, y, z + 99) < chance && !G.get(x, y + 1, z)) G.set(x, y + 1, z, snowAt(x, z));
-        break;
-      }
-    }
-  };
   const conifer = (tx, tz, h, seed) => {
     const r = rng(seed);
     const base = 0.125, trunkTop = base + h * 0.25;
@@ -174,6 +180,147 @@ export function buildWorld(W) {
     snowCap(tx - maxR - 0.4, tx + maxR + 0.4, tz - maxR - 0.4, tz + maxR + 0.4, trunkTop, base + h + 0.5, 0.82, (v) => v === P.bark);
   };
 
+  buildShop(K);
+
+  // ------------------------------------------------------------ the old storehouse (kura) east of the shop
+  {
+    const x0 = 21, x1 = 27, z0 = 3, z1 = 9;
+    B(x0 - 0.125, 0.125, z0 - 0.125, x1 + 0.125, 0.5, z1 + 0.125, (x, y, z) => (((x >> 2) + (z >> 2) + y) & 1 ? P.stone : P.stoneD));
+    const wall = (u, y) => {
+      const my = myOf(y);
+      if (my < 1.5) { const a = (u + y) & 3, b = (u - y) & 3; return a === 0 || b === 0 ? P.plaster[0] : P.tile[1]; } // namako-kabe
+      if (my > 3.75) return P.timberD;
+      return P.plaster[(y >> 4) & 1];
+    };
+    B(x0, 0.5, z0, x1, 4.0, z0 + 0.25, (x, y) => wall(x, y));
+    B(x0, 0.5, z1 - 0.25, x1, 4.0, z1, (x, y) => wall(x, y));
+    B(x0, 0.5, z0, x0 + 0.25, 4.0, z1, (x, y, z) => wall(z, y));
+    B(x1 - 0.25, 0.5, z0, x1, 4.0, z1, (x, y, z) => wall(z, y));
+    // heavy door and a small shuttered window facing the path
+    // inside: wide floorboards, a timber wainscot and plaster on the walls, a board ceiling under the roof
+    B(x0 + 0.25, 0.375, z0 + 0.25, x1 - 0.25, 0.5, z1 - 0.25, (x, y, z) => ((z >> 1) % 5 === 0 ? P.timberD : P.wood[(x >> 3) & 1]));
+    for (let y = Y(0.5); y < Y(4.0); y++) {
+      const c = (u) => (myOf(y) < 1.375 ? (u % 6 === 0 ? P.timberD : P.wood[0]) : myOf(y) < 1.5 ? P.timberD : P.plaster[(u >> 3) & 1]);
+      for (let x = X(x0 + 0.25); x < X(x1 - 0.25); x++) { if (G.get(x, y, Z(z0) + 1)) G.set(x, y, Z(z0) + 1, c(x)); G.set(x, y, Z(z1) - 2, c(x)); }
+      for (let z = Z(z0 + 0.25); z < Z(z1 - 0.25); z++) { G.set(X(x0) + 1, y, z, c(z)); G.set(X(x1) - 2, y, z, c(z)); }
+    }
+    B(x0 + 0.25, 3.75, z0 + 0.25, x1 - 0.25, 3.875, z1 - 0.25, (x) => ((x & 3) === 0 ? P.timberD : P.sugi[(x >> 3) % 3]));
+    // (the door itself is a sliding panel in main.js, shut until you restore the place)
+    B(23.25, 0.5, z0, 24.75, 2.625, z0 + 0.25, 0);
+    B(23.0, 2.625, z0 - 0.25, 25.0, 2.875, z0, P.tile[0]);
+    B(22.875, 0.125, z0 - 0.75, 25.125, 0.25, z0 - 0.125, (x, y, z) => ((x + z) & 1 ? P.stone : P.stoneD)); // a stone step
+    B(23.5, 3.0, z0 - 0.125, 24.5, 3.5, z0, P.black);
+    // roof
+    const eave = Y(4.0), za = Z(z0 - 0.5), zb = Z(z1 + 0.5);
+    for (let z = za; z < zb; z++) {
+      const d = Math.min(z - za, zb - 1 - z), yr = eave + Math.floor(d * 0.5);
+      for (let x = X(x0 - 0.5); x < X(x1 + 0.5); x++) {
+        G.set(x, yr - 1, z, P.timberD); G.set(x, yr, z, ((x >> 1) & 1) ? P.tile[0] : P.tile[1]);
+        G.set(x, yr + 1, z, z === za || z === zb - 1 ? P.tileEdge : snowAt(x, z));
+        if (z !== za && z !== zb - 1) G.set(x, yr + 2, z, snowAt(x + 3, z));
+        if ((z === za || z === zb - 1) && x % 3 === 1 && hash01(x, z, 4) > 0.5) G.set(x, yr - 2, z, P.ice);
+      }
+      for (const x of [X(x0), X(x1) - 1]) for (let y = eave; y < yr - 1; y++) G.set(x, y, z, P.plaster[1]);
+    }
+  }
+
+  // ------------------------------------------------------------ a small shrine on the west slope: torii, a hokora, a stone lantern
+  {
+    const tx = -5.0, za = 1.75, zb = 4.25;
+    for (const z of [za, zb]) {
+      B(tx - 0.125, 0.125, z - 0.125, tx + 0.125, 0.375, z + 0.125, P.black);
+      B(tx - 0.125, 0.375, z - 0.125, tx + 0.125, 3.0, z + 0.125, P.vermilion);
+    }
+    B(tx - 0.125, 2.375, za - 0.375, tx + 0.125, 2.5, zb + 0.375, P.vermilion);              // nuki
+    B(tx - 0.1875, 2.875, za - 0.625, tx + 0.1875, 3.125, zb + 0.625, P.vermilionD);           // kasagi
+    B(tx - 0.1875, 3.125, za - 0.75, tx + 0.1875, 3.25, zb + 0.75, P.black);
+    for (const z of [za - 0.875, zb + 0.75]) B(tx - 0.1875, 3.25, z, tx + 0.1875, 3.375, z + 0.125, P.black); // upturned ends
+    B(tx - 0.0625, 2.5, (za + zb) / 2 - 0.125, tx + 0.0625, 2.875, (za + zb) / 2 + 0.125, P.black); // plaque
+    snowCap(tx - 0.5, tx + 0.5, za - 1, zb + 1, 2.0, 3.6, 0.95);
+    // hokora
+    const hx = -8.0, hz = 3.0;
+    B(hx - 0.5, 0.125, hz - 0.5, hx + 0.5, 0.5, hz + 0.5, P.stone);
+    B(hx - 0.375, 0.5, hz - 0.375, hx + 0.375, 1.25, hz + 0.375, (x, y, z) => (x === X(hx + 0.375) - 1 && myOf(y) < 1.0 && Math.abs(mz(z) - hz) < 0.2 ? P.lantern : P.wood[(y >> 1) & 1]));
+    for (let i = 0; i < 3; i++) B(hx - 0.625 + i * 0.125, 1.25 + i * 0.125, hz - 0.625 + i * 0.125, hx + 0.625 - i * 0.125, 1.375 + i * 0.125, hz + 0.625 - i * 0.125, P.tile[i & 1]);
+    snowCap(hx - 0.8, hx + 0.8, hz - 0.8, hz + 0.8, 1.0, 2.0, 1);
+    meta.lights.push({ pos: [hx + 0.7, 0.9, hz], color: 0xffa050, intensity: 1.2, distance: 3.5, name: 'shrine' });
+    // the offering box in front, slatted on top
+    B(hx + 0.75, 0.125, hz - 0.3125, hx + 1.125, 0.5, hz + 0.3125, (x, y, z) => (y === Y(0.5) - 1 && (z & 1) ? P.walnutD : P.wood[(y >> 1) & 1]));
+    snowCap(hx + 0.75, hx + 1.125, hz - 0.3125, hz + 0.3125, 0.4, 0.8, 0.5);
+    // a straw rope under the torii's nuki, with paper shide hanging from it
+    B(tx - 0.0625, 2.25, za + 0.125, tx + 0.0625, 2.375, zb - 0.125, P.straw);
+    for (const z of [2.375, 3.0, 3.625]) for (let i = 0; i < 4; i++) B(tx - 0.0625, 2.125 - i * 0.125, z + (i & 1) * 0.0625 - 0.0625, tx + 0.0625, 2.25 - i * 0.125, z + (i & 1) * 0.0625 + 0.0625, P.paper);
+  }
+
+  // a low bamboo fence where the lot ends, to the west and along the back
+  {
+    const fx = -11.75, fz = 17.6, fe = 33.5;
+    const pole = (x, y, z) => ((x + z) % 12 === 0 ? P.bambooNode : P.bamboo[(x + z) & 1]);
+    for (let z = L.cliff + 0.75; z < fz; z += 1.25) B(fx - 0.0625, 0.125, z, fx + 0.0625, 1.25, z + 0.125, P.bambooNode);
+    for (let x = fx; x < fe; x += 1.25) B(x, 0.125, fz - 0.0625, x + 0.125, 1.25, fz + 0.0625, P.bambooNode);
+    for (const y of [0.5, 0.875, 1.125]) {
+      B(fx - 0.0625, y, L.cliff + 0.75, fx + 0.0625, y + 0.0625, fz + 0.0625, pole);
+      B(fx - 0.0625, y, fz - 0.0625, fe, y + 0.0625, fz + 0.0625, pole);
+    }
+    snowCap(fx - 0.2, fx + 0.2, L.cliff + 0.75, fz + 0.1, 1.0, 1.5, 0.7);
+    snowCap(fx - 0.1, fe, fz - 0.2, fz + 0.2, 1.0, 1.5, 0.7);
+  }
+
+  // stone lanterns (toro) along the path
+  const toro = (x, z) => {
+    B(x - 0.25, 0.125, z - 0.25, x + 0.25, 0.25, z + 0.25, P.stoneD);
+    B(x - 0.125, 0.25, z - 0.125, x + 0.125, 0.75, z + 0.125, P.stone);
+    B(x - 0.25, 0.75, z - 0.25, x + 0.25, 0.875, z + 0.25, P.stone);
+    B(x - 0.1875, 0.875, z - 0.1875, x + 0.1875, 1.25, z + 0.1875, (vx, y, vz) => ((Math.abs(mx(vx) - x) < 0.07 || Math.abs(mz(vz) - z) < 0.07) && myOf(y) > 0.95 && myOf(y) < 1.15 ? P.lantern : P.stone));
+    B(x - 0.375, 1.25, z - 0.375, x + 0.375, 1.375, z + 0.375, P.stoneD);
+    B(x - 0.25, 1.375, z - 0.25, x + 0.25, 1.5, z + 0.25, P.stoneD);
+    B(x - 0.0625, 1.5, z - 0.0625, x + 0.0625, 1.625, z + 0.0625, P.stone);
+    snowCap(x - 0.5, x + 0.5, z - 0.5, z + 0.5, 1.2, 2.0, 0.9);
+  };
+  for (const [x, z] of [[3.5, -5.75], [10.0, -5.75], [20.0, -5.75], [-1.6, 0.5]]) toro(x, z);
+  meta.lights.push({ pos: [3.5, 1.1, -5.75], color: 0xffa050, intensity: 1.6, distance: 4, name: 'toroA' });
+  meta.lights.push({ pos: [10.0, 1.1, -5.75], color: 0xffa050, intensity: 1.6, distance: 4, name: 'toroB' });
+  meta.lights.push({ pos: [-1.6, 1.1, 0.5], color: 0xffa050, intensity: 1.4, distance: 4, name: 'toroC' });
+
+  // firewood stacked under the eave against the east wall, behind the freezer annex
+  for (let z = Z(13.5); z < Z(15.75); z++) for (let y = Y(0.125); y < Y(1.25); y++) for (let x = X(16.0); x < X(16.625); x++) {
+    const end = x === X(16.625) - 1, ring = Math.hypot(((z & 3) - 1.5), ((y & 3) - 1.5)) < 1.2;
+    G.set(x, y, z, end ? (ring ? P.logEnd : P.log) : P.wood[(y >> 2) & 1]);
+  }
+  snowCap(16.0, 16.75, 13.5, 15.75, 0.5, 1.75, 0.9);
+
+  // a wooden rail where the lot ends at the cliff
+  {
+    const fz = L.cliff + 0.5;
+    for (let x = -16; x < 36; x += 1.5) B(x, 0.125, fz - 0.0625, x + 0.125, 1.0, fz + 0.0625, P.timber);
+    B(-16, 0.5, fz - 0.0625, 36, 0.5625, fz + 0.0625, P.timber);
+    B(-16, 0.875, fz - 0.0625, 36, 0.9375, fz + 0.0625, P.timber);
+    snowCap(-16, 36, fz - 0.2, fz + 0.2, 0.3, 1.3, 0.8);
+  }
+
+  // pines: west slope, east of the storehouse, behind the shop. The view out of the front room stays clear.
+  [[-12.5, -7.5, 7.5, 1], [-9.0, -8.6, 5.5, 2], [-13.5, -1.5, 8.5, 3], [-11.0, 6.5, 8.0, 4], [-6.0, 10.5, 7.0, 5], [-13.5, 13.0, 8.5, 6],
+    [-2.25, 13.5, 6.0, 7], [19.0, -8.6, 6.0, 8], [30.5, -8.4, 7.5, 9], [33.5, 2.0, 8.5, 10], [29.5, 12.5, 8.0, 11], [19.25, 13.0, 6.5, 12],
+    [24.0, 13.5, 7.0, 13], [33.5, 9.0, 6.0, 14], [-15.0, 4.0, 6.5, 15]].forEach(([x, z, h, s]) => conifer(x, z, h, s));
+
+  finishShop(K);
+  // ---- inside the kura: a stone floor, a timber ceiling under the roof, lantern light
+  meta.lights.push({ pos: [24.0, 3.0, 6.0], color: 0xffb070, intensity: 3.5, distance: 7, name: 'kura' });
+
+  markGlass(K);
+
+  meta.lights.push({ pos: [13.4, 2.1, -4.0], color: 0xff9050, intensity: 5, distance: 6, name: 'door' });
+  meta.lights.push({ pos: [19.2, 1.2, -3.9], color: 0xcfe4ff, intensity: 4, distance: 5.5, name: 'vending' });
+
+  return meta;
+}
+
+// The shop itself: the ground floor (front room, the kaiten room, the back of house), the flat upstairs and the roof.
+// opts.city: the shop stands in a row on a city street (see maps/tokyo): no side windows, the stair up to the flat
+// is inside (off the restroom hall), and the back door opens from the kitchen onto a little yard.
+export function buildShop(K, opts = {}) {
+  const { W, G, X, Y, Z, B, mx, myOf, mz, meta, P, pick, snowAt, snowCap } = K;
+  const city = !!opts.city;
   // ------------------------------------------------------------ the shop (ground floor). Same footprint as the old diner:
   // main room x 0..16, z 0..10 behind a shoji partition; a glass-fronted booth room along the front (z -3..0) looking out to sea.
   const wood = (u, y) => {
@@ -197,7 +344,7 @@ export function buildWorld(W) {
   // west wall: charred cedar outside, wood + plaster inside, windows over the booths
   B(0, 0.125, 0, 0.125, 3.5, 10.25, (x, y, z) => yakisugi(z, myOf(y)));
   B(0.125, 0.25, 0.25, 0.25, 3.5, 10.0, (x, y, z) => wood(z, y));
-  for (const [a, b] of [[1.875, 4.125], [4.25, 6.5], [6.625, 8.75]]) {
+  for (const [a, b] of city ? [] : [[1.875, 4.125], [4.25, 6.5], [6.625, 8.75]]) {
     B(0, 1.0, a, 0.25, 2.75, b, 0);
     meta.glass.push({ axis: 'x', x: 0.125, z0: a, z1: b, y0: 1.0, y1: 2.75 });
     B(-0.125, 0.875, a - 0.125, 0.25, 1.0, b + 0.125, P.timber);   // sill
@@ -250,10 +397,14 @@ export function buildWorld(W) {
   for (const [a, b] of consPanes) meta.glass.push({ axis: 'z', z: -3.25, x0: a, x1: b, y0: 1.0, y1: 2.625 });
   for (const xs of [[X(0), X(0.125)], [X(15.75), X(15.875)]]) for (const x of xs) for (let z = Z(-3.125); z < Z(0); z++) for (let y = Y(0.125); y < Y(2.75); y++) {
     const pz = mz(z);
-    G.set(x, y, z, glassWall(pz > -3.0 && pz < -0.125, x === X(0) || x === X(15.875), myOf(y), z));
+    const my = myOf(y), outer = x === X(0) || x === X(15.875);
+    if (city) G.set(x, y, z, outer ? yakisugi(z, my) : my < 0.875 ? P.oak[0] : my < 1.0 ? P.timber : my > 2.625 ? P.timberD : P.plaster[(y >> 3) & 1]);
+    else G.set(x, y, z, glassWall(pz > -3.0 && pz < -0.125, outer, my, z));
   }
-  meta.glass.push({ axis: 'x', x: 0.125, z0: -3.0, z1: -0.125, y0: 1.0, y1: 2.625 });
-  meta.glass.push({ axis: 'x', x: 15.875, z0: -3.0, z1: -0.125, y0: 1.0, y1: 2.625 });
+  if (!city) {
+    meta.glass.push({ axis: 'x', x: 0.125, z0: -3.0, z1: -0.125, y0: 1.0, y1: 2.625 });
+    meta.glass.push({ axis: 'x', x: 15.875, z0: -3.0, z1: -0.125, y0: 1.0, y1: 2.625 });
+  }
   B(0.125, 0.875, -3.125, 15.75, 1.0, -2.875, P.hinokiE);            // inside sill (the cat's spot)
   B(12.75, 0.25, -3.125, 14.0, 1.0, -2.875, 0);
   B(12.625, 0.125, -3.75, 14.125, 0.25, -3.125, P.stoneL);           // stone step at the door
@@ -378,20 +529,60 @@ export function buildWorld(W) {
     // two-voxel shared walls so each side gets its own finish
     B(1.75, 0.25, 10.25, 1.875, 3.0, 15.75, (x, y, z) => wallFinish('hall', z, y));
     B(1.875, 0.25, 10.25, 2.0, 3.0, 15.75, (x, y, z) => wallFinish('rest', z, y));
-    B(1.75, 0.25, 11.0, 2.0, 2.25, 12.0, 0); B(1.75, 0.25, 13.75, 2.0, 2.25, 14.75, 0);
-    B(1.75, 2.25, 10.9, 1.875, 2.375, 12.1, P.walnutD); B(1.75, 2.25, 13.65, 1.875, 2.375, 14.85, P.walnutD);
+    B(1.75, 0.25, 11.0, 2.0, 2.25, 12.0, 0); if (!city) B(1.75, 0.25, 13.75, 2.0, 2.25, 14.75, 0);
+    B(1.75, 2.25, 10.9, 1.875, 2.375, 12.1, P.walnutD); if (!city) B(1.75, 2.25, 13.65, 1.875, 2.375, 14.85, P.walnutD);
     B(2.0, 0.25, 13.0, 4.875, 3.0, 13.125, (x, y, z) => wallFinish('rest', x, y));
     B(4.875, 0.25, 10.25, 5.0, 3.0, 15.75, (x, y, z) => wallFinish('rest', z, y));
     B(5.0, 0.25, 10.25, 5.125, 3.0, 15.75, (x, y, z) => wallFinish('kitchen', z, y));
     // hallway end: the back door (a door panel in main.js; snowed shut until you dig it out), a step outside
-    B(0.375, 0.25, 15.625, 1.625, 2.25, 16.0, 0);
-    B(0.25, 0.25, 15.625, 0.375, 2.375, 16.0, P.steelD); B(1.625, 0.25, 15.625, 1.75, 2.375, 16.0, P.steelD); B(0.25, 2.25, 15.625, 1.75, 2.375, 16.0, P.steelD);
-    B(0.25, 0.125, 16.0, 1.75, 0.25, 16.5, P.stoneL);
+    if (!city) {
+      B(0.375, 0.25, 15.625, 1.625, 2.25, 16.0, 0);
+      B(0.25, 0.25, 15.625, 0.375, 2.375, 16.0, P.steelD); B(1.625, 0.25, 15.625, 1.75, 2.375, 16.0, P.steelD); B(0.25, 2.25, 15.625, 1.75, 2.375, 16.0, P.steelD);
+      B(0.25, 0.125, 16.0, 1.75, 0.25, 16.5, P.stoneL);
+    } else {
+      // in town the hall turns the corner into a stairway up to the flat: one flight up the end of the hall to a
+      // landing in the corner, then a second along the back wall, through the ceiling. (The second restroom gives way.)
+      const step = 0.25, tread = 0.375, F = 0.25, F2 = 3.75;
+      const oakT = (x, z) => ((x + z) % 9 === 0 ? P.oak[2] : P.oak[1]);
+      // flight one: north up the hall, five steps, then the landing (x 0.25..1.75)
+      for (let k = 1; k <= 5; k++) {
+        const z0 = 12.5 + (k - 1) * tread, h = F + k * step;
+        B(0.25, F, z0, 1.75, h, z0 + tread, (x, y, z) => (y === Y(h) - 1 ? oakT(x, z) : z === Z(z0) ? P.oak[0] : P.walnutD));
+      }
+      B(0.25, F, 14.375, 2.0, 1.75, 15.75, (x, y, z) => (y === Y(1.75) - 1 ? oakT(x, z) : P.walnutD));   // the landing
+      // flight two: east along the back wall, seven steps, up to the flat's floor (x 2.0..4.375)
+      for (let j = 1; j <= 7; j++) {
+        const x0 = 1.625 + j * tread, h = 1.75 + j * step;
+        B(x0, F, 14.375, x0 + tread, h, 15.75, (x, y, z) => (y === Y(h) - 1 ? oakT(x, z) : x === X(x0) ? P.oak[0] : P.walnutD));
+      }
+      // a wall down the open side of flight two, closing off the space under it (plaster to the stair)
+      B(2.0, F, 14.25, 4.875, 3.0, 14.375, (x, y) => wallFinish('hall', x, y));
+      // the hall's own wall stops at the landing; the second flight runs on through it
+      B(1.75, 1.75, 14.375, 2.0, 3.0, 15.75, 0);
+      // handrails on the walls, following the pitch
+      // (one unbroken rail each, on brackets, rising with the line of the step noses)
+      const rail = (set, u0, u1, h0) => {
+        let prev = null;
+        for (let u = u0; u < u1; u++) {
+          const y = Y(h0 + ((u - u0) * VS / tread) * step + 0.875);
+          if (prev !== null) for (let yy = Math.min(prev, y); yy <= Math.max(prev, y); yy++) set(u, yy);
+          set(u, y); set(u, y - 1); prev = y;
+          if ((u - u0) % 10 === 5) set(u, y - 2);
+        }
+      };
+      rail((z, y) => G.set(X(0.25), y, z, P.walnutD), Z(12.5), Z(14.375), F + step * 0.5);
+      rail((x, y) => G.set(x, y, Z(15.75) - 1, P.walnutD), X(1.75), X(4.5), 1.75 + step * 0.5);
+      meta.lights.push({ pos: [1.4, 3.6, 14.9], color: 0xffd8a8, intensity: 2.6, distance: 6, name: 'stairs' });
+      // the back door moves to the kitchen's east wall, out onto the yard
+      B(15.75, 0.25, 14.375, 16.125, 2.25, 15.625, 0);
+      B(15.625, 0.25, 14.25, 15.75, 2.375, 14.375, P.steelD); B(15.625, 0.25, 15.625, 15.75, 2.375, 15.75, P.steelD); B(15.625, 2.25, 14.25, 15.75, 2.375, 15.75, P.steelD);
+      B(16.0, 0.125, 14.25, 16.625, 0.25, 15.75, P.stoneL);
+    }
     // square washi ceiling lamps in the restrooms and the hall
     const washi = (x0, z0, s) => B(x0, 2.875, z0, x0 + s, 3.0, z0 + s, (x, y, z) => (x === X(x0) || z === Z(z0) || x === X(x0 + s) - 1 || z === Z(z0 + s) - 1 ? P.timberD : C('#ffe2b0', 1.6, 0.04)));
-    for (const lz of [11.375, 14.125]) washi(3.125, lz, 0.75);
+    for (const lz of city ? [11.375] : [11.375, 14.125]) washi(3.125, lz, 0.75);
     washi(0.75, 12.75, 0.5);
-    meta.lights.push({ pos: [3.45, 2.6, 13.06], color: 0xffd8a8, intensity: 3.2, distance: 5.5, name: 'restrooms' });
+    meta.lights.push({ pos: [3.45, 2.6, city ? 11.7 : 13.06], color: 0xffd8a8, intensity: 3.2, distance: 5.5, name: 'restrooms' });
 
     // ---- kitchen: cook line under a big hood, prep island, plating shelf, dish station, walk-in, dry storage
     B(6.0, 2.25, 14.25, 14.75, 3.0, 15.75, (x, y, z) => (y === Y(2.25) && z === Z(14.375) && (x % 10 < 3) ? C('#fff4d8', 3.0, 0.03) : P.steel));
@@ -601,163 +792,65 @@ export function buildWorld(W) {
     B(AX0, F2 + 2.0, 4.75, 7.625, F2 + 2.25, 5.5, P.timberD);
     // a step down into the genkan
     B(14.0, F2 - 0.125, 5.625, 14.125, F2, AZ1, P.walnutD);
-    // the doorway out to the stair landing, in the east wall
-    B(15.75, F2, 6.5, 16, F2 + 2.125, 7.5, 0);
-    B(15.75, F2 + 2.125, 6.375, 16, F2 + 2.25, 7.625, P.timberD);
-    for (const z of [6.375, 7.5]) B(15.75, F2, z, 16, F2 + 2.125, z + 0.125, P.timberD);
-    // outdoor stair: treads rising north along the east wall from the front path, a landing at the door
-    const sz0 = -0.5, sz1 = 6.0;
-    for (let z = Z(sz0); z < Z(sz1); z++) {
-      const k = (mz(z) - sz0) / (sz1 - sz0), ty = Y(0.125 + k * (F2 - 0.125));
-      for (let x = X(16.25); x < X(17.5); x++) {
-        G.set(x, ty - 1, z, P.wood[1]); G.set(x, ty - 2, z, P.timberD);
-        const edge = x === X(16.25) || x === X(17.5) - 1;
-        if (edge && hash01(x, ty, z) > 0.3) G.set(x, ty, z, snowAt(x, z));   // snow banked at the edges
+    if (!city) {
+      // the doorway out to the stair landing, in the east wall
+      B(15.75, F2, 6.5, 16, F2 + 2.125, 7.5, 0);
+      B(15.75, F2 + 2.125, 6.375, 16, F2 + 2.25, 7.625, P.timberD);
+      for (const z of [6.375, 7.5]) B(15.75, F2, z, 16, F2 + 2.125, z + 0.125, P.timberD);
+      // outdoor stair: treads rising north along the east wall from the front path, a landing at the door
+      const sz0 = -0.5, sz1 = 6.0;
+      for (let z = Z(sz0); z < Z(sz1); z++) {
+        const k = (mz(z) - sz0) / (sz1 - sz0), ty = Y(0.125 + k * (F2 - 0.125));
+        for (let x = X(16.25); x < X(17.5); x++) {
+          G.set(x, ty - 1, z, P.wood[1]); G.set(x, ty - 2, z, P.timberD);
+          const edge = x === X(16.25) || x === X(17.5) - 1;
+          if (edge && hash01(x, ty, z) > 0.3) G.set(x, ty, z, snowAt(x, z));   // snow banked at the edges
+        }
+        for (const x of [X(16.25), X(17.5) - 1]) for (let y = Math.max(Y(0.125), ty - 5); y < ty - 2; y++) G.set(x, y, z, P.timberD); // stringers
       }
-      for (const x of [X(16.25), X(17.5) - 1]) for (let y = Math.max(Y(0.125), ty - 5); y < ty - 2; y++) G.set(x, y, z, P.timberD); // stringers
+      for (const z of [0.5, 2.5, 4.5]) { // posts under the stringers
+        const k = (z - sz0) / (sz1 - sz0), top = 0.125 + k * (F2 - 0.125) - 0.375;
+        for (const x of [16.25, 17.375]) B(x, 0.125, z, x + 0.125, top, z + 0.125, P.timber);
+      }
+      B(16.0, F2 - 0.25, 6.0, 17.75, F2, 8.0, (x, y) => (y === Y(F2) - 1 ? P.wood[0] : P.timberD));   // landing
+      for (const [x, z] of [[16.0, 7.875], [17.625, 6.0], [17.625, 7.875]]) B(x, 0.125, z, x + 0.125, F2 - 0.25, z + 0.125, P.timber);
+      // railings: outer side of the stair and round the landing
+      for (let z = Z(sz0); z < Z(sz1); z += 1) {
+        const k = (mz(z) - sz0) / (sz1 - sz0), ty = Y(0.125 + k * (F2 - 0.125));
+        G.set(X(17.5), ty + 7, z, P.timber);
+        if ((z - Z(sz0)) % 8 === 0) for (let y = ty; y < ty + 7; y++) G.set(X(17.5), y, z, P.timber);
+      }
+      B(17.625, F2, 6.0, 17.75, F2 + 0.875, 8.0, (x, y, z) => (y === Y(F2 + 0.875) - 1 || (z & 3) === 0 ? P.timber : 0));
+      B(16.0, F2, 7.875, 17.75, F2 + 0.875, 8.0, (x, y) => (y === Y(F2 + 0.875) - 1 || (x & 3) === 0 ? P.timber : 0));
+      snowCap(16.0, 17.8, 6.0, 8.05, F2, F2 + 1.2, 0.7);
+      meta.lights.push({ pos: [16.35, 5.7, 7.0], color: 0xffb070, intensity: 2.2, distance: 5, name: 'aptDoor' });
+    } else {
+      // in town the flat is reached from inside: a doorway in its back wall, from the genkan into the back room
+      // over the shop where the stair comes up (x 0.25..15.75, z 8.75..15.75: boards, a bare bulb, odds and ends)
+      B(14.25, F2, AZ1, 15.375, F2 + 2.125, AZ1 + 0.25, 0);
+      B(14.125, F2 + 2.125, AZ1, 15.5, F2 + 2.25, AZ1 + 0.25, P.timberD);
+      for (const x of [14.125, 15.375]) B(x, F2, AZ1, x + 0.125, F2 + 2.125, AZ1 + 0.25, P.timberD);
+      meta.lights.push({ pos: [8.0, 5.9, 12.4], color: 0xffc890, intensity: 2.6, distance: 10, name: 'attic' });
+      // the stairwell: the well through the ceiling and this floor over the restroom hall's stairs, and a solid
+      // balustrade round it (open where the stairs come up, on the east)
+      B(0.25, 3.0, 13.375, 1.75, F2, 15.75, 0);
+      B(1.75, 3.0, 14.375, 2.0, F2, 15.75, 0);                                                     // over the landing's corner
+      for (let j = 1; j <= 7; j++) B(1.625 + j * 0.375, Math.max(3.0, 1.75 + j * 0.25), 14.375, 2.0 + j * 0.375, F2, 15.75, 0); // over each step of the second flight
+      const bal = (x, y) => (y >= Y(F2 + 0.875) - 1 ? P.walnutD : (x & 7) === 0 ? P.timber : P.plaster[0]);
+      B(0.25, F2, 13.25, 1.875, F2 + 0.875, 13.375, (x, y) => bal(x, y));
+      B(1.75, F2, 13.375, 1.875, F2 + 0.875, 14.375, (x, y, z) => bal(z, y));
+      B(1.75, F2, 14.25, 4.625, F2 + 0.875, 14.375, (x, y) => bal(x, y));
     }
-    for (const z of [0.5, 2.5, 4.5]) { // posts under the stringers
-      const k = (z - sz0) / (sz1 - sz0), top = 0.125 + k * (F2 - 0.125) - 0.375;
-      for (const x of [16.25, 17.375]) B(x, 0.125, z, x + 0.125, top, z + 0.125, P.timber);
-    }
-    B(16.0, F2 - 0.25, 6.0, 17.75, F2, 8.0, (x, y) => (y === Y(F2) - 1 ? P.wood[0] : P.timberD));   // landing
-    for (const [x, z] of [[16.0, 7.875], [17.625, 6.0], [17.625, 7.875]]) B(x, 0.125, z, x + 0.125, F2 - 0.25, z + 0.125, P.timber);
-    // railings: outer side of the stair and round the landing
-    for (let z = Z(sz0); z < Z(sz1); z += 1) {
-      const k = (mz(z) - sz0) / (sz1 - sz0), ty = Y(0.125 + k * (F2 - 0.125));
-      G.set(X(17.5), ty + 7, z, P.timber);
-      if ((z - Z(sz0)) % 8 === 0) for (let y = ty; y < ty + 7; y++) G.set(X(17.5), y, z, P.timber);
-    }
-    B(17.625, F2, 6.0, 17.75, F2 + 0.875, 8.0, (x, y, z) => (y === Y(F2 + 0.875) - 1 || (z & 3) === 0 ? P.timber : 0));
-    B(16.0, F2, 7.875, 17.75, F2 + 0.875, 8.0, (x, y) => (y === Y(F2 + 0.875) - 1 || (x & 3) === 0 ? P.timber : 0));
-    snowCap(16.0, 17.8, 6.0, 8.05, F2, F2 + 1.2, 0.7);
-    meta.lights.push({ pos: [16.35, 5.7, 7.0], color: 0xffb070, intensity: 2.2, distance: 5, name: 'aptDoor' });
     meta.lights.push({ pos: [8.4, 5.6, 3.2], color: 0xffa860, intensity: 5.5, distance: 8, name: 'aptLiving' });
     meta.lights.push({ pos: [12.2, 4.4, 4.2], color: 0xff9a50, intensity: 3, distance: 5, name: 'aptBed' });
     meta.lights.push({ pos: [12.4, 5.6, 7.0], color: 0xffd8a8, intensity: 4, distance: 6, name: 'aptKitchen' });
   }
 
-  // ------------------------------------------------------------ the old storehouse (kura) east of the shop
-  {
-    const x0 = 21, x1 = 27, z0 = 3, z1 = 9;
-    B(x0 - 0.125, 0.125, z0 - 0.125, x1 + 0.125, 0.5, z1 + 0.125, (x, y, z) => (((x >> 2) + (z >> 2) + y) & 1 ? P.stone : P.stoneD));
-    const wall = (u, y) => {
-      const my = myOf(y);
-      if (my < 1.5) { const a = (u + y) & 3, b = (u - y) & 3; return a === 0 || b === 0 ? P.plaster[0] : P.tile[1]; } // namako-kabe
-      if (my > 3.75) return P.timberD;
-      return P.plaster[(y >> 4) & 1];
-    };
-    B(x0, 0.5, z0, x1, 4.0, z0 + 0.25, (x, y) => wall(x, y));
-    B(x0, 0.5, z1 - 0.25, x1, 4.0, z1, (x, y) => wall(x, y));
-    B(x0, 0.5, z0, x0 + 0.25, 4.0, z1, (x, y, z) => wall(z, y));
-    B(x1 - 0.25, 0.5, z0, x1, 4.0, z1, (x, y, z) => wall(z, y));
-    // heavy door and a small shuttered window facing the path
-    // inside: wide floorboards, a timber wainscot and plaster on the walls, a board ceiling under the roof
-    B(x0 + 0.25, 0.375, z0 + 0.25, x1 - 0.25, 0.5, z1 - 0.25, (x, y, z) => ((z >> 1) % 5 === 0 ? P.timberD : P.wood[(x >> 3) & 1]));
-    for (let y = Y(0.5); y < Y(4.0); y++) {
-      const c = (u) => (myOf(y) < 1.375 ? (u % 6 === 0 ? P.timberD : P.wood[0]) : myOf(y) < 1.5 ? P.timberD : P.plaster[(u >> 3) & 1]);
-      for (let x = X(x0 + 0.25); x < X(x1 - 0.25); x++) { if (G.get(x, y, Z(z0) + 1)) G.set(x, y, Z(z0) + 1, c(x)); G.set(x, y, Z(z1) - 2, c(x)); }
-      for (let z = Z(z0 + 0.25); z < Z(z1 - 0.25); z++) { G.set(X(x0) + 1, y, z, c(z)); G.set(X(x1) - 2, y, z, c(z)); }
-    }
-    B(x0 + 0.25, 3.75, z0 + 0.25, x1 - 0.25, 3.875, z1 - 0.25, (x) => ((x & 3) === 0 ? P.timberD : P.sugi[(x >> 3) % 3]));
-    // (the door itself is a sliding panel in main.js, shut until you restore the place)
-    B(23.25, 0.5, z0, 24.75, 2.625, z0 + 0.25, 0);
-    B(23.0, 2.625, z0 - 0.25, 25.0, 2.875, z0, P.tile[0]);
-    B(22.875, 0.125, z0 - 0.75, 25.125, 0.25, z0 - 0.125, (x, y, z) => ((x + z) & 1 ? P.stone : P.stoneD)); // a stone step
-    B(23.5, 3.0, z0 - 0.125, 24.5, 3.5, z0, P.black);
-    // roof
-    const eave = Y(4.0), za = Z(z0 - 0.5), zb = Z(z1 + 0.5);
-    for (let z = za; z < zb; z++) {
-      const d = Math.min(z - za, zb - 1 - z), yr = eave + Math.floor(d * 0.5);
-      for (let x = X(x0 - 0.5); x < X(x1 + 0.5); x++) {
-        G.set(x, yr - 1, z, P.timberD); G.set(x, yr, z, ((x >> 1) & 1) ? P.tile[0] : P.tile[1]);
-        G.set(x, yr + 1, z, z === za || z === zb - 1 ? P.tileEdge : snowAt(x, z));
-        if (z !== za && z !== zb - 1) G.set(x, yr + 2, z, snowAt(x + 3, z));
-        if ((z === za || z === zb - 1) && x % 3 === 1 && hash01(x, z, 4) > 0.5) G.set(x, yr - 2, z, P.ice);
-      }
-      for (const x of [X(x0), X(x1) - 1]) for (let y = eave; y < yr - 1; y++) G.set(x, y, z, P.plaster[1]);
-    }
-  }
+}
 
-  // ------------------------------------------------------------ a small shrine on the west slope: torii, a hokora, a stone lantern
-  {
-    const tx = -5.0, za = 1.75, zb = 4.25;
-    for (const z of [za, zb]) {
-      B(tx - 0.125, 0.125, z - 0.125, tx + 0.125, 0.375, z + 0.125, P.black);
-      B(tx - 0.125, 0.375, z - 0.125, tx + 0.125, 3.0, z + 0.125, P.vermilion);
-    }
-    B(tx - 0.125, 2.375, za - 0.375, tx + 0.125, 2.5, zb + 0.375, P.vermilion);              // nuki
-    B(tx - 0.1875, 2.875, za - 0.625, tx + 0.1875, 3.125, zb + 0.625, P.vermilionD);           // kasagi
-    B(tx - 0.1875, 3.125, za - 0.75, tx + 0.1875, 3.25, zb + 0.75, P.black);
-    for (const z of [za - 0.875, zb + 0.75]) B(tx - 0.1875, 3.25, z, tx + 0.1875, 3.375, z + 0.125, P.black); // upturned ends
-    B(tx - 0.0625, 2.5, (za + zb) / 2 - 0.125, tx + 0.0625, 2.875, (za + zb) / 2 + 0.125, P.black); // plaque
-    snowCap(tx - 0.5, tx + 0.5, za - 1, zb + 1, 2.0, 3.6, 0.95);
-    // hokora
-    const hx = -8.0, hz = 3.0;
-    B(hx - 0.5, 0.125, hz - 0.5, hx + 0.5, 0.5, hz + 0.5, P.stone);
-    B(hx - 0.375, 0.5, hz - 0.375, hx + 0.375, 1.25, hz + 0.375, (x, y, z) => (x === X(hx + 0.375) - 1 && myOf(y) < 1.0 && Math.abs(mz(z) - hz) < 0.2 ? P.lantern : P.wood[(y >> 1) & 1]));
-    for (let i = 0; i < 3; i++) B(hx - 0.625 + i * 0.125, 1.25 + i * 0.125, hz - 0.625 + i * 0.125, hx + 0.625 - i * 0.125, 1.375 + i * 0.125, hz + 0.625 - i * 0.125, P.tile[i & 1]);
-    snowCap(hx - 0.8, hx + 0.8, hz - 0.8, hz + 0.8, 1.0, 2.0, 1);
-    meta.lights.push({ pos: [hx + 0.7, 0.9, hz], color: 0xffa050, intensity: 1.2, distance: 3.5, name: 'shrine' });
-    // the offering box in front, slatted on top
-    B(hx + 0.75, 0.125, hz - 0.3125, hx + 1.125, 0.5, hz + 0.3125, (x, y, z) => (y === Y(0.5) - 1 && (z & 1) ? P.walnutD : P.wood[(y >> 1) & 1]));
-    snowCap(hx + 0.75, hx + 1.125, hz - 0.3125, hz + 0.3125, 0.4, 0.8, 0.5);
-    // a straw rope under the torii's nuki, with paper shide hanging from it
-    B(tx - 0.0625, 2.25, za + 0.125, tx + 0.0625, 2.375, zb - 0.125, P.straw);
-    for (const z of [2.375, 3.0, 3.625]) for (let i = 0; i < 4; i++) B(tx - 0.0625, 2.125 - i * 0.125, z + (i & 1) * 0.0625 - 0.0625, tx + 0.0625, 2.25 - i * 0.125, z + (i & 1) * 0.0625 + 0.0625, P.paper);
-  }
-
-  // a low bamboo fence where the lot ends, to the west and along the back
-  {
-    const fx = -11.75, fz = 17.6, fe = 33.5;
-    const pole = (x, y, z) => ((x + z) % 12 === 0 ? P.bambooNode : P.bamboo[(x + z) & 1]);
-    for (let z = L.cliff + 0.75; z < fz; z += 1.25) B(fx - 0.0625, 0.125, z, fx + 0.0625, 1.25, z + 0.125, P.bambooNode);
-    for (let x = fx; x < fe; x += 1.25) B(x, 0.125, fz - 0.0625, x + 0.125, 1.25, fz + 0.0625, P.bambooNode);
-    for (const y of [0.5, 0.875, 1.125]) {
-      B(fx - 0.0625, y, L.cliff + 0.75, fx + 0.0625, y + 0.0625, fz + 0.0625, pole);
-      B(fx - 0.0625, y, fz - 0.0625, fe, y + 0.0625, fz + 0.0625, pole);
-    }
-    snowCap(fx - 0.2, fx + 0.2, L.cliff + 0.75, fz + 0.1, 1.0, 1.5, 0.7);
-    snowCap(fx - 0.1, fe, fz - 0.2, fz + 0.2, 1.0, 1.5, 0.7);
-  }
-
-  // stone lanterns (toro) along the path
-  const toro = (x, z) => {
-    B(x - 0.25, 0.125, z - 0.25, x + 0.25, 0.25, z + 0.25, P.stoneD);
-    B(x - 0.125, 0.25, z - 0.125, x + 0.125, 0.75, z + 0.125, P.stone);
-    B(x - 0.25, 0.75, z - 0.25, x + 0.25, 0.875, z + 0.25, P.stone);
-    B(x - 0.1875, 0.875, z - 0.1875, x + 0.1875, 1.25, z + 0.1875, (vx, y, vz) => ((Math.abs(mx(vx) - x) < 0.07 || Math.abs(mz(vz) - z) < 0.07) && myOf(y) > 0.95 && myOf(y) < 1.15 ? P.lantern : P.stone));
-    B(x - 0.375, 1.25, z - 0.375, x + 0.375, 1.375, z + 0.375, P.stoneD);
-    B(x - 0.25, 1.375, z - 0.25, x + 0.25, 1.5, z + 0.25, P.stoneD);
-    B(x - 0.0625, 1.5, z - 0.0625, x + 0.0625, 1.625, z + 0.0625, P.stone);
-    snowCap(x - 0.5, x + 0.5, z - 0.5, z + 0.5, 1.2, 2.0, 0.9);
-  };
-  for (const [x, z] of [[3.5, -5.75], [10.0, -5.75], [20.0, -5.75], [-1.6, 0.5]]) toro(x, z);
-  meta.lights.push({ pos: [3.5, 1.1, -5.75], color: 0xffa050, intensity: 1.6, distance: 4, name: 'toroA' });
-  meta.lights.push({ pos: [10.0, 1.1, -5.75], color: 0xffa050, intensity: 1.6, distance: 4, name: 'toroB' });
-  meta.lights.push({ pos: [-1.6, 1.1, 0.5], color: 0xffa050, intensity: 1.4, distance: 4, name: 'toroC' });
-
-  // firewood stacked under the eave against the east wall, behind the freezer annex
-  for (let z = Z(13.5); z < Z(15.75); z++) for (let y = Y(0.125); y < Y(1.25); y++) for (let x = X(16.0); x < X(16.625); x++) {
-    const end = x === X(16.625) - 1, ring = Math.hypot(((z & 3) - 1.5), ((y & 3) - 1.5)) < 1.2;
-    G.set(x, y, z, end ? (ring ? P.logEnd : P.log) : P.wood[(y >> 2) & 1]);
-  }
-  snowCap(16.0, 16.75, 13.5, 15.75, 0.5, 1.75, 0.9);
-
-  // a wooden rail where the lot ends at the cliff
-  {
-    const fz = L.cliff + 0.5;
-    for (let x = -16; x < 36; x += 1.5) B(x, 0.125, fz - 0.0625, x + 0.125, 1.0, fz + 0.0625, P.timber);
-    B(-16, 0.5, fz - 0.0625, 36, 0.5625, fz + 0.0625, P.timber);
-    B(-16, 0.875, fz - 0.0625, 36, 0.9375, fz + 0.0625, P.timber);
-    snowCap(-16, 36, fz - 0.2, fz + 0.2, 0.3, 1.3, 0.8);
-  }
-
-  // pines: west slope, east of the storehouse, behind the shop. The view out of the front room stays clear.
-  [[-12.5, -7.5, 7.5, 1], [-9.0, -8.6, 5.5, 2], [-13.5, -1.5, 8.5, 3], [-11.0, 6.5, 8.0, 4], [-6.0, 10.5, 7.0, 5], [-13.5, 13.0, 8.5, 6],
-    [-2.25, 13.5, 6.0, 7], [19.0, -8.6, 6.0, 8], [30.5, -8.4, 7.5, 9], [33.5, 2.0, 8.5, 10], [29.5, 12.5, 8.0, 11], [19.25, 13.0, 6.5, 12],
-    [24.0, 13.5, 7.0, 13], [33.5, 9.0, 6.0, 14], [-15.0, 4.0, 6.5, 15]].forEach(([x, z, h, s]) => conifer(x, z, h, s));
-
+// after everything else is built: floor under the shop, the walk-in freezer's annex
+export function finishShop(K) {
+  const { W, G, X, Y, Z, B, mx, myOf, mz, meta, P, pick, snowAt, snowCap } = K;
   // nothing of the snowy ground shows inside the shop: below floor level, within the walls, it's all floor
   {
     const snowy = new Set([...P.snow, P.snowShade]);
@@ -779,16 +872,13 @@ export function buildWorld(W) {
     snowCap(15.9, 18.5, 10.3, 13.2, 2.5, 3.5, 1);
     meta.lights.push({ pos: [17.2, 2.2, 11.75], color: 0xcfe8ff, intensity: 2.6, distance: 4, name: 'freezer' });
   }
-  // ---- inside the kura: a stone floor, a timber ceiling under the roof, lantern light
-  meta.lights.push({ pos: [24.0, 3.0, 6.0], color: 0xffb070, intensity: 3.5, distance: 7, name: 'kura' });
+}
 
+export function markGlass(K) {
+  const { W, meta } = K;
   // glass is solid: you can see through the panes but not walk through them
   for (const g of meta.glass) for (let y = g.y0; y < g.y1; y += VS / 2) for (let u = g.axis === 'z' ? g.x0 : g.z0; u < (g.axis === 'z' ? g.x1 : g.z1); u += VS / 2) {
     if (g.axis === 'z') { W.mark(u, y, g.z - VS / 2); W.mark(u, y, g.z + VS / 2); } else { W.mark(g.x - VS / 2, y, u); W.mark(g.x + VS / 2, y, u); }
   }
 
-  meta.lights.push({ pos: [13.4, 2.1, -4.0], color: 0xff9050, intensity: 5, distance: 6, name: 'door' });
-  meta.lights.push({ pos: [19.2, 1.2, -3.9], color: 0xcfe4ff, intensity: 4, distance: 5.5, name: 'vending' });
-
-  return meta;
 }

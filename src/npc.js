@@ -238,16 +238,23 @@ export class Crowd {
     q.pos.set(sp[0], 0.125, sp[1]); q.seat = seat; seat.occupant = q;
     q.path = path; q.state = 'walk'; q.then = 'sitdown';
   }
-  // someone walking past: from one end of the street to the other, keeping to their own line
+  // someone walking past: from one end of the street to the other, keeping to a lane (a pavement, or the road)
   passby() {
+    const P = this.passers;
+    if (P.lanes) {
+      const [z0, z1] = P.lanes[Math.floor(this.r() * P.lanes.length)], z = z0 + this.r() * (z1 - z0);
+      const east = this.r() < 0.5, xa = east ? P.ends[0] : P.ends[1], xb = east ? P.ends[1] : P.ends[0];
+      const path = this.nav.path(xa, z, xb, z); if (!path) return;
+      const q = this.make(randomLook(this.r));
+      q.pos.set(xa, 0.125, z); q.path = path; q.state = 'walk'; q.then = 'despawn';
+      q.passer = true; q.pace = 0.85 + this.r() * 0.45;
+      return;
+    }
     const S = this.spawns; if (S.length < 2) return;
     const i = Math.floor(this.r() * S.length), a = S[i], b = S[(i + 1 + Math.floor(this.r() * (S.length - 1))) % S.length];
     const path = this.nav.path(a[0], a[1], b[0], b[1]); if (!path) return;
-    const off = (this.r() - 0.5) * 3.2;
-    for (const p of path) if (p[1] < -0.6) p[1] = Math.max(-6.1, Math.min(-0.9, p[1] + off));
-    path.push([b[0], Math.max(-6.1, Math.min(-0.9, b[1] + off))]);
     const q = this.make(randomLook(this.r));
-    q.pos.set(a[0], 0.125, Math.max(-6.1, Math.min(-0.9, a[1] + off))); q.path = path; q.state = 'walk'; q.then = 'despawn';
+    q.pos.set(a[0], 0.125, a[1]); q.path = path; q.state = 'walk'; q.then = 'despawn';
     q.passer = true; q.pace = 0.85 + this.r() * 0.45;
   }
   leave(q) {

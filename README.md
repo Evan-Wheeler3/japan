@@ -22,18 +22,23 @@ On a phone: left thumb walks, drag on the right to look, tap to use.
 
 ## The street
 
-The shop is nine stools along a little sushi belt, two booths in the front window, a register by the door, and a
-kitchen line under the hood behind the counter. Through the noren at the back: a washroom, a walk-in freezer, a
-storeroom, the back door to the alley, and the stairs up to your flat (tatami, a kotatsu, a futon).
+The shop stands shoulder to shoulder with its neighbours on a narrow, snowy street of little bars and shops, under a
+brick railway viaduct. Inside it's the same shop as ever: the kaiten island with its booths and stools, the glass front
+room looking onto the street, the genkan and register by the door, the kitchen, and the restroom hall. At the end of
+the hall the stairs turn the corner up to your flat (tatami, a kotatsu, the futon by the window), through the back
+room over the shop. The kitchen's back door opens onto a little yard with the walk-in freezer and an old shed at the
+back of it.
 
-Outside, it's a back street between the bars and the izakaya: a konbini across the road lit up all night, a coin
-laundry, karaoke, utility poles strung with wires, vending machines (one has a cat asleep beside it), coin parking,
-and an elevated line at the west end where a train rumbles over now and then. People with umbrellas pass by all
-night; some of them come in.
+Outside: an izakaya and a standing bar either side, a tiny Inari shrine down a passage between them, a row of vending
+machines under a canopy, a tobacconist, a coin laundry; across the road a konbini, a ramen shop, a drugstore, an old
+kissaten, a karaoke tower and a yakiniku place. Signs are stacked up the buildings' corners, lanterns are strung
+across the street, and the wires sag from pole to pole. Every so often a train rumbles over the viaduct at the west
+end. Both ends of the street are closed for road works tonight; the city carries on beyond the barriers. People pass
+by all night, and some of them come in.
 
-The game used to be set in a shop on a snowy cliff above the sea, looking across the bay at Mt Fuji. That map is
-still there: add `?map=mountain` to the URL to run the shop up there (it keeps its own furniture layout). The night
-parade is always played on the mountain.
+The game used to be set on a snowy cliff above the sea, looking across the bay at Mt Fuji. That map is still there:
+add `?map=mountain` to the URL to run the shop up there (the flat is the same, and so is the arrangement of your
+things). The night parade is always played on the mountain.
 
 ## How a night goes
 
@@ -131,11 +136,11 @@ shares one arrangement of the apartment.
 **Dev switch:** the **`** key (or "dev · infinite yen" in settings) toggles a cash box that never runs out, for
 testing. It's remembered until you switch it off.
 
-The vending machines up the street (on the mountain, the one along the path past the stair) take ¥130 from the cash box for a hot drink. It warms you
+The vending machines next door (on the mountain, the one along the path past the stair) take ¥130 from the cash box for a hot drink. It warms you
 up: you walk 25% faster for two minutes of play (the cash box shows the time left, and another can tops it up).
 
-Down the street past the coin laundry, a little Inari shrine is tucked between two buildings: a red torii, a
-hokora and two stone foxes (on the mountain it's up a flagstone path in the pines). Bow there (click the shrine: two bows, two claps, one bow) and once a day the kami leave a ¥100
+Down the street, a little Inari shrine is tucked down a passage between two buildings: two red torii, a hokora and
+two stone foxes (on the mountain it's up a flagstone path in the pines). Bow there (click the shrine: two bows, two claps, one bow) and once a day the kami leave a ¥100
 coin on the offering box.
 
 ## 百鬼夜行 · the night parade
@@ -223,8 +228,8 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
 | File | What it is |
 |---|---|
 | `src/voxel.js` | Palette, voxel grid, face-culled mesher with baked AO, `Model` (props) and `PropBatch` (merged static props), 5×7 pixel font |
-| `src/maps/` | The maps: `index.js` holds the current one (`MAP`), `tokyo.js` and `mountain.js` give every position the shop needs (counters, stations, the sink, the belt, doors, seats, where guests walk in, furniture spots). `tokyo/world.js` builds the street in voxels, `tokyo/props.js` furnishes it, `tokyo/decor.js` adds the neon signs, wires, skyline, Tokyo Tower and trains |
-| `src/world.js` | The mountain map's 1/8 m voxel world: the snowy lot, the shop (kaiten island, front booth room, genkan, kitchen), the flat upstairs and its outdoor stair, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
+| `src/maps/` | The maps: `index.js` holds the current one (`MAP`), `tokyo.js` and `mountain.js` give every position the game needs (counters, stations, the belt, doors, seats, where guests walk in, furniture spots); Tokyo's shop is the mountain's, so most of it is shared. `tokyo/world.js` builds the street round the shop in voxels, `tokyo/props.js` furnishes it, `tokyo/decor.js` adds the signs, wires, the city beyond the street's ends, Tokyo Tower and the trains |
+| `src/world.js` | The 1/8 m voxel world: `buildShop` builds the shop for either map (in its city dress on Tokyo); `buildWorld` the mountain: the snowy lot, the shop (kaiten island, front booth room, genkan, kitchen), the flat upstairs and its outdoor stair, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
 | `src/props.js` | Finer-scale prop models: furniture, lanterns, the sushi case, kitchen gear, signs, the cat, the vending machine, and where they're placed |
 | `src/effects.js` | Night-to-dawn sky, snowfall, frosted glass, steam, the cliff, the sea, the hills and Mt Fuji, post FX |
 | `src/audio.js` | Fully synthesized sound: wind, the sea, room tone, a generative koto radio, the door chime, snowy footsteps |

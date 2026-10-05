@@ -336,7 +336,7 @@ async function boot() {
   arcade.hi = { ...(save.hi || {}) };
   arcade.onHi = (id, score) => { save.hi = { ...(save.hi || {}), [id]: score }; writeSave(save); };
   arcade.onSfx = (kind) => audio.chip(kind);
-  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast, arcade, touch: !!touchUI, layout: (save.places || {})[MAP.id] || (MAP.id === 'mountain' ? save.place : undefined),
+  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast, arcade, touch: !!touchUI, layout: (save.places || {})[MAP.homeKey || MAP.id] || ((MAP.homeKey || MAP.id) === 'mountain' ? save.place : undefined),
     addSeat: (seat) => addSitSpot(seat, seat.local.label || 'Sit by the fire', seat.local.note || 'warm hands. the kettle ticks. · walk to stand up'),
     addLamp: (l) => { const r = { ...l, mul: 1, v: new THREE.Vector3(...l.pos) }; lamps.push(r); named[l.name] = r; return r; },
     addSteam: (src) => { const st = makeSteam([src]); scene.add(st); homeSteam.push(st); return st; } });
@@ -346,7 +346,7 @@ async function boot() {
   service.onPlace = (key, x, z, rot) => {
     home.moveTo(key, x, z, rot);
     service.layout = home.layout;
-    if (!coop || coop.isHost) { save.places = { ...(save.places || {}), [MAP.id]: { ...home.layout } }; writeSave(save); } // each map keeps its own arrangement
+    if (!coop || coop.isHost) { save.places = { ...(save.places || {}), [MAP.homeKey || MAP.id]: { ...home.layout } }; writeSave(save); } // each map keeps its own arrangement
   };
   service.onLayout = (lay) => home.applyLayout(lay);
 
@@ -904,7 +904,7 @@ async function boot() {
   }
   requestAnimationFrame(tick);
   window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home, arcade,
-    get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
+    get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, deco, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
 }
 
 boot().catch((e) => { console.error(e); status('something spilled: ' + e.message); });

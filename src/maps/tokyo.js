@@ -1,39 +1,28 @@
-// Tokyo: a hole-in-the-wall on a narrow, snowy side street, late. The shop where the game is played now (the
-// mountain lot is the night parade's). Everything the serving game needs to know about where things are.
+// Tokyo: the shop on a narrow, snowy street of little bars and shops under a railway viaduct, late. The serving game
+// is played here (the mountain lot is the night parade's). It's the very same shop as on the mountain, so most of
+// what the game needs to know about it is the mountain's, word for word; what's different is the street outside, the
+// stairs up to the flat (inside, off the restroom hall) and the back door (from the kitchen, onto a little yard and
+// the shed at the back of it).
 import * as THREE from 'three';
-import { Model, C } from '../voxel.js';
+import { L as ML } from '../world.js';
+import { MOUNTAIN } from './mountain.js';
 import { buildTokyo, TK } from './tokyo/world.js';
-import { placeTokyo, KOTATSU } from './tokyo/props.js';
+import { placeTokyo } from './tokyo/props.js';
 import { decorateTokyo, cityBackdrop, TOWER } from './tokyo/decor.js';
 
-const F2 = TK.F2, R = Math.PI / 2;
-const KX = KOTATSU.x, KZ = KOTATSU.z;
-
-// beer crates stacked against the back door until you clear them
-const crates = () => {
-  const m = new Model(14, 16, 7, 1 / 16, [7, 0, 3.5]);
-  const cols = [C('#c8302a', 0, 0.05), C('#e8c040', 0, 0.05), C('#2a5ab0', 0, 0.05)];
-  for (let i = 0; i < 6; i++) {
-    const cx = (i % 2) * 7, cy = Math.floor(i / 2) * 5, c = cols[i % 3];
-    m.box(cx, cy, 0, cx + 7, cy + 5, 7, (x, y, z) => (x === cx || x === cx + 6 || z === 0 || z === 6 || y === cy ? c : (y === cy + 4 ? C('#2a2620', 0, 0.04) : null)));
-    for (let b = 0; b < 2; b++) m.box(cx + 1 + b * 3, cy + 1, 2, cx + 3 + b * 3, cy + 4, 4, C('#5a3a1a', 0, 0.05));
-  }
-  m.box(0, 15, 0, 14, 16, 7, C('#eef3fb', 0, 0.03));
-  return m;
-};
-
+const R = Math.PI / 2;
+const M = MOUNTAIN.shop;
 const lookYaw = (x, z, tx, tz) => Math.atan2(-(tx - x), -(tz - z));
+const N = TK.north, S = TK.south;
 
 export const TOKYO = {
   id: 'tokyo',
   L: {
-    floor: 0.25, walk: 0.125, ceil: 3.5,
-    inside: { x0: 0.25, x1: 9.75, z0: 0.25, z1: 12.75 },
-    door: { x0: 5.75, x1: 7.0, z: 0.125, hinge: 5.8125, h: 2.625 },
+    ...ML, inside: { ...ML.inside }, door: { ...ML.door },
     cliff: -16,
-    bounds: { x0: -15.6, x1: 35.6, z0: -6.75, z1: 15.0 },
-    // where no snow falls: the shop, the street under the overpass, the laundry, the convenience store
-    roofDry: [[0, 10, 0, 13], [-12.25, -9.75, -16, 18], [12, 18, 0, 13], [-3, 9, -16, -7]],
+    bounds: { x0: TK.ends.x0 + 0.3, x1: TK.ends.x1 - 0.3, z0: S + 0.3, z1: 17.6 },
+    // where no snow falls: the shop, under the viaduct, the shed, the store fronts' awnings
+    roofDry: [[-0.75, 16.75, -4.0, 16.75], [-16, -12.5, -16, 18], [19.0, 24.0, 12.5, 18]],
   },
   build: (world) => buildTokyo(world),
   props: (batch) => placeTokyo(batch),
@@ -41,126 +30,54 @@ export const TOKYO = {
   decorate: (scene, ctx) => decorateTokyo(scene, ctx),
   view: {
     scope: [TOWER.x, 236, TOWER.z],             // the telescope finds Tokyo Tower's top deck
-    sunrise: { from: [6.4, 1.75, -1.8], to: [4.0, 13.5, -3.6], look: [0, 60, -500] }, // up over the rooftops at first light
-    snowLights: ['door', 'kanban', 'vending', 'izakaya', 'laundry', 'conbini0', 'conbini3', 'lamp11'],
+    sunrise: { from: [13.4, 1.75, -5.0], to: [9.0, 14.5, -7.5], look: [TOWER.x * 0.6, 70, TOWER.z * 0.6] }, // up over the rooftops at first light
+    snowLights: ['door', 'kanban', 'vending', 'izakayaE', 'izakayaW', 'laundry', 'conbiniA', 'lamp11.25', 'drug'],
     sky: { city: true },
-    fog: 0.016,
+    fog: 0.014,
     nightHaze: new THREE.Color(0x231a2a),
   },
   shop: {
-    counters: [
-      [1.5, 9.35, 4.58, 4.88, 1.125],   // the counter, your side of the belt
-      [8.9, 9.72, 4.95, 8.3, 1.125],    // the side counter along the kitchen's east wall
-      [8.05, 9.72, 1.6, 2.1, 1.0],      // the register counter by the door
-    ],
-    keepClear: [[9.3, 5.15, 0.2], [9.3, 5.45, 0.2], [9.3, 6.0, 0.45], [9.3, 6.65, 0.22], [9.3, 7.03, 0.22], [9.3, 7.5, 0.3], [9.3, 8.0, 0.3],
-      [8.9, 1.85, 0.3], [9.45, 1.75, 0.2], [8.35, 1.85, 0.2], [9.55, 4.4, 0.3], [1.45, 4.4, 0.3]],
-    register: { x: 8.9, z: 1.85, box: [8.9, 1.12, 1.85, 0.24, 0.22, 0.22] },
-    queue: [[8.9, 1.0], [8.2, 0.75], [9.45, 0.7]],
-    stations: [
-      { label: 'Yakitori', kind: 'yakitori', x: 4.05, z: 8.56, cook: 10, idle: 'Lay skewers on the grill' },
-      { label: 'Yakitori', kind: 'yakitori', x: 5.05, z: 8.56, cook: 10, idle: 'Lay skewers on the grill' },
-      { label: 'Gyoza', kind: 'gyoza', x: 3.05, z: 8.56, cook: 13, idle: 'Fry a batch of gyoza' },
-      { label: 'Tempura', kind: 'tempura', x: 1.925, z: 8.56, cook: 11, shape: 'fry', idle: 'Drop tempura in the fryer' },
-      { label: 'Ramen', kind: 'ramen', x: 6.1, z: 8.56, cook: 15, shape: 'ramen', idle: 'Start a bowl of ramen' },
-    ],
-    sink: { x: 0.625, z: 7.0 },
-    boxes: {
-      mugs: [9.66, 2.08, 6.6, 0.12, 0.12, 2.0],
-      plates: [[[9.3, 1.35, 5.3, 0.18, 0.24, 0.32], 'platesK']],
-      urns: [9.3, 1.55, 7.75, 0.25, 0.45, 0.55],
-      sushi: [9.3, 1.3, 6.0, 0.2, 0.2, 0.42],
-      icecream: [5.25, 1.05, 12.35, 0.6, 0.15, 0.38],
-      rice: [9.3, 1.3, 6.84, 0.2, 0.2, 0.4],
-    },
-    // straight along the counter, out of the hatch at the east end and back in at the west
-    belt: { path: [[9.4, 4.4], [1.6, 4.4]], kitchen: () => false },
-    seatWeight: (s) => (s.kind === 'booth' ? 1.4 : 1.6),
+    ...M,
+    // a street full of people: guests come from either end, on either pavement; passers-by just walk through
     crowd: {
-      nav: [-15.5, -6.9, 35.5, 13.0], spawns: [[-15.0, -3.4], [35.0, -3.6]],
-      blocked: [[9.6, 10.8, 9.2, 10.7]],      // the back door: guests come in the front
+      nav: [TK.ends.x0 + 0.2, S + 0.2, TK.ends.x1 - 0.2, 16.0],
+      spawns: [[TK.ends.x0 + 0.5, -4.4], [TK.ends.x1 - 0.5, -4.4], [TK.ends.x0 + 0.5, -12.05], [TK.ends.x1 - 0.5, -12.05]],
       back: null,
-      passersby: { every: [2.5, 6], max: 9 },  // the street's never empty
+      passersby: { every: [2.0, 5.0], max: 10, ends: [TK.ends.x0 + 0.5, TK.ends.x1 - 0.5], lanes: [[-4.75, -4.45], [-10.4, -6.4], [-12.2, -11.95]] },
     },
-    chores: {
-      sweep: [[6.4, 0.85], [5.4, 2.45], [3.2, 2.35], [1.2, 2.5], [7.6, 2.6], [2.2, 2.0]], sweepY: 0.25,
-      shovel: [[0.8, -0.95], [2.6, -1.25], [4.3, -0.85], [6.4, -1.15], [8.3, -1.3], [9.9, -0.8]], shovelY: 0.125,
-    },
-    staff: {
-      staff_wash: { x: 1.2, z: 6.6, yaw: R },
-      staff_sushi: { x: 8.4, z: 6.1, yaw: -R },
-      staff_hall: { x: 9.45, z: 2.6, yaw: 0 },
-    },
-    steam: [
-      { pos: [9.3, 2.0, 7.5], size: 0.3 }, { pos: [9.3, 2.0, 8.0], size: 0.3 }, { pos: [9.3, 1.55, 6.84], size: 0.3 },
-      { pos: [6.1, 1.6, 8.4], size: 0.7 }, { pos: [7.15, 1.4, 8.4], size: 0.5 },
-      { pos: [4.05, 1.3, 8.45], size: 0.85 }, { pos: [5.05, 1.3, 8.45], size: 0.85 }, { pos: [3.05, 1.2, 8.4], size: 0.6 },
-    ],
+    chores: { ...M.chores, shovel: [[1.5, -4.4], [4.6, -4.6], [7.6, -4.5], [10.5, -4.4], [13.3, -4.8], [15.2, -4.5]] },
     doors: [
-      { key: 'front', name: 'door', front: true, hinge: [5.8125, 0.125], plusDir: [0, -1], max: 1.6, block: [5.75, 7.0, 0.0, 0.25], bell: true, slide: 1.12 },
-      { key: 'rest', name: 'washroom door', kind: 'restroom', hinge: [3.0, 10.4375], base: 0, plusDir: [0, 1], block: [3.0, 4.0, 10.375, 10.5] },
-      { key: 'back', name: 'back door', kind: 'exit', hinge: [9.875, 9.3], base: -R, plusDir: [1, 0], block: [9.75, 10.0, 9.3, 10.55],
-        needs: 'backdoor', locked: ['Back door (blocked)', "beer crates are stacked against it outside. (the catalog: clear the back door)"] },
-      { key: 'freezer', name: 'freezer door', kind: 'freezer', hinge: [4.5, 10.4375], base: 0, plusDir: [0, 1], block: [4.5, 5.75, 10.375, 10.5],
-        needs: 'freezer', locked: ['Walk-in freezer (switched off)', "the old walk-in's been off for years. (the catalog: get it running)"] },
-      { key: 'kura', name: 'storeroom door', kind: 'kura', hinge: [0.125, 10.5], base: -R, plusDir: [-1, 0], block: [0.0, 0.25, 10.5, 12.0], slideDir: [0, -1], slideDist: 1.45, y: 0.125,
-        needs: 'kura', locked: ['The storeroom (padlocked)', "it's full of the last owner's junk. (the catalog: clear out the storeroom)"] },
+      ...M.doors.filter((d) => ['front', 'kitchen', 'restA', 'freezer'].includes(d.key)),
+      { key: 'back', name: 'back door', kind: 'exit', hinge: [15.6875, 14.375], base: -R, plusDir: [1, 0], block: [15.625, 16.125, 14.375, 15.625],
+        needs: 'backdoor', locked: ['Back door (snowed shut)', 'snow drifted up against it in the yard. (the catalog: dig out the back door)'] },
+      { key: 'kura', name: 'shed door', kind: 'kura', hinge: [TK.shed.x0 + 0.125, 14.5], base: -R, plusDir: [-1, 0], block: [TK.shed.x0, TK.shed.x0 + 0.25, 14.5, 16.0],
+        slideDir: [0, -1], slideDist: 1.45, y: TK.shed.floor,
+        needs: 'kura', locked: ['The old shed (padlocked)', "it's full of the last owner's junk. (the catalog: clear out the shed)"] },
     ],
-    backPile: crates, snowPile: [10.5, 0.125, 9.95], snowPileYaw: R,
-    clock: { pos: [8.5, 2.85, 8.98], yaw: 0 },
-    sign: { pos: [9.0, 1.55, 0.3], yaw: 0, box: [9.0, 1.7, 0.32, 0.32, 0.2, 0.14] },
-    radio: [0.45, 2.1, 5.3],
-    sizzle: [4.2, 8.6],
-    faucets: [
-      { stream: [0.585, 1.55, 0.75, 7.05], box: [0.445, 1.45, 7.05, 0.09, 0.14, 0.12] },
-      { stream: [3.89, 1.3, 1.13, 11.1], box: [3.95, 1.2, 11.1, 0.3, 0.2, 0.34] },
-    ],
+    snowPile: [16.6, 0.125, 15.0], snowPileYaw: -R,
+    faucets: M.faucets.slice(0, 1).concat(M.faucets.slice(2)),
     acts: [
-      { box: [3.5, 0.6, 12.35, 0.3, 0.45, 0.4], act: 'flush' },
-      { box: [3.25, 0.74, 12.1, 0.14, 0.08, 0.16], act: 'princess' },
-      { box: [2.82, 1.1, 11.4, 0.08, 0.28, 0.22], act: 'towel' },
-      { box: [0.45, 2.1, 5.3, 0.14, 0.16, 0.22], act: 'radio' },
-      { box: [20.4, 0.25, -0.35, 0.28, 0.16, 0.2], act: 'cat' },
-      { box: [22.4, 1.2, -0.75, 0.45, 0.6, 0.12], act: 'vending' },
-      { box: [KX + 0.35, 4.28, KZ + 0.1, 0.16, 0.06, 0.2], act: 'catalog' },
-      { box: [8.0, 3.95, 8.6, 0.5, 0.2, 1.0], act: 'futon' },
-      { box: [1.35, 4.8, 6.55, 0.2, 0.15, 0.22], act: 'kettle' },
-      { box: [6.5, 4.2, 7.4, 0.22, 0.45, 0.22], act: 'andon' },
+      ...M.acts.filter((a) => !['chain', 'vending'].includes(a.act) && !(a.act === 'towel' && a.box[2] > 13)),
+      { box: [17.9, 1.2, N - 0.8, 0.45, 0.6, 0.12], act: 'vending' },
     ],
-    shrine: { x: 19.25, z: 2.5, box: [19.25, 0.8, 2.5, 0.55, 0.7, 0.62] },
-    wake: { x: 6.9, z: 8.8, yaw: 0.25 },
-    title: { x: 2.0, z: -5.7, yaw: lookYaw(2.0, -5.7, 6.4, 0.0), pitch: 0.2 }, // across the street, looking at the shop
+    shrine: { x: TK.shrine.x, z: TK.shrine.z, box: [TK.shrine.x, 0.8, TK.shrine.z, 0.55, 0.7, 0.6] },
+    // behind the menu: across the street, looking back at the shop under the snow
+    title: { x: 1.5, z: -11.0, yaw: lookYaw(1.5, -11.0, 11.5, -3.4), pitch: 0.15 },
   },
-  home: {
-    fixed: {
-      lanterns: [[2.6, 5.95, 0.45, 0], [7.4, 5.95, 0.45, 0]],
-      print: [[9.73, F2 + 1.3, 7.4, 1]],
-      heaters: [[0.55, 0.25, 2.55, 3], [9.45, 0.25, 3.1, 1]],
-      fridge: [[5.25, 0.25, 0.62, 2]],
-    },
-    at: {
-      bonsai: [8.9, 0.75, 0], plant1: [0.7, 0.75, 0], plant2: [9.3, 5.4, 0], catbed: [9.3, 9.0, 0], fishtank: [0.55, 4.6, 3],
-      record: [9.45, 3.8, 1], telescope: [7.6, 0.85, 0], irori: [2.8, 8.6, 0], crt: [2.3, KZ, 3],
-    },
-    noGo: [[4.85, 9.8, 11.3, 12.8], [3.25, 4.5, 5.6, 6.4], [6.5, 7.75, 5.6, 6.4], [KX - 1.1, KX + 1.5, KZ - 1.25, KZ + 1.25],
-      [7.4, 8.6, 7.5, 9.7], [0.3, 2.9, 6.1, 7.0], [9.2, 9.8, 0.9, 2.3], [9.1, 9.8, 9.7, 11.1], [3.85, 4.75, 12.1, 12.75], [6.2, 6.8, 7.1, 7.7], [4.6, 6.3, 9.2, 11.6]],
-    room: { x0: 0.4, x1: 9.6, z0: 0.4, z1: 12.6 },
-  },
+  home: MOUNTAIN.home,
+  homeKey: 'mountain',                       // the very same flat, so the same arrangement of your things
   // the catalog in this map's words
   catalog: {
-    backdoor: { name: 'Clear the back door', text: "Shovel the drift and the empty crates off the back door to the alley. Regulars from the bars round the back start coming in that way: one more guest in every rush." },
-    freezer: { text: 'The old walk-in off the back hall, fixed up and humming. Matcha ice cream goes on the menu (¥450), scooped from the chest freezer inside.' },
-    kura: { name: 'Clear out the storeroom', text: "Haul the last owner's junk out of the storeroom and keep your own sake there. A cup of house sake goes on every bill: ¥400 more." },
-    lanterns: { text: "Little lanterns across the flat's front window, over the street." },
-    bonsai: { text: 'On a stand by the window. Older than the building.' },
+    backdoor: { text: "Shovel the drift off the kitchen's back door. The yard behind is ours too: regulars from the bars round the back start dropping in: one more guest in every rush." },
+    kura: { name: 'Clear out the old shed', text: "Haul the last owner's junk out of the shed in the yard and keep your own sake there. A cup of house sake goes on every bill: ¥400 more." },
+    lanterns: { text: "Little lanterns along the flat's front windows, over the street." },
     telescope: { text: 'At the front window. Look at Tokyo Tower up close.' },
-    fridge: { text: 'Ramune, tea and beer by the front door. Guests take a bottle with their meal: ¥250 more on every bill.' },
   },
   test: {
-    // on foot from the futon down the stairs to the back hall, and back up (the playtest walks these with real input)
-    walk: [[[5.6, 10.5], [5.6, 12.25], [6.2, 12.25, 3.75], [9.3, 12.25, 0.25], [9.3, 10.9], [8.5, 10.0, 0.25]],
-           [[9.3, 10.9], [9.3, 12.25], [6.0, 12.25, 3.75], [5.6, 11.0], [6.9, 8.8, 3.75]]],
-    sink: [1.25, 7.0], beltCam: [[9.0, 1.8, 5.2], [9.0, 1.125, 4.4]],
-    bowFrom: [19.25, 0.125, 0.9], bonsaiTo: [1.4, 1.6, 1], iroriNo: [4.5, 4.5], tvTo: [7.0, 2.6],
+    ...MOUNTAIN.test,
+    bowFrom: [TK.shrine.x, 0.125, 0.4],
+    // on foot from the futon to the flat's door, down the stairs into the restroom hall, and back up again
+    walk: [[[11.6, 3.4], [10.3, 3.4], [10.0, 6.6], [13.2, 7.0], [14.8, 7.6], [14.8, 9.4, 3.75], [14.8, 15.05], [4.6, 15.05, 3.75], [1.1, 15.05, 1.75], [1.0, 11.9, 0.25], [1.0, 10.6, 0.25]],
+           [[1.0, 12.2], [1.0, 14.9, 1.75], [4.8, 15.05, 3.75], [14.8, 15.05], [14.8, 9.4], [14.8, 7.6, 3.75], [13.2, 7.0], [10.0, 6.6], [10.3, 3.4], [12.4, 3.0, 3.75]]],
   },
 };
