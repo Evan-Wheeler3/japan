@@ -190,8 +190,8 @@ const famicom = () => {
 
 // Things that hang on walls (and the shop's heaters) stay where they're put.
 const FIXED = {
-  lanterns: (h) => { h.put(lanternString(), 8.4, 6.3, 0.75, 0); h.put(lanternString(), 13.3, 6.3, 0.75, 0); },
-  print: (h) => { h.put(bigPrint(), 5.77, F2 + 1.25, 1.95, 3); },
+  lanterns: (h) => { h.put(lanternString(), 8.4, 6.3, 0.95, 0); h.put(lanternString(), 13.3, 6.3, 0.95, 0); },
+  print: (h) => { h.put(bigPrint(), 5.77, F2 + 1.25, 2.35, 3); },
   heaters: (h) => { h.put(heater(), 0.6, 0.25, 3.0, 1); h.put(heater(), 15.3, 0.25, 4.3, 3); },
   fridge: (h) => { h.put(drinksFridge(), 15.3, 0.25, 2.25, 1); },
 };
@@ -201,17 +201,17 @@ const FIXED = {
 // first goes, `foot` its half size on the floor, and parts, things to do, seats and lights sit relative
 // to it. Boxes are [x, y, z, half x, half y, half z] in the piece's own frame.
 const PIECES = [
-  { key: 'bonsai', item: 'bonsai', name: 'the bonsai', at: [9.9, 0.75, 0], foot: [0.25, 0.18], parts: [{ model: bonsai }],
+  { key: 'bonsai', item: 'bonsai', name: 'the bonsai', at: [8.2, 5.1, 0], foot: [0.25, 0.18], parts: [{ model: bonsai }],
     acts: [{ box: [0, 0.4, 0, 0.25, 0.25, 0.2], label: 'Trim the bonsai', fn: (h) => { h.audio.clickSound(); h.toast('snip. one needle out of place, now in place.'); } }] },
-  { key: 'plant1', item: 'plants', name: 'the monstera', at: [10.6, 1.75, 0], foot: [0.2, 0.2], parts: [{ model: () => plant(false) }] },
+  { key: 'plant1', item: 'plants', name: 'the monstera', at: [10.6, 2.15, 0], foot: [0.2, 0.2], parts: [{ model: () => plant(false) }] },
   { key: 'plant2', item: 'plants', name: 'the fern', at: [15.35, 0.7, 0], foot: [0.2, 0.2], parts: [{ model: () => plant(true) }] },
-  { key: 'catbed', item: 'catbed', name: 'the cat bed', at: [6.35, 1.0, 0], foot: [0.22, 0.19], parts: [{ model: catBed, collide: false }],
+  { key: 'catbed', item: 'catbed', name: 'the cat bed', at: [15.2, 4.85, 0], foot: [0.22, 0.19], parts: [{ model: catBed, collide: false }],
     acts: [{ box: [0, 0.15, 0, 0.25, 0.15, 0.22], label: 'Pet the black cat', fn: (h) => { h.audio.purr(); h.toast('kuro opens one yellow eye, and closes it again.'); } }] },
   { key: 'fishtank', item: 'fishtank', name: 'the goldfish tank', at: [6.0, 6.6, 3], foot: [0.375, 0.19], parts: [{ model: fishtank }],
     acts: [{ box: [0, 0.65, 0, 0.4, 0.25, 0.2], label: 'Feed the goldfish', fn: (h) => { h.audio.clickSound(); h.toast('two goldfish race to the top. they are always hungry.'); } }] },
   { key: 'record', item: 'record', name: 'the record player', at: [6.1, 8.0, 3], foot: [0.375, 0.25], parts: [{ model: recordPlayer }], sound: [0, 0.5, 0],
     acts: [{ box: [0, 0.45, 0, 0.4, 0.1, 0.25], label: (h) => (h.recordOn ? 'Lift the needle' : 'Put a record on'), fn: (h) => { h.recordOn = !h.recordOn; h.audio.clickSound(); } }] },
-  { key: 'telescope', item: 'telescope', name: 'the telescope', at: [12.0, 0.7, 0], foot: [0.18, 0.38], parts: [{ model: telescope }],
+  { key: 'telescope', item: 'telescope', name: 'the telescope', at: [12.0, 0.85, 0], foot: [0.18, 0.38], parts: [{ model: telescope }],
     acts: [{ box: [0, 1.2, -0.25, 0.15, 0.2, 0.25], label: 'Look through the telescope', fn: (h) => h.onTelescope && h.onTelescope() }] },
   { key: 'irori', item: 'irori', name: 'the hearth', at: [7.95, 7.1, 0], foot: [1.2, 1.2],
     parts: [{ model: irori, collide: false }, { model: hangingKettle, y: 6.6 - F2, collide: false },
@@ -219,7 +219,7 @@ const PIECES = [
     seats: [{ x: -0.95, z: 0, yaw: Math.PI * 1.5 }, { x: 0.95, z: 0, yaw: Math.PI / 2 }, { x: 0, z: 0.95, yaw: 0 }],
     lamp: { x: 0, y: 0.4, z: 0, color: 0xff7a30, intensity: 4, distance: 6, name: 'irori' }, steam: { x: 0, y: 0.6, z: 0, size: 0.35 } },
   // the TV comes with a cushion on the floor in front of it, at eye level with the screen; they move together
-  { key: 'crt', item: 'crt', name: 'the TV', at: [6.25, 3.3, 3], foot: [0.5, 0.96], footOff: [0, -0.58], parts: [{ model: crt }, { model: zabuton, z: -1.25, collide: false }], screen: true,
+  { key: 'crt', item: 'crt', name: 'the TV', at: [6.25, 3.6, 3], foot: [0.5, 0.96], footOff: [0, -0.58], parts: [{ model: crt }, { model: zabuton, z: -1.25, collide: false }], screen: true,
     seats: [{ x: 0, z: -1.25, yaw: Math.PI, y: 0.0, app: [0.8, -1.25], label: 'Sit in front of the TV', note: 'cross-legged on the cushion, eye to eye with the set · walk to stand up' }],
     acts: [{ box: [0, 0.75, 0, 0.5, 0.4, 0.38], label: (h) => (h.tvOn ? 'Turn the TV off' : 'Turn the TV on'), fn: (h) => h.onTV && h.onTV() }] },
   // the console sits on the floor between the TV and its cushion, and goes where the TV goes
@@ -228,8 +228,8 @@ const PIECES = [
 ];
 // floor you can't put things on: the kotatsu and its cushions, the futon, the genkan, the tokonoma, and the ways
 // through: the gaps in the shoji and the fusuma, the doorway to the back room, the kitchen corner
-const NO_GO = [[7.85, 10.3, 2.2, 4.4], [13.05, 14.15, 1.95, 3.95], [13.9, 15.8, 5.6, 8.5], [5.75, 7.65, 4.7, 5.5],
-  [6.7, 9.3, 1.1, 1.55], [11.8, 14.2, 1.1, 1.55], [10.85, 11.4, 2.45, 3.7], [7.7, 11.0, 5.35, 5.85], [10.9, 13.9, 7.4, 8.5]];
+const NO_GO = [[7.85, 10.3, 2.5, 4.7], [13.05, 14.15, 2.3, 4.3], [13.9, 15.8, 5.6, 8.5], [5.75, 7.65, 4.7, 5.5],
+  [6.7, 9.3, 1.45, 1.95], [11.8, 14.2, 1.45, 1.95], [10.85, 11.4, 2.85, 3.95], [7.7, 11.0, 5.35, 5.85], [10.9, 13.9, 7.4, 8.5]];
 const ROOM = { x0: 5.8, x1: 15.7, z0: 0.3, z1: 8.45 };
 
 // rotate a local (x, z) by quarter turns, the same way three.js turns an object about y

@@ -97,14 +97,14 @@ export function makeSnow(count, lights, dryZones) {
   const mat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false,
     uniforms: {
-      time: { value: 0 }, cam: { value: new THREE.Vector3() }, dawn: { value: 0 }, wind: { value: new THREE.Vector2(0.4, 0.1) },
+      time: { value: 0 }, cam: { value: new THREE.Vector3() }, dawn: { value: 0 }, wind: { value: new THREE.Vector2(0.4, 0.1) }, drift: { value: new THREE.Vector2() },
       lpos: { value: L8.map((l) => new THREE.Vector3(...l.pos)) },
       lcol: { value: L8.map((l) => new THREE.Color(l.color).multiplyScalar(l.intensity / 30)) },
       dry: { value: dry.map((d) => new THREE.Vector4(...d)) },
     },
     vertexShader: `
       attribute vec4 seed; uniform float time; uniform vec3 cam; uniform vec3 lpos[8]; uniform vec3 lcol[8]; uniform vec4 dry[4];
-      uniform float dawn; uniform vec2 wind;
+      uniform float dawn; uniform vec2 drift; // how far the wind has carried the snow so far (integrated, so it never jumps)
       varying float vA; varying vec3 vC; varying vec2 vP;
       const vec3 BOX = vec3(28., 14., 28.);
       void main(){
@@ -112,8 +112,8 @@ export function makeSnow(count, lights, dryZones) {
         vec3 p = seed.xyz*BOX;
         float fall = time*speed;
         p.y = mod(p.y - fall, BOX.y);
-        p.x += wind.x*time + sin(time*0.9 + seed.x*40.0)*0.35;
-        p.z += wind.y*time + cos(time*0.7 + seed.z*40.0)*0.35;
+        p.x += drift.x + sin(time*0.9 + seed.x*40.0)*0.35;
+        p.z += drift.y + cos(time*0.7 + seed.z*40.0)*0.35;
         vec3 w = cam + mod(p - cam + BOX*0.5, BOX) - BOX*0.5;
         w.y = cam.y + p.y - BOX.y*0.45;
         float hide = 0.0;
@@ -233,53 +233,77 @@ function farMaterial() {
       }`,
   });
 }
-function lathe(profile, segs, mat, heightOf) {
-  const g = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), segs);
-  const pos = g.attributes.position, h = new Float32Array(pos.count);
-  for (let i = 0; i < pos.count; i++) h[i] = heightOf(pos.getY(i));
-  g.setAttribute('height', new THREE.BufferAttribute(h, 1));
-  return new THREE.Mesh(g, mat);
-}
-
 export function makeBackdrop() {
   const grp = new THREE.Group();
   const far = farMaterial(), mats = [far];
-  // Fuji: a concave cone, broad skirts, a snow cap that reaches well down
+  // a little 1D/2D value noise for ridgelines, gullies and tree scatter (deterministic, so the view is the same each visit)
+  const h1 = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  const vn = (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return h1(i) * (1 - u) + h1(i + 1) * u; };
+  const fbm1 = (x, oct = 5) => { let a = 0, amp = 0.5, fr = 1; for (let o = 0; o < oct; o++) { a += vn(x * fr) * amp; fr *= 2.1; amp *= 0.5; } return a; };
+  const h2 = (x, z) => h1(x * 12.9898 + z * 78.233);
+
+  // Fuji: a concave cone rising straight out of the bay, a small flat crater, ridges and gullies down its flanks
+  // (so the outline isn't a perfect curve) and a snow cap that runs down them in streaks
   {
-    const H = 165, prof = [];
-    for (let i = 0; i <= 14; i++) { const t = i / 14; prof.push([4 + 470 * Math.pow(1 - t, 1.9), t * H]); }
-    prof.push([0, H + 1.5]);
-    const fujiMat = far.clone(); fujiMat.uniforms.density.value = 0.0009; fujiMat.uniforms.snowLine.value = 0.5; fujiMat.uniforms.white.value.setRGB(0.4, 0.44, 0.56);
-    const m = lathe(prof, 40, fujiMat, (y) => y / H);
-    m.position.copy(FUJI); grp.add(m); mats.push(fujiMat);
+    const H = 200, prof = [];
+    for (let i = 0; i <= 24; i++) { const t = i / 24; prof.push([9 + 330 * Math.pow(1 - t, 1.6), t * H]); }
+    prof.push([0, H - 2]);
+    const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 96);
+    const pos = g.attributes.position, hh = new Float32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), r = Math.hypot(x, z);
+      if (r < 1e-3) { hh[i] = 1; continue; }
+      const ang = Math.atan2(z, x), t = y / H;
+      const gully = (fbm1(ang * 9 + 3) - 0.5) * 0.16 + (fbm1(ang * 31) - 0.5) * 0.05; // ridges, more of them low down
+      const k = 1 + gully * (0.35 + (1 - t) * 0.9);
+      pos.setXYZ(i, x * k, y, z * k);
+      hh[i] = t + gully * 0.6; // the snow follows the gullies down
+    }
+    g.setAttribute('height', new THREE.BufferAttribute(hh, 1)); g.computeVertexNormals();
+    const fujiMat = far.clone(); fujiMat.uniforms.density.value = 0.0008; fujiMat.uniforms.snowLine.value = 0.6; fujiMat.uniforms.white.value.setRGB(0.42, 0.46, 0.58);
+    const m = new THREE.Mesh(g, fujiMat);
+    m.position.copy(FUJI); m.position.y -= 40; grp.add(m); mats.push(fujiMat); // the broad flat skirt stays under the bay
   }
-  // the coastline's hills: low ridges strung across the horizon
-  const r = (a, b) => a + Math.random() * (b - a);
-  const hillMat = far.clone(); hillMat.uniforms.snowLine.value = 0.72; hillMat.uniforms.density.value = 0.0024;
-  for (const [x, z, rad, h] of [[-560, -520, 260, 70], [-420, -380, 160, 42], [380, -620, 300, 85], [560, -420, 200, 50], [120, -760, 220, 38], [-320, -760, 200, 46], [700, -200, 260, 90], [-700, -150, 240, 75]]) {
-    const prof = [];
-    for (let i = 0; i <= 8; i++) { const t = i / 8; prof.push([rad * (1 - t * t * 0.4) * (1 - t) + 4, t * h]); }
-    const m = lathe(prof, 18, hillMat, (y) => y / h);
-    m.position.set(x, -40, z); m.scale.z = r(0.6, 1.2); m.rotation.y = r(0, 6); grp.add(m);
-  }
-  // the mountain we're on, rising behind the shop (and the slopes either side)
+  // mountain ranges behind the bay: long ragged ridgelines in layers, each further one paler in the haze
+  const range = (cx, cz, len, depth, peak, seed, snowLine, density, rot = 0) => {
+    const g = new THREE.PlaneGeometry(len, depth, 220, 14); g.rotateX(-Math.PI / 2);
+    const pp = g.attributes.position, hh = new Float32Array(pp.count);
+    for (let i = 0; i < pp.count; i++) {
+      const x = pp.getX(i), z = pp.getZ(i), u = x / len + 0.5, across = 1 - Math.abs(z / (depth / 2));
+      const crest = peak * (0.35 + 0.65 * fbm1(u * 9 + seed)) * (0.6 + 0.4 * Math.sin(u * Math.PI));
+      const y = crest * Math.pow(Math.max(0, across), 1.3) + (fbm1(u * 60 + seed * 3) - 0.5) * peak * 0.08 * across;
+      pp.setY(i, y - 40); hh[i] = Math.max(0, y) / (peak * 0.95);
+    }
+    g.setAttribute('height', new THREE.BufferAttribute(hh, 1)); g.computeVertexNormals();
+    const mat = far.clone(); mat.uniforms.snowLine.value = snowLine; mat.uniforms.density.value = density;
+    const m = new THREE.Mesh(g, mat); m.position.set(cx, 0, cz); m.rotation.y = rot; grp.add(m); mats.push(mat);
+  };
+  range(-120, -1150, 2600, 260, 150, 1.7, 0.45, 0.0011);          // the far range, pale and high
+  range(80, -860, 1900, 200, 95, 5.3, 0.62, 0.0016);             // a nearer, darker one
+  range(-780, -380, 900, 220, 70, 9.1, 0.7, 0.0022, 0.5);        // the headland to the west
+  range(840, -340, 900, 220, 85, 13.7, 0.66, 0.0022, -0.55);     // and to the east
+
+  // the mountain we're on, rising behind the shop and on both sides of the lot
   // The terrain stays buried under the whole voxel lot (the shop sits on it) and only starts to rise once
-  // it's clear of the lot's edges; vertices every 5 m so it can't slope up through a wall between them.
+  // it's clear of the lot's edges; vertices every 5 m so it can't slope up through a wall between them. Near the
+  // cliff edge it eases back down to the cliff top, so the slopes either side run down to the sea, not off a ledge.
   const LOT = { x0: -16, x1: 36, z1: 16 };
   const back = new THREE.PlaneGeometry(900, 500, 180, 100);
   back.rotateX(-Math.PI / 2);
   const p = back.attributes.position, hgt = [];
+  const hillY = (x, z) => {
+    const out = Math.max(Math.max(0, z - (LOT.z1 + 2)), Math.max(0, LOT.x0 - x, x - LOT.x1) * 0.8); // metres beyond the lot
+    if (out <= 0) return -0.35;
+    const k = Math.min(1, out / 12); // waves fade in away from the lot
+    const side = Math.max(0, Math.abs(x - 10) - 40);
+    let y = 0.1 + Math.max(0, z - (LOT.z1 + 2)) * 0.32 + side * 0.08 + Math.sin(x * 0.03) * 6 * k * Math.min(1, z / 60);
+    y += (Math.sin(x * 0.11 + z * 0.07) + Math.sin(x * 0.05 - z * 0.13)) * Math.min(3, out * 0.05) * k;
+    const edge = THREE.MathUtils.smoothstep(z, L.cliff, L.cliff + 45); // ease down to the cliff top
+    return Math.max(0, y * edge);
+  };
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i) + 250 + L.cliff; // from the cliff edge back ~500 m
-    const out = Math.max(Math.max(0, z - (LOT.z1 + 2)), Math.max(0, LOT.x0 - x, x - LOT.x1) * 0.8); // metres beyond the lot
-    let y = -0.35;
-    if (out > 0) {
-      const k = Math.min(1, out / 12); // waves fade in away from the lot
-      const side = Math.max(0, Math.abs(x - 10) - 40);
-      y = 0.1 + Math.max(0, z - (LOT.z1 + 2)) * 0.32 + side * 0.08 + Math.sin(x * 0.03) * 6 * k * Math.min(1, z / 60);
-      y += (Math.sin(x * 0.11 + z * 0.07) + Math.sin(x * 0.05 - z * 0.13)) * Math.min(3, out * 0.05) * k;
-      y = Math.max(y, 0.0);
-    }
+    const y = hillY(x, z);
     p.setXYZ(i, x, y, z);
     hgt.push(Math.min(1, Math.max(0, y) / 120) + 0.6);
   }
@@ -288,6 +312,25 @@ export function makeBackdrop() {
   const slopeMat = far.clone(); slopeMat.uniforms.density.value = 0.012; slopeMat.uniforms.snowLine.value = 0.3;
   slopeMat.uniforms.white.value.setRGB(0.6, 0.66, 0.8);
   const backMesh = new THREE.Mesh(back, slopeMat); grp.add(backMesh);
+  // snowy pines scattered over the slopes beyond the lot, thicker further up
+  {
+    const cone = new THREE.ConeGeometry(1, 1, 7); cone.translate(0, 0.5, 0);
+    const cap = new THREE.ConeGeometry(1, 1, 7); cap.translate(0, 0.5, 0);
+    const N = 900, treeM = new THREE.InstancedMesh(cone, new THREE.MeshLambertMaterial({ color: 0x14241c }), N);
+    const capM = new THREE.InstancedMesh(cap, new THREE.MeshLambertMaterial({ color: 0x9aa6c0 }), N);
+    const o = new THREE.Object3D(); let n = 0;
+    for (let tries = 0; tries < 6000 && n < N; tries++) {
+      const x = -300 + h2(tries, 1) * 640, z = L.cliff + 6 + h2(tries, 2) * 260;
+      const out = Math.max(z - (LOT.z1 + 6), LOT.x0 - 6 - x, x - LOT.x1 - 6);
+      if (out <= 0 || h2(tries, 3) > Math.min(0.85, 0.25 + out / 60)) continue;
+      if (z < L.cliff + 10 && h2(tries, 4) > 0.3) continue;               // sparse right by the cliff edge
+      const y = hillY(x, z), hgt = 6 + h2(tries, 5) * 9, w = hgt * (0.28 + h2(tries, 6) * 0.08);
+      o.position.set(x, y - 0.3, z); o.scale.set(w, hgt, w); o.rotation.y = h2(tries, 7) * 6; o.updateMatrix(); treeM.setMatrixAt(n, o.matrix);
+      o.position.y = y - 0.3 + hgt * 0.55; o.scale.set(w * 0.62, hgt * 0.47, w * 0.62); o.updateMatrix(); capM.setMatrixAt(n, o.matrix);
+      n++;
+    }
+    treeM.count = capM.count = n; grp.add(treeM); grp.add(capM);
+  }
   // the cliff: from the edge of the lot down to the sea, ragged and snowy
   const cliff = new THREE.PlaneGeometry(900, 70, 80, 14);
   cliff.rotateX(-Math.PI / 2);
@@ -329,7 +372,7 @@ export function makeBackdrop() {
   }));
   sea.rotation.x = -Math.PI / 2; sea.position.set(0, -40, 0); grp.add(sea);
   // one place to drive all the far-away materials from the clock
-  grp.userData.mats = [...mats, hillMat, slopeMat, sea.material];
+  grp.userData.mats = [...mats, slopeMat, sea.material];
   return grp;
 }
 

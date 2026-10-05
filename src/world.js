@@ -126,6 +126,7 @@ export function buildWorld(W) {
     if (inFoot(px, pz)) continue;
     if (px > 18.4 && px < 20.0 && pz > -3.5 && pz < -1.8) continue; // the vending machine stands here
     if (px > 15.9 && px < 18.0 && pz > -1.5 && pz < 8.5) continue;  // dug out around the apartment stairs
+    if (px > 15.7 && px < 18.3 && pz > -3.6 && pz < -0.3) continue; // and a shovelled way to them from the front path
     let h = Math.floor((vnoise(x, z, 14, 5) * 0.7 + vnoise(x, z, 5, 6) * 0.3 - 0.42) * 7);
     const nearWall = (px > -1.0 && px < 17.0 && pz > -4.25 && pz < 16) || (px > 20.25 && px < 27.75 && pz > 2.25 && pz < 9.75);
     if (nearWall) h += 2;
@@ -389,9 +390,10 @@ export function buildWorld(W) {
 
     // ---- kitchen: cook line under a big hood, prep island, plating shelf, dish station, walk-in, dry storage
     B(6.0, 2.25, 14.25, 14.75, 3.0, 15.75, (x, y, z) => (y === Y(2.25) && z === Z(14.375) && (x % 10 < 3) ? C('#fff4d8', 3.0, 0.03) : P.steel));
-    B(7.0, 0.75, 12.25, 12.0, 0.875, 13.125, P.steel);                      // prep island top
-    B(7.125, 0.375, 12.375, 11.875, 0.5, 13.0, P.steelD);                  // undershelf
-    for (const [lx, lz] of [[7.0, 12.25], [11.875, 12.25], [7.0, 13.0], [11.875, 13.0]]) B(lx, 0.25, lz, lx + 0.125, 0.75, lz + 0.125, P.steelD);
+    // a small prep table, clear of the plating station so there's room to work at the rice cookers
+    B(7.25, 0.75, 12.5, 10.5, 0.875, 13.25, P.steel);                       // prep table top
+    B(7.375, 0.375, 12.625, 10.375, 0.5, 13.125, P.steelD);                 // undershelf
+    for (const [lx, lz] of [[7.25, 12.5], [10.375, 12.5], [7.25, 13.125], [10.375, 13.125]]) B(lx, 0.25, lz, lx + 0.125, 0.75, lz + 0.125, P.steelD);
     B(11.375, 0.25, 10.25, 13.875, 1.125, 11.25, (x, y, z) => (y === Y(1.125) - 1 ? P.steel : P.steelD)); // plating station under the pass, level with the belt: the sushi case, the rice
     // dish station: three-well sink against the restroom wall
     B(5.125, 0.25, 10.75, 5.875, 0.875, 13.75, (x, y, z) => (y === Y(0.25) ? P.black : P.steel));
@@ -531,14 +533,14 @@ export function buildWorld(W) {
   {
     const F2 = 3.75, AX0 = 5.75, AZ1 = 8.5;
     const tatami = [C('#b8b47a', 0, 0.04), C('#aaa66c', 0, 0.04)], tatamiEdge = C('#2a3a2a', 0, 0.04);
-    const room = (px, pz) => (px < AX0 || pz > AZ1 ? 'store' : pz < 1.25 ? 'engawa' : pz < 5.5 ? (px < 11.0 ? 'living' : 'bed') : px > 14.0 ? 'genkan' : 'boards');
+    const room = (px, pz) => (px < AX0 || pz > AZ1 ? 'store' : pz < 1.625 ? 'engawa' : pz < 5.5 ? (px < 11.0 ? 'living' : 'bed') : px > 14.0 ? 'genkan' : 'boards');
     B(0.25, 3.625, 0.25, 15.75, 3.75, 15.75, (x, y, z) => {
       const px = mx(x), pz = mz(z), r = room(px, pz);
       if (r === 'store' || r === 'boards') return P.sugi[(z >> 1) % 3];
       if (r === 'engawa') return (x & 7) === 0 ? P.sugi[1] : P.hinoki;                // polished boards along the glass
       if (r === 'genkan') return (x + z) & 1 ? P.stone : P.stoneD;
       // tatami: 0.875 x 1.75 mats in a running pattern with dark cloth borders
-      const ox = r === 'living' ? AX0 : 11.125, oz = 1.375;
+      const ox = r === 'living' ? AX0 : 11.125, oz = 1.75;
       const row = Math.floor((pz - oz) / 0.875), off = row & 1 ? 0.875 : 0, col = Math.floor((px - ox + off) / 1.75);
       const lu = (px - ox + off) - col * 1.75, lv = (pz - oz) - row * 0.875;
       if (lu < 0.13 || lv < 0.13) return tatamiEdge;
@@ -565,12 +567,12 @@ export function buildWorld(W) {
       for (let x = X(x0); x < X(x1); x++) for (let y = Y(F2); y < Y(F2 + 2.0); y++) {
         const lu = x - X(x0), ly = y - Y(F2), frame = ly === 0 || ly === Y(F2 + 2.0) - Y(F2) - 1 || lu === 0 || lu === X(x1) - X(x0) - 1;
         const grid = frame || lu % 3 === 0 || ly % 4 === 0 || ly < 4;
-        G.set(x, y, Z(1.25), grid ? P.lattice : P.shoji);
+        G.set(x, y, Z(1.625), grid ? P.lattice : P.shoji);
       }
     };
     for (const [x0, x1] of [[AX0, 6.75], [9.25, 11.875], [14.125, 15.75]]) shojiRow(x0, x1);
-    B(AX0, F2 + 2.0, 1.25, 15.75, F2 + 2.125, 1.375, P.timberD);                       // the lintel over them
-    for (let x = X(AX0); x < X(15.75); x++) for (let y = Y(F2 + 2.125); y < Y(6.375); y++) G.set(x, y, Z(1.25), ranma(x, y));
+    B(AX0, F2 + 2.0, 1.625, 15.75, F2 + 2.125, 1.75, P.timberD);                       // the lintel over them
+    for (let x = X(AX0); x < X(15.75); x++) for (let y = Y(F2 + 2.125); y < Y(6.375); y++) G.set(x, y, Z(1.625), ranma(x, y));
     // fusuma between the living room and the bedroom, with a painted wave, one panel slid aside
     const fus = C('#efe4cc', 0, 0.03), fusInk = C('#3a5a8a', 0, 0.04), fusFrame = C('#2a1a10', 0, 0.04);
     const fusuma = (along, c0, c1, plane, gap) => {
@@ -582,9 +584,9 @@ export function buildWorld(W) {
         G.set(...(along === 'z' ? [plane, y, u] : [u, y, plane]), frame ? fusFrame : wave ? fusInk : fus);
       }
     };
-    fusuma('z', 1.375, 5.5, X(11.0), [2.5, 3.625]);
-    B(11.0, F2 + 2.0, 1.375, 11.125, F2 + 2.125, 5.5, P.timberD);
-    for (let z = Z(1.375); z < Z(5.5); z++) for (let y = Y(F2 + 2.125); y < Y(6.375); y++) G.set(X(11.0), y, z, ranma(z, y));
+    fusuma('z', 1.75, 5.5, X(11.0), [2.875, 3.875]);
+    B(11.0, F2 + 2.0, 1.75, 11.125, F2 + 2.125, 5.5, P.timberD);
+    for (let z = Z(1.75); z < Z(5.5); z++) for (let y = Y(F2 + 2.125); y < Y(6.375); y++) G.set(X(11.0), y, z, ranma(z, y));
     // behind the bedroom, a closet (oshiire) behind fusuma; behind the living room it opens wide into the back room,
     // under a lintel with a lattice transom (ranma), so the two read as one L-shaped space
     B(AX0, F2, 5.5, 15.75, 6.375, 5.625, (x, y) => wallC(x, y));
@@ -753,6 +755,11 @@ export function buildWorld(W) {
       const v = G.get(x, y, z);
       if (!v || snowy.has(v)) G.set(x, y, z, P.floorSeam);
     }
+  }
+
+  // glass is solid: you can see through the panes but not walk through them
+  for (const g of meta.glass) for (let y = g.y0; y < g.y1; y += VS / 2) for (let u = g.axis === 'z' ? g.x0 : g.z0; u < (g.axis === 'z' ? g.x1 : g.z1); u += VS / 2) {
+    if (g.axis === 'z') { W.mark(u, y, g.z - VS / 2); W.mark(u, y, g.z + VS / 2); } else { W.mark(g.x - VS / 2, y, u); W.mark(g.x + VS / 2, y, u); }
   }
 
   meta.lights.push({ pos: [13.4, 2.1, -4.0], color: 0xff9050, intensity: 5, distance: 6, name: 'door' });

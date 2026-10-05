@@ -888,8 +888,8 @@ export function placeProps(batch) {
   batch.add(yakitoriGrill(), 9.65, F, KL, 0, true, 'grill9.65'); batch.add(yakitoriGrill(), 10.65, F, KL, 0, true, 'grill10.65');
   batch.add(range(), 12.0, F, KL, 0, true, 'ramen'); batch.add(range(), 13.6, F, KL, 0);
   batch.add(hangingPans(), 10.4, 2.24, 14.2, 0, false);
-  batch.add(prepStuff(), 9.5, 0.875, 12.65, 0, false);
-  batch.add(sacks(), 9.5, 0.5, 12.65, 0, false);
+  batch.add(prepStuff(), 8.9, 0.875, 12.875, 0, false);
+  batch.add(sacks(), 8.9, 0.5, 12.875, 0, false);
   batch.add(ticketRail(), 12.6, 2.2, 10.32, 2, false);
   // the plating station under the pass: plates and the rice cookers on one side of the belt, the sushi case on the
   // other; the belt runs straight down the middle and out through the pass into the dining room
@@ -920,7 +920,7 @@ export function placeProps(batch) {
   // ================= the apartment upstairs (nobody but you comes up here)
   const F2 = 3.75;
   const home = batch.homeSeats = [];
-  const KX = 8.9, KZ = 3.3; // the kotatsu, facing the TV's spot by the west wall
+  const KX = 8.9, KZ = 3.6; // the kotatsu, facing the TV's spot by the west wall
   batch.add(kotatsu(), KX, F2, KZ, 0);
   batch.add(akari(), KX, F2 + 1.85, KZ, 0, false);   // a paper globe over the kotatsu
   batch.add(akari(), 12.4, F2 + 1.85, 7.0, 0, false);
@@ -932,9 +932,9 @@ export function placeProps(batch) {
   batch.add(catalogBook(), KX + 0.35, F2 + 0.5, KZ + 0.1, 0, false); // the mail-order catalog
   batch.add(kakejiku(), 6.6, F2 + 1.75, 5.48, 0, false);              // the scroll in the tokonoma
   batch.add(pothos(), 7.1, F2 + 0.125, 5.1, 0, false);
-  batch.add(bookshelf(), 15.5, F2, 2.0, 3);
-  batch.add(radio(), 15.45, F2 + 1.0, 2.0, 3, false);
-  batch.add(futon(), 13.6, F2, 2.95, 0, false);
+  batch.add(bookshelf(), 15.5, F2, 2.45, 3);
+  batch.add(radio(), 15.45, F2 + 1.0, 2.45, 3, false);
+  batch.add(futon(), 13.6, F2, 3.3, 0, false);
   batch.add(andon(), 12.0, F2, 4.3, 0);
   batch.add(tansu(), 10.25, F2, 8.1, 0);
   batch.add(kitchenette(), 12.25, F2, 8.1, 0);

@@ -451,7 +451,7 @@ async function boot() {
   addEventListener('keyup', (e) => { if (arcadeOpen && arcade.key(e.code, false)) e.preventDefault(); });
   applyAll();
   service.onOpenShop = () => { if (shift.openShop()) { audio.doorBell(); } };
-  const WAKE = { x: 12.4, z: 2.2, yaw: 0.15 }; // in the bedroom, beside the futon, facing the bay
+  const WAKE = { x: 12.4, z: 2.4, yaw: 0.15 }; // in the bedroom, beside the futon, facing the bay
   const wakeUp = () => {
     if (player.seated) player.standUp();
     const k = coop && net ? Math.max(0, net.players.findIndex((p) => p.id === net.id)) : 0;
@@ -501,7 +501,7 @@ async function boot() {
   };
   service.onBuy = buyItem;
   const openCatalog = () => { catalogOpen = true; unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false); };
-  interactions.add([9.25, 4.28, 3.4, 0.16, 0.06, 0.2], () => 'Read the catalog', openCatalog);
+  interactions.add([9.25, 4.28, 3.7, 0.16, 0.06, 0.2], () => 'Read the catalog', openCatalog);
 
   // the little shrine on the west slope: bow twice, clap twice, bow once. Once a day the kami leave ¥100.
   const SHRINE = { x: -7.6, z: 3.0 };
@@ -661,7 +661,7 @@ async function boot() {
     }, () => !seat.occupant && !player.seated && !moving);
   }
   for (const seat of batch.homeSeats) addSitSpot(seat, 'Sit at the kotatsu', 'toes under the quilt. warm. · walk to stand up');
-  interactions.add([13.6, 3.95, 2.95, 0.5, 0.2, 1.0], () => 'Lie down for a minute', () => {
+  interactions.add([13.6, 3.95, 3.3, 0.5, 0.2, 1.0], () => 'Lie down for a minute', () => {
     audio.purr(); toast(shift.waiting ? "you're wide awake. the shop is waiting." : shift.active ? 'just a minute… then back down to the shop.' : 'the futon is still warm.');
   });
   interactions.add([12.5, 4.8, 8.1, 0.2, 0.15, 0.22], () => 'Put the kettle on', () => { audio.pour(); toast('a cup of hojicha, just for you.'); });
@@ -784,11 +784,13 @@ async function boot() {
     if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); }
     player.sensMul = zoom ? 0.1 : 1;
 
-    // gusts of wind carry the snow sideways now and then
-    const gust = Math.max(0, Math.sin(time * 0.13) * Math.sin(time * 0.31 + 1.3));
-    wind.set(0.25 + gust * 1.4, 0.08 + gust * 0.3);
+    // gusts of wind carry the snow sideways now and then, rising and falling slowly; the snow's drift is the wind
+    // added up over time, so a change in the wind changes how the flakes move, never where they all are
+    const gust = Math.max(0, Math.sin(time * 0.07) * Math.sin(time * 0.17 + 1.3));
+    wind.set(0.25 + gust * 0.9, 0.08 + gust * 0.2);
     const su = snow.material.uniforms;
-    su.wind.value.lerp(wind, Math.min(1, dt * 0.5));
+    su.wind.value.lerp(wind, Math.min(1, dt * 0.3));
+    su.drift.value.x = (su.drift.value.x + su.wind.value.x * dt) % 280; su.drift.value.y = (su.drift.value.y + su.wind.value.y * dt) % 280;
     su.time.value = time; su.cam.value.copy(camera.position);
 
     // lanterns breathe a little

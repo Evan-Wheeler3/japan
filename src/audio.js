@@ -260,10 +260,11 @@ export class Ambience {
     const ctx = this.ctx;
     if (!ctx) return;
     const ind = s.indoor; // 0 outside .. 1 deep inside
-    const gust = s.gust || 0;
-    this.set(this.rainLP.frequency, 450 + (1 - ind) * 3500 + gust * 800, 0.3);
-    this.set(this.windBP.frequency, 350 + gust * 500, 0.6);
-    this.set(this.rainGain.gain, (0.1 + (1 - ind) * 0.25 + gust * 0.22) * this.windVol, 0.4);
+    // indoors the wind is a steady, heavily muffled rumble through the walls; only outside do the gusts swell
+    const out = 1 - ind, gust = (s.gust || 0) * out;
+    this.set(this.rainLP.frequency, 260 + out * 3700 + gust * 800, 0.8);
+    this.set(this.windBP.frequency, 320 + gust * 500, 1.2);
+    this.set(this.rainGain.gain, (0.07 + out * 0.28 + gust * 0.2) * this.windVol, 0.8);
     this.set(this.seaGain.gain, (0.05 + (1 - ind) * 0.3) * this.windVol, 0.4);
     this.set(this.roomGain.gain, ind * 0.8, 0.3);
     const md = s.musicDist;
