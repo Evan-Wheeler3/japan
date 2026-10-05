@@ -2,7 +2,7 @@
 // it sells: new dishes and upgrades for the shop, and things to make the apartment upstairs your own.
 import * as THREE from 'three';
 import { Model, C, PropBatch, hash01 } from './voxel.js';
-import { heater, zabuton } from './props.js';
+import { heater, zabuton, drinksFridge } from './props.js';
 
 // ---------------------------------------------------------------- the save file
 const KEY = 'yoake.save';
@@ -26,10 +26,12 @@ export const CATALOG = [
   { id: 'binchotan', kind: 'shop', name: 'Binchotan charcoal', price: 2500, text: 'White oak charcoal burns hotter: yakitori and gyoza cook 30% faster.' },
   { id: 'dishes', kind: 'shop', name: 'More cups and plates', price: 2000, text: 'Four more of each on the shelves every night.' },
   { id: 'heaters', kind: 'shop', name: 'Kerosene heaters', price: 4000, text: 'Two more heaters in the dining room. Warm guests wait 25% longer.' },
+  { id: 'fridge', kind: 'shop', name: 'A drinks fridge', price: 3000, text: 'Ramune, tea and beer by the east wall. Guests take a bottle with their meal: ¥250 more on every bill.' },
   { id: 'beltMotor2', kind: 'shop', needs: 'beltMotor', name: 'An industrial belt motor', price: 6000, text: 'The belt runs at twice its old speed.' },
   { id: 'binchotan2', kind: 'shop', needs: 'binchotan', name: "A grill master's konro", price: 5500, text: 'Yakitori and gyoza cook in half the time.' },
   { id: 'dishes2', kind: 'shop', needs: 'dishes', name: 'A full set of tableware', price: 4000, text: 'Another four cups and plates: fourteen of each.' },
   { id: 'heaters2', kind: 'shop', needs: 'heaters', name: 'Hot towels at every seat', price: 7000, text: 'Guests wait half again as long before giving up.' },
+  { id: 'fridge2', kind: 'shop', needs: 'fridge', name: 'A sake warmer', price: 6000, text: 'Warm sake on snowy nights: another ¥350 on every bill.' },
   { id: 'lanterns', kind: 'home', name: 'A string of paper lanterns', price: 600, text: 'Little lanterns along the engawa, over the bay windows.' },
   { id: 'plants', kind: 'home', name: 'Houseplants', price: 700, text: 'A monstera and a fern, for the corners.' },
   { id: 'bonsai', kind: 'home', name: 'Bonsai pine', price: 900, text: 'On a stand by the window. Older than the shop.' },
@@ -55,6 +57,7 @@ export function applyUpgrades(service, owned) {
   service.menuKinds = new Set(['tea', 'sushi', 'yakitori', 'gyoza', ...['onigiri', 'tempura', 'ramen'].filter(has)]);
   service.stockMax = 6 + (has('dishes') ? 4 : 0) + (has('dishes2') ? 4 : 0);
   service.patienceBonus = has('heaters2') ? 1.5 : has('heaters') ? 1.25 : 1;
+  service.drinkBill = (has('fridge') ? 250 : 0) + (has('fridge2') ? 350 : 0);
   service.belt.speed = has('beltMotor2') ? 0.84 : has('beltMotor') ? 0.63 : 0.42;
   const grill = has('binchotan2') ? 0.5 : has('binchotan') ? 0.7 : 1;
   for (const st of service.stations) st.cook = st.baseCook * (st.kind === 'yakitori' || st.kind === 'gyoza' ? grill : 1);
@@ -189,7 +192,8 @@ const famicom = () => {
 const FIXED = {
   lanterns: (h) => { h.put(lanternString(), 8.4, 6.3, 0.75, 0); h.put(lanternString(), 13.3, 6.3, 0.75, 0); },
   print: (h) => { h.put(bigPrint(), 5.77, F2 + 1.25, 1.95, 3); },
-  heaters: (h) => { h.put(heater(), 0.6, 0.25, 3.2, 1); h.put(heater(), 15.35, 0.25, 4.9, 3); },
+  heaters: (h) => { h.put(heater(), 0.6, 0.25, 3.0, 1); h.put(heater(), 15.3, 0.25, 4.3, 3); },
+  fridge: (h) => { h.put(drinksFridge(), 15.3, 0.25, 2.25, 1); },
 };
 
 // Everything that stands on the apartment floor is a piece you can pick up and move (F), turn (R) and

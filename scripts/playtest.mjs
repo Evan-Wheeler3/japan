@@ -61,9 +61,10 @@ try {
 
   // ---- dev: the ` key toggles a cash box that never runs out
   await page.keyboard.press('Backquote');
-  st = await page.evaluate(() => { const d = window.__yoake, before = d.save.yen; d.menu.h.onBuy('bonsai'); return { dev: d.save.devYen, spent: before - d.save.yen, owned: d.service.owned.includes('bonsai') }; });
+  st = await page.evaluate(() => { const d = window.__yoake, before = d.save.yen; d.menu.h.onBuy('bonsai'); d.menu.h.onBuy('fridge'); return { dev: d.save.devYen, spent: before - d.save.yen, owned: d.service.owned.includes('bonsai'), drink: d.service.drinkBill }; });
   await page.keyboard.press('Backquote');
   check(st.dev && st.spent === 0 && st.owned && !(await page.evaluate(() => window.__yoake.save.devYen)), 'the dev switch buys for free and toggles back off');
+  check(st.drink === 250, 'the drinks fridge puts ¥250 on every bill');
 
   // ---- the shrine: walk out past the old border, bow, and the kami leave ¥100 once a day
   const bowAt = () => page.evaluate(() => {

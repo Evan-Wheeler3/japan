@@ -95,8 +95,8 @@ async function boot() {
   const snowLights = meta.lights.filter((l) => ['door', 'vending', 'kanban', 'toroA', 'toroB', 'upstairs', 'consL', 'consR'].includes(l.name));
   const snow = makeSnow(7000, snowLights, L.roofDry); scene.add(snow);
   const steam = makeSteam([
-    { pos: [11.3, 1.25, 10.05], size: 0.6 }, { pos: [12.2, 1.25, 10.05], size: 0.6 },
-    { pos: [8.1, 2.05, 6.5], size: 0.35 }, { pos: [8.7, 2.05, 6.5], size: 0.3 }, { pos: [6.65, 1.5, 6.47], size: 0.3 }, // urns, rice in the well
+    { pos: [6.0, 1.95, 9.65], size: 0.35 }, { pos: [6.6, 1.95, 9.65], size: 0.3 },        // the tea urns on the back bar
+    { pos: [11.92, 1.3, 10.98], size: 0.3 },                                                  // the rice cookers by the pass
     { pos: [11.75, 1.6, 15.1], size: 0.7 }, { pos: [13.4, 1.4, 15.1], size: 0.5 },
     { pos: [9.65, 1.3, 15.2], size: 0.9 }, { pos: [10.65, 1.3, 15.2], size: 0.9 }, { pos: [8.1, 1.2, 15.1], size: 0.6 },
     ...meta.steam,
@@ -252,14 +252,14 @@ async function boot() {
   addFaucet(5.46, 1.55, 0.75, 12.3, [5.32, 1.45, 12.3, 0.09, 0.14, 0.12], 'water');
   for (const [tz] of [[12.45], [15.2]]) interactions.add([4.49, 0.6, tz, 0.4, 0.45, 0.3], () => 'Flush', () => audio.flush());
   for (const rz0 of [10.25, 13.125]) interactions.add([4.0, 1.25, rz0 + 0.1, 0.16, 0.16, 0.14], () => 'Dry your hands', () => audio.dryer());
-  interactions.add([9.6, 1.25, 4.5, 0.22, 0.16, 0.14], () => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => {
+  interactions.add([4.3, 1.12, 9.75, 0.22, 0.16, 0.14], () => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => {
     audio.musicOn = !audio.musicOn; audio.clickSound(); toast(audio.musicOn ? 'radio on' : 'radio off');
   });
   const cans = ['a hot can of royal milk tea', 'hot corn soup. somehow perfect.', 'a hot can of coffee. it warms your hands.', 'hot lemon. a little treat.'];
   // a hot can warms you up and puts a spring in your step: 1.25x walking speed for two minutes of play
   const BOOST = { mul: 1.25, secs: 120 };
   let boostLeft = 0;
-  interactions.add([17.0, 1.2, -2.95, 0.45, 0.6, 0.12], () => (boostLeft > 0 ? 'Buy a hot drink · ¥130 (tops up your boost)' : 'Buy a hot drink · ¥130 · walk 25% faster for 2 min'), () => {
+  interactions.add([19.2, 1.2, -2.95, 0.45, 0.6, 0.12], () => (boostLeft > 0 ? 'Buy a hot drink · ¥130 (tops up your boost)' : 'Buy a hot drink · ¥130 · walk 25% faster for 2 min'), () => {
     if (cashBox() < 130) { toast('the cash box is empty. maybe after tonight.'); audio.rattle(); return; }
     if (!save.devYen) { save.yen -= 130; writeSave(save); }
     boostLeft = BOOST.secs; player.speedMul = BOOST.mul;
@@ -665,13 +665,16 @@ async function boot() {
   interactions.add([12.5, 4.8, 8.1, 0.2, 0.15, 0.22], () => 'Put the kettle on', () => { audio.pour(); toast('a cup of hojicha, just for you.'); });
   interactions.add([12.0, 4.2, 4.3, 0.22, 0.45, 0.22], () => 'Andon lamp', () => { const l = named.aptBed; l.mul = l.mul > 0.5 ? 0.15 : 1; audio.clickSound(); });
 
-  // the telescope at the front window: a long look at Fuji until you move
-  let zoom = false;
-  home.onTelescope = () => { zoom = true; toast('Fuji, close enough to touch · walk to step back'); };
+  // the telescope at the front window: you put your eye to the eyepiece and it swings round to Fuji. A round brass
+  // field of view, a narrow lens; the mouse pans it slowly, walking steps back.
+  let zoom = false, aimFuji = 0;
+  const fujiAt = new THREE.Vector3(FUJI.x, FUJI.y + 118, FUJI.z); // the snowy top of the cone
+  home.onTelescope = () => { zoom = true; aimFuji = 1.2; document.body.classList.add('scope'); audio.clickSound(); };
+  const scopeOff = () => { zoom = false; document.body.classList.remove('scope'); };
 
   // ---------------------------------------------------------------- loop
   let indoor = 1, last = performance.now(), time = 0, dawn = 0, purseT = 0;
-  const radioPos = new THREE.Vector3(9.6, 1.25, 4.5); // the radio in the well
+  const radioPos = new THREE.Vector3(4.3, 1.2, 9.75); // the radio on the back bar
   const sunV = new THREE.Vector3(), haze = new THREE.Color(), wind = new THREE.Vector2();
   const mats = backdrop.userData.mats;
 
@@ -766,10 +769,18 @@ async function boot() {
       const txt = (cash >= INFINITE ? '¥∞ · dev' : `¥${Math.round(cash).toLocaleString('en-US')}`) + boost;
       if ($('purse').textContent !== txt) $('purse').textContent = txt;
     }
-    if (zoom && (player.keys.KeyW || player.keys.KeyA || player.keys.KeyS || player.keys.KeyD || Math.hypot(player.stick.x, player.stick.y) > 0.4 || !player.locked)) zoom = false;
-    const fov = arcadeOpen ? frameTV(dt) : zoom ? 14 : 68;
+    if (zoom && (player.keys.KeyW || player.keys.KeyA || player.keys.KeyS || player.keys.KeyD || Math.hypot(player.stick.x, player.stick.y) > 0.4 || !player.locked)) scopeOff();
+    if (zoom && aimFuji > 0) { // swing the tube round to the mountain
+      aimFuji -= dt;
+      const o = camera.position, dx = fujiAt.x - o.x, dy = fujiAt.y - o.y, dz = fujiAt.z - o.z;
+      let dyaw = Math.atan2(-dx, -dz) - player.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+      const k = Math.min(1, dt * 4);
+      player.yaw += dyaw * k; player.pitch += (Math.atan2(dy, Math.hypot(dx, dz)) - player.pitch) * k;
+    }
+    const fov = arcadeOpen ? frameTV(dt) : zoom ? 13 : 68;
+    snow.visible = !zoom; // flakes by the window would fill the lens
     if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); }
-    player.sensMul = zoom ? 0.2 : 1;
+    player.sensMul = zoom ? 0.1 : 1;
 
     // gusts of wind carry the snow sideways now and then
     const gust = Math.max(0, Math.sin(time * 0.13) * Math.sin(time * 0.31 + 1.3));

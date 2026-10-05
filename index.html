@@ -154,6 +154,17 @@
     #arcade .pads button { width: 56px; height: 56px; border-radius: 16px; background: rgba(255,236,210,.12); color: var(--cream); font: 600 20px Fredoka, sans-serif; touch-action: none; }
     #arcade .pads button.a { background: #b8282a; border-radius: 50%; }
 
+    /* the telescope: a round brass field of view, everything else dark */
+    #scope { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .45s ease; z-index: 30;
+      background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 31vmin, rgba(0,0,0,.65) 34vmin, #000 35.5vmin); }
+    #scope::before { content: ''; position: absolute; left: 50%; top: 50%; width: 70vmin; height: 70vmin; transform: translate(-50%, -50%); border-radius: 50%;
+      box-shadow: 0 0 0 1.4vmin rgba(150, 112, 52, .6), 0 0 0 1.9vmin rgba(60, 40, 16, .8), inset 0 0 7vmin 1vmin rgba(0, 0, 0, .75); }
+    #scope::after { content: ''; position: absolute; left: 50%; top: 50%; width: 70vmin; height: 70vmin; transform: translate(-50%, -50%); border-radius: 50%;
+      background: radial-gradient(circle at 34% 30%, rgba(200, 220, 255, .10), rgba(200, 220, 255, 0) 22%); }
+    #scope .hint { position: absolute; left: 0; right: 0; bottom: 5vh; text-align: center; font: 600 15px Nunito, sans-serif; color: var(--cream); opacity: .7; }
+    body.scope #scope { opacity: 1; }
+    body.scope .hud, body.scope #reticle, body.scope #hint, body.scope #toast { opacity: 0 !important; }
+
     /* ---------------------------------------------------------------- the fade between scenes (sunrise, sleep) */
     #fade { position: fixed; inset: 0; background: #05060a; opacity: 0; pointer-events: none; transition: opacity .9s ease; z-index: 50;
       display: flex; align-items: center; justify-content: center; }
@@ -311,6 +322,7 @@
   <div id="summary"></div>
   <div id="purse" class="hud glass"></div>
   <div id="fade"><div class="cap"></div></div>
+  <div id="scope"><div class="hint">move the mouse to pan · walk to step back</div></div>
   <div id="arcade"><div class="hint"></div>
     <div class="row"><div class="pads"><button data-k="ArrowLeft">◀</button><button data-k="ArrowUp">▲</button><button data-k="ArrowDown">▼</button><button data-k="ArrowRight">▶</button><button class="a" data-k="Space">A</button></div>
     <button class="text-btn" data-act="putDown">put the controller down <kbd>Esc</kbd></button></div></div>

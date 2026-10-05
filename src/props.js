@@ -476,10 +476,28 @@ const radio = memo(() => {
   return m;
 });
 // a little kerosene space heater with a glowing grille
+// a round kerosene stove: a steel drum with a glowing window round its middle, a grille on top and a kettle on it
 export const heater = memo(() => {
-  const m = new Model(8, 10, 6, 1 / 16);
-  m.box(0, 0, 0, 8, 10, 6, C('#d8d0c0', 0, 0.03)); m.box(1, 2, 0, 7, 8, 1, (x, y) => (y & 1 ? C('#ff7a30', 2.2, 0.06) : K.black));
-  m.box(0, 9, 0, 8, 10, 6, C('#a8a090', 0, 0.03)); m.set(6, 9, 1, C('#40ff60', 2, 0.02));
+  const m = new Model(11, 15, 11, 1 / 16);
+  const drum = C('#4a5a5a', 0, 0.05), drumD = C('#2e3838', 0, 0.05), glow = C('#ff7a30', 2.4, 0.06), grille = C('#1c1c1e', 0, 0.03);
+  m.cyl(5.5, 5.5, 5.2, 0, 1, drumD);
+  m.cyl(5.5, 5.5, 4.6, 1, 9, (x, y) => (y >= 4 && y <= 6 ? glow : y === 3 || y === 7 ? drumD : drum));
+  m.cyl(5.5, 5.5, 5.0, 9, 10, (x, y, z) => ((x + z) & 1 ? grille : drumD));
+  m.cyl(5.5, 5.5, 2.6, 10, 13, C('#b8302a', 0, 0.05)); m.cyl(5.5, 5.5, 1.2, 13, 14, K.black);   // the kettle
+  m.box(7, 12, 5, 9, 13, 6, C('#b8302a', 0, 0.05));                                           // its spout
+  return m;
+});
+// a glass-fronted drinks fridge: ramune, tea and beer on lit shelves (faces -z)
+export const drinksFridge = memo(() => {
+  const m = new Model(18, 28, 12, 1 / 16);
+  const bottles = ['#3a7a4a', '#e8e0c8', '#c8902a', '#5a2a18', '#e8d070', '#2a4a7a', '#7ac8e8'].map((h) => C(h, 0.55, 0.08));
+  const lit = C('#fff0d8', 0.7, 0.05), frame = C('#2a1a10', 0, 0.04);
+  m.box(0, 0, 0, 18, 28, 12, (x, y, z) => {
+    if (x === 0 || x === 17 || y < 3 || y > 25 || z === 11) return frame;
+    if (z > 0) return y % 6 === 2 ? K.chrome : (y % 6 === 3 || y % 6 === 4) && z < 9 ? bottles[Math.floor(hash01(x, y, z) * 6.99)] : lit;
+    return y % 6 === 2 ? K.chrome : null;                                                     // the glass front: just the shelf edges
+  });
+  m.box(1, 26, 0, 17, 28, 1, C('#c8302a', 0.8, 0.05));                                       // a lit sign across the top
   return m;
 });
 
@@ -744,36 +762,43 @@ export function placeProps(batch) {
   // on the sushi belt in front of them, where they can lift off what they ordered.
   const r = rng(99);
 
-  // ================= the kaiten island: stools along the back and the west end, booths against the front (two to a bench)
-  for (let x = 3.5; x < 11.5; x += 0.85) {
-    batch.add(stool(), x, 0.375, 7.62, 0);
-    seats.push({ x, z: 7.62, y: 1.06, yaw: 0, kind: 'stool', surf: 1.125, beltAt: [x, 6.85, 1.125] });
+  // ================= the kaiten counter: booths butt up against the front of its base (two to a bench), stools line
+  // its two ends, and you work on the chef's side behind it
+  [3.9, 6.15, 8.4, 10.65].forEach((bx, i) => {
+    batch.add(booth(), bx, F, 5.75 - 21 / 32, 3);
+    for (const sx of [-0.7, 0.7]) for (const sz of [5.45, 4.85]) seats.push({ x: bx + sx, z: sz, y: 0.69, yaw: sx < 0 ? -Math.PI / 2 : Math.PI / 2, kind: 'booth', surf: 1.0, beltAt: [bx, 6.15, 1.125], approach: [bx + sx, 4.05] });
+    batch.add(tableSets[i % 4](), bx, F + 0.75, 5.3, 2, false);
+    batch.add(bellPendant(26), bx, 2.68, 5.1, 0, false);
+  });
+  for (const z of [6.25, 7.1, 7.95, 8.8]) {
+    batch.add(stool(), 13.12, 0.375, z, 1);
+    seats.push({ x: 13.12, z, y: 1.06, yaw: Math.PI / 2, kind: 'stool', surf: 1.125, beltAt: [12.35, z, 1.125] });
   }
-  for (const z of [5.25, 6.1]) {
+  for (const z of [6.25, 7.1]) {
     batch.add(stool(), 2.38, 0.375, z, 3);
     seats.push({ x: 2.38, z, y: 1.06, yaw: -Math.PI / 2, kind: 'stool', surf: 1.125, beltAt: [3.15, z, 1.125] });
   }
-  [3.9, 6.15, 8.4, 10.65].forEach((bx, i) => {
-    batch.add(booth(), bx, F, 3.75 - 21 / 32, 3);
-    for (const sx of [-0.7, 0.7]) for (const sz of [3.45, 2.85]) seats.push({ x: bx + sx, z: sz, y: 0.69, yaw: sx < 0 ? -Math.PI / 2 : Math.PI / 2, kind: 'booth', surf: 1.0, beltAt: [bx, 4.15, 1.125], approach: [bx + sx, 2.05] });
-    batch.add(tableSets[i % 4](), bx, F + 0.75, 3.3, 2, false);
-    batch.add(bellPendant(26), bx, 2.68, 3.1, 0, false);
-  });
-  // the belt goes in and out of little hatches at the island's east end
-  batch.add(beltHatch(), 11.85, 1.125, 6.85, 1, false); batch.add(beltHatch(), 11.85, 1.125, 4.15, 1, false);
-  for (const x of [4.0, 6.5, 9.0, 11.25]) batch.add(chochin(6, x === 6.5 || x === 11.25 ? 'red' : 'cream'), x, 2.7, 7.35, 0, false);
-  for (const x of [4.0, 6.5, 9.0, 11.25]) batch.add(chochin(6, 'cream'), x, 2.7, 4.15, 0, false);
+  // the belt comes out of a hatch under the pass and goes back into one at the end of the west return
+  batch.add(beltHatch(), 12.35, 1.125, 9.95, 0, false); batch.add(beltHatch(), 3.15, 1.125, 7.95, 0, false);
+  for (const x of [4.0, 6.5, 9.0, 11.25]) batch.add(chochin(6, x === 6.5 || x === 11.25 ? 'red' : 'cream'), x, 2.7, 6.2, 0, false);
+  for (const x of [5.5, 9.5]) batch.add(chochin(4, 'cream'), x, 2.75, 8.4, 0, false);
 
-  // the chef's side, round the inside of the well: the sushi case, rice, tea, cups and plates
-  const WT = 1.125;
-  batch.add(sushiCase(), 5.0, WT, 6.45, 0, false, 'sushi');
-  batch.add(riceCooker(), 6.4, WT, 6.47, 0, false, 'rice'); batch.add(riceCooker(), 6.9, WT, 6.47, 0, false, 'rice');
-  batch.add(teaTins(), 7.5, WT, 6.5, 0, false);
-  batch.add(urn(), 8.1, WT, 6.5, 0, false, 'urns'); batch.add(urn(), 8.7, WT, 6.5, 0, false, 'urns');
-  batch.add(plates(), 9.8, WT, 6.47, 0, false, 'platesA'); batch.add(plates(), 10.1, WT, 6.47, 0, false, 'platesA');
-  batch.add(cupRow(), 5.0, WT, 4.5, 2, false, 'mugs'); batch.add(cupRow(), 7.25, WT, 4.5, 2, false, 'mugs');
-  batch.add(plates(), 11.0, WT, 4.5, 0, false, 'platesB');
-  batch.add(radio(), 9.6, WT, 4.5, 2, false);
+  // the back bar: tea urns, the radio, tins, plates, and the cups on the shelf over it
+  const BT = 1.0;
+  batch.add(radio(), 4.3, BT, 9.75, 0, false);
+  batch.add(teaTins(), 5.0, BT, 9.75, 0, false);
+  batch.add(urn(), 6.0, BT, 9.65, 0, false, 'urns'); batch.add(urn(), 6.6, BT, 9.65, 0, false, 'urns');
+  batch.add(plates(), 7.8, BT, 9.7, 0, false, 'platesA'); batch.add(plates(), 8.1, BT, 9.7, 0, false, 'platesA');
+  batch.add(plates(), 9.5, BT, 9.7, 0, false, 'platesB');
+  for (const x of [4.9, 6.9, 8.9]) batch.add(cupRow(), x, 2.375, 9.8, 0, false, 'mugs');
+
+  // booths backed onto the shoji partition, served by hand
+  [1.3, 3.5, 5.65, 9.6, 11.72].forEach((bx, i) => {
+    batch.add(booth(), bx, F, 0.25 + 21 / 32, 1);
+    for (const sx of [-0.7, 0.7]) for (const sz of [0.6, 1.2]) seats.push({ x: bx + sx, z: sz, y: 0.69, yaw: sx < 0 ? -Math.PI / 2 : Math.PI / 2, kind: 'booth', surf: 1.0, approach: [bx + sx, 1.95] });
+    batch.add(tableSets[(i + 2) % 4](), bx, F + 0.75, 0.72, 0, false);
+    batch.add(bellPendant(26), bx, 2.68, 0.75, 0, false);
+  });
 
   // ================= the front room behind the shoji: booths end-on to the glass, looking out over the bay.
   // No belt out here: these guests are served by hand.
@@ -793,16 +818,17 @@ export function placeProps(batch) {
   // ================= the genkan: the cat on the sill, umbrellas by the door, the register on its counter
   batch.add(cat(), 12.3, 1.0, -3.0, 0, false);
   batch.add(umbrellaStand(), 12.2, F, -2.55);
-  batch.add(register(), 14.95, 1.0, -0.45, 2, false, 'register');
-  batch.add(maneki(), 15.5, 1.0, -0.5, 0, false);
-  batch.add(mikan(), 14.4, 1.0, -0.4, 0, false);
+  batch.add(register(), 15.0, 1.0, -1.35, 2, false, 'register');
+  batch.add(maneki(), 15.55, 1.0, -1.45, 0, false);
+  batch.add(mikan(), 14.5, 1.0, -1.35, 0, false);
 
-  // back wall: wooden menu boards over the stools, sake on the shelf, signs for the restrooms
-  [5.4, 7.6, 10.0, 12.3].forEach((x, i) => batch.add(menuBoards[i](), x, 2.55, 9.99, 0, false));
-  batch.add(sakeBottles(), 3.75, 2.0, 9.87, 0, false);
+  // back wall: wooden menu boards over the back bar, sake and daruma on the shelf, signs for the restrooms
+  [4.8, 6.8, 8.8, 12.6].forEach((x, i) => batch.add(menuBoards[i](), x, 2.62, 9.99, 0, false));
+  batch.add(sakeBottles(), 2.3, 2.0, 9.87, 0, false);
+  batch.add(darumaRow(), 3.15, 2.0, 9.9, 0, false);
   batch.add(restroomPlaque(), 1.0, 2.55, 9.86, 0, false);
   batch.add(wheelchairSign(), 2.05, 1.6, 9.99, 0, false);
-  batch.add(noren(), 14.56, 2.4, 9.92, 0, false);           // the kitchen doorway
+  for (const x of [10.56, 14.56]) batch.add(noren(), x, 2.4, 9.92, 0, false); // the kitchen doorways
 
   // ================= back of house
   // hallway
@@ -834,20 +860,23 @@ export function placeProps(batch) {
   batch.add(yakitoriGrill(), 9.65, F, KL, 0, true, 'grill9.65'); batch.add(yakitoriGrill(), 10.65, F, KL, 0, true, 'grill10.65');
   batch.add(range(), 12.0, F, KL, 0, true, 'ramen'); batch.add(range(), 13.6, F, KL, 0);
   batch.add(hangingPans(), 10.4, 2.24, 14.2, 0, false);
-  batch.add(prepStuff(), 9.5, 0.875, 12.4, 0, false);
-  batch.add(sacks(), 9.5, 0.5, 12.4, 0, false);
-  batch.add(ticketRail(), 11.75, 2.2, 10.32, 2, false);
-  batch.add(plates(), 12.8, 0.875, 10.42, 0, false, 'platesK'); batch.add(plates(), 12.8, 0.875, 10.72, 0, false, 'platesK');
-  batch.add(beltHatch(), 12.42, 0.875, 10.55, 1, false); // the belt starts on the plating station and dives into this hatch
+  batch.add(prepStuff(), 9.5, 0.875, 12.65, 0, false);
+  batch.add(sacks(), 9.5, 0.5, 12.65, 0, false);
+  batch.add(ticketRail(), 12.6, 2.2, 10.32, 2, false);
+  // the plating station under the pass: plates, the rice cookers and the sushi case right by the belt, which runs
+  // along it and out through a hatch under the pass into the dining room
+  batch.add(plates(), 11.6, 0.875, 10.48, 0, false, 'platesK'); batch.add(plates(), 11.9, 0.875, 10.48, 0, false, 'platesK');
+  batch.add(riceCooker(), 11.7, 0.875, 10.98, 2, false, 'rice'); batch.add(riceCooker(), 12.15, 0.875, 10.98, 2, false, 'rice');
+  batch.add(sushiCase(), 13.1, 0.875, 10.98, 2, false, 'sushi');
+  batch.add(beltHatch(), 12.35, 0.875, 10.32, 2, false);
   batch.add(dishRack(), 5.5, 0.875, 13.3, 0, false, 'dishRack');
   batch.add(faucetSpray(), 5.3, 0.875, 12.3, 3, false);
   batch.add(sacks(), 15.4, 0.25, 15.3, 1);
   batch.add(radio(), 15.5, 2.125, 13.4, 1, false);
 
-  // east wall: the Fuji mural, a hanging scroll, prints; daruma on the drinks case
+  // east wall: the Fuji mural, a hanging scroll, prints
   batch.add(mural(), 15.74, 1.35, 5.4, 1, false);
   batch.add(kakejiku(), 15.72, 3.05, 2.25, 1, false);
-  batch.add(darumaRow(), 15.2, 1.875, 2.25, 1, false);
   for (let z = 7.9, k = 3; z < 9.6; z += 0.75, k++) batch.add(prints[k % 10](), 15.74, 2.0, z, 1, false);
   for (let z = 0.6, k = 5; z < 1.6; z += 0.7, k++) batch.add(prints[k % 10](), 15.74, 2.2, z, 1, false);
   batch.add(prints[2](), 0.26, 2.5, 9.2, 3, false);
@@ -857,7 +886,7 @@ export function placeProps(batch) {
   batch.add(noren(), 13.375, 2.75, -3.47, 0, false);
   batch.add(chochin(3, 'red', 1 / 16), 12.35, 1.7, -3.62, 0, false);
   batch.add(chochin(3, 'red', 1 / 16), 14.4, 1.7, -3.62, 0, false);
-  batch.add(vending(), 17.0, S, -2.6, 0);
+  batch.add(vending(), 19.2, S, -2.6, 0);
   batch.add(postbox(), 11.1, S, -5.75);
   batch.add(nobori(), 11.9, S, -5.6, 0); batch.add(nobori(), 15.0, S, -5.6, 0);
 

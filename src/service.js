@@ -25,14 +25,14 @@ const INVISIBLE = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: f
 
 // counter tops you can set things on: [x0, x1, z0, z1, top y]. Spots near props on the counters are kept clear.
 const COUNTERS = [
-  [3.8, 11.95, 6.32, 6.68, 1.125],  // inside the well, your side of the belt (north)
-  [3.8, 11.95, 4.32, 4.68, 1.125],  // inside the well, south
-  [14.2, 15.7, -0.82, -0.05, 1.0],  // the register counter in the genkan
-  [7.1, 11.9, 12.05, 12.8, 0.875],  // kitchen prep island
-  [10.8, 12.7, 9.8, 10.45, 1.125],  // the pass between the kitchen and the dining room
+  [3.8, 11.7, 6.32, 6.7, 1.125],     // the kaiten counter, your side of the belt
+  [11.8, 12.17, 6.8, 9.6, 1.125],    // ...and its east leg
+  [3.8, 9.95, 9.15, 9.5, 1.0],       // the back bar, in front of the urns and plates
+  [14.3, 15.7, -1.7, -1.05, 1.0],    // the register counter in the genkan
+  [7.1, 11.9, 12.3, 13.05, 0.875],   // kitchen prep island
 ];
-const KEEP_CLEAR = [[5.0, 6.45, 0.5], [6.65, 6.47, 0.45], [7.5, 6.5, 0.2], [8.4, 6.47, 0.5], [9.95, 6.47, 0.35], [5.0, 4.5, 1.1], [7.25, 4.5, 1.1],
-  [11.0, 4.5, 0.22], [9.6, 4.5, 0.25], [14.95, -0.45, 0.3], [15.5, -0.5, 0.2], [14.4, -0.4, 0.2], [9.5, 12.4, 0.45]];
+const KEEP_CLEAR = [[4.3, 9.75, 0.25], [5.0, 9.75, 0.25], [6.3, 9.65, 0.6], [7.95, 9.7, 0.35], [9.5, 9.7, 0.22],
+  [15.0, -1.35, 0.3], [15.55, -1.45, 0.2], [14.5, -1.35, 0.2], [9.5, 12.65, 0.45]];
 
 const W = C('#f2efe8', 0, 0.03), rim = C('#2a4a7a', 0, 0.04), teaC = C('#8ab840', 0, 0.05), ring = C('#6a7a4a', 0, 0.06);
 const glaze = C('#6d7a5a', 0, 0.05), glazeL = C('#a8b08a', 0, 0.05);
@@ -198,8 +198,8 @@ export class Service {
     this.counterItems = []; // things set down on a counter
     this.nextItemId = 1;
     this.queue = [];
-    this.queueSpots = [[14.95, -1.45], [14.95, -2.2], [15.15, -2.85]];
-    this.register = { x: 14.95, z: -0.45 };
+    this.queueSpots = [[15.0, -2.3], [15.3, -2.85], [14.45, -2.75]];
+    this.register = { x: 15.0, z: -1.35 };
     this.nameIdx = Math.floor(Math.random() * NAMES.length); // who walks in first changes every night
     this.models = {};
     this.heldLit = this.litMat.clone(); this.heldLit.depthTest = false;
@@ -403,7 +403,8 @@ export class Service {
     });
   }
   bill(q) {
-    const sub = q.svc.items.filter((i) => i.done).reduce((a, i) => a + MENU[i.kind].price, 0);
+    const food = q.svc.items.filter((i) => i.done).reduce((a, i) => a + MENU[i.kind].price, 0);
+    const sub = food + (food > 0 ? this.drinkBill || 0 : 0); // a drink from the fridge (and warm sake) with the meal
     const mood = Math.max(0.05, 0.25 - 0.1 * (q.svc.orderWait / 60) - 0.05 * (q.svc.foodWait / 90));
     return { sub, tip: Math.round(sub * mood / 10) * 10 };
   }
@@ -547,19 +548,19 @@ export class Service {
       const n = this.dirtySeat.dishes.length;
       return this.hands.length && !this.has('tub') ? 'Hands full' : `Bus the table (${n} dish${n > 1 ? 'es' : ''})`;
     }, () => this.request('bus', this.crowd.seats.indexOf(this.dirtySeat)), () => this.pickDirty(), { highlight: () => this.dirtySeat.dishGroup });
-    // tea cups along the south side of the well
-    I.add([6.12, 1.2, 4.5, 2.2, 0.12, 0.14], () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean cup (${this.stock.mugs} left)`), R('mug'), null, shape('mugs'));
-    // plate stacks (two by the urns and one across the well, two in the kitchen under the pass)
+    // tea cups along the shelf over the back bar
+    I.add([6.9, 2.45, 9.8, 3.0, 0.12, 0.18], () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean cup (${this.stock.mugs} left)`), R('mug'), null, shape('mugs'));
+    // plate stacks (three on the back bar, two on the plating station under the pass)
     const plateLabel = () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean plate (${this.stock.plates} left)`);
-    I.add([9.95, 1.2, 6.47, 0.35, 0.25, 0.22], plateLabel, R('plate'), null, shape('platesA'));
-    I.add([11.0, 1.2, 4.5, 0.2, 0.25, 0.22], plateLabel, R('plate'), null, shape('platesB'));
-    I.add([12.8, 1.1, 10.57, 0.18, 0.24, 0.32], plateLabel, R('plate'), null, shape('platesK'));
+    I.add([7.95, 1.2, 9.7, 0.35, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesA'));
+    I.add([9.5, 1.2, 9.7, 0.2, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesB'));
+    I.add([11.75, 1.1, 10.48, 0.32, 0.24, 0.18], plateLabel, R('plate'), null, shape('platesK'));
     // tea urns
-    I.add([8.4, 1.45, 6.5, 0.55, 0.45, 0.22], () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn'), null, shape('urns'));
-    // the sushi case in the well
-    I.add([5.0, 1.3, 6.45, 0.42, 0.2, 0.2], () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi'), null, shape('sushi'));
+    I.add([6.3, 1.45, 9.65, 0.55, 0.45, 0.25], () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn'), null, shape('urns'));
+    // the sushi case on the plating station, right by the belt
+    I.add([13.1, 1.05, 10.98, 0.42, 0.2, 0.2], () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi'), null, shape('sushi'));
     // the rice cookers: onigiri, once they're on the menu
-    I.add([6.65, 1.2, 6.47, 0.45, 0.2, 0.2], () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri'), () => this.menuKinds.has('onigiri'), shape('rice'));
+    I.add([11.92, 1.05, 10.98, 0.45, 0.2, 0.2], () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri'), () => this.menuKinds.has('onigiri'), shape('rice'));
     // the sushi belt: put finished dishes on it (in the kitchen, in the well or anywhere along it), or take one off
     I.add(() => this.beltBox, () => {
       const h = this.hands[this.hands.length - 1];
@@ -593,13 +594,13 @@ export class Service {
       return n ? `Take the clean dishes (${this.rack.mugs} cups, ${this.rack.plates} plates)` : 'Dish rack (empty)';
     }, R('rack'), null, shape('dishRack'));
     // the register
-    I.add([14.95, 1.12, -0.45, 0.24, 0.22, 0.22], () => {
+    I.add([15.0, 1.12, -1.35, 0.24, 0.22, 0.22], () => {
       const q = this.queue[0];
       if (!q || !q.svc || q.svc.phase !== 'pay') return 'Register (nobody waiting)';
       const b = this.bill(q);
       return `Ring up ${q.svc.name} — ${yen(b.sub)}`;
     }, R('register'), null, shape('register'));
-    // set things down in the well, on the register counter or the kitchen counters
+    // set things down on the kaiten counter, the back bar, the register counter or the kitchen counters
     I.add(() => this.counterBox, () => `Set down the ${this.itemLabel(this.hands[this.hands.length - 1])}`,
       () => { if (this.ghostMesh) this.ghostMesh.visible = false; this.request('setDown', ...this.counterSpot, this.player.yaw); }, () => this.pickCounter(),
       { highlight: () => this.ghost(), onHover: (on) => { if (!on && this.ghostMesh) this.ghostMesh.visible = false; } });

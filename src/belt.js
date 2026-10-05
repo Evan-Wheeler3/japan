@@ -1,22 +1,22 @@
-// Kaiten sushi belt. Plates you set on it in the kitchen ride a short run along the plating station, slip
-// through a hatch and come out at the east end of the island; they go round it in a U past the stools and the
-// booths, and any guest there can lift off what they ordered as it passes. Whatever nobody takes goes back
-// round to the kitchen.
+// Kaiten sushi belt. Plates you set on it in the kitchen ride along the plating station under the pass, slip out
+// through a hatch onto the kaiten counter's east leg, and go round its U past the stools and the booths; any guest
+// there can lift off what they ordered as it passes. Whatever nobody takes goes back into the kitchen at the end of
+// the west return.
 import * as THREE from 'three';
 
 export const BELT_SPEED = 0.42;   // metres per second
 const SPACING = 0.32;              // plates keep at least this far apart
 const LANE = 0.14;                 // half width of the belt
 
-// The loop: visible runs on the plating station and round the island; hidden runs (inside the walls and under
+// The loop: visible runs on the plating station and round the U; hidden runs (through the wall, and back under
 // the floor) shortened to a virtual length so plates don't vanish for long.
 const SEGS = [
-  { a: [10.7, 10.55], b: [12.25, 10.55], y: 0.875, hidden: false, name: 'kitchen' },
-  { a: [12.25, 10.55], b: [11.75, 6.85], y: 1.0, hidden: true, len: 1.2 },
-  { a: [11.75, 6.85], b: [3.15, 6.85], y: 1.125, hidden: false, name: 'stools' },
-  { a: [3.15, 6.85], b: [3.15, 4.15], y: 1.125, hidden: false, name: 'west' },
-  { a: [3.15, 4.15], b: [11.75, 4.15], y: 1.125, hidden: false, name: 'booths' },
-  { a: [11.75, 4.15], b: [10.7, 10.55], y: 0.6, hidden: true, len: 1.6 },
+  { a: [13.6, 10.55], b: [12.35, 10.55], y: 0.875, hidden: false, name: 'kitchen' },
+  { a: [12.35, 10.55], b: [12.35, 9.9], y: 1.0, hidden: true, len: 0.4 },
+  { a: [12.35, 9.9], b: [12.35, 6.15], y: 1.125, hidden: false, name: 'east' },
+  { a: [12.35, 6.15], b: [3.15, 6.15], y: 1.125, hidden: false, name: 'base' },
+  { a: [3.15, 6.15], b: [3.15, 7.85], y: 1.125, hidden: false, name: 'west' },
+  { a: [3.15, 7.85], b: [13.6, 10.55], y: 0.6, hidden: true, len: 1.8 },
 ];
 
 export class Belt {

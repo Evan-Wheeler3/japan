@@ -124,7 +124,7 @@ export function buildWorld(W) {
     if (isPath(x, z)) continue;
     const px = mx(x), pz = mz(z);
     if (inFoot(px, pz)) continue;
-    if (px > 16.3 && px < 17.9 && pz > -3.5 && pz < -1.8) continue; // the vending machine stands here
+    if (px > 18.4 && px < 20.0 && pz > -3.5 && pz < -1.8) continue; // the vending machine stands here
     if (px > 15.9 && px < 18.0 && pz > -1.5 && pz < 8.5) continue;  // dug out around the apartment stairs
     let h = Math.floor((vnoise(x, z, 14, 5) * 0.7 + vnoise(x, z, 5, 6) * 0.3 - 0.42) * 7);
     const nearWall = (px > -1.0 && px < 17.0 && pz > -4.25 && pz < 16) || (px > 20.25 && px < 27.75 && pz > 2.25 && pz < 9.75);
@@ -277,62 +277,59 @@ export function buildWorld(W) {
     }
   }
 
-  // ---- the kaiten counter: a long island down the middle of the room. The belt runs round its top on three
-  // sides; stools face it from the back, booths butt up against it from the front, and you work in the well
-  // inside it, which opens at the east end towards the kitchen door.
+  // ---- the kaiten counter: a U. Its long base runs across the room with booths butting up against its front; its
+  // east leg runs back to the kitchen pass, where the belt comes out through the wall; a short west return leaves a
+  // way into the chef's side, between the counter and the back bar where the tea is made. Stools line both ends.
+  const KB = { x0: 2.75, x1: 12.75, z0: 5.75, z1: 6.75 }, KE = { x0: 11.75, x1: 12.75, z0: 6.75, z1: 10.0 }, KW = { x0: 2.75, x1: 3.75, z0: 6.75, z1: 8.0 };
+  const CHEF = { x0: 3.75, x1: 11.75, z0: 6.75, z1: 9.25 };
   {
-    const I0 = { x0: 2.75, x1: 12.0, z0: 3.75, z1: 7.25 }, W0 = { x0: 3.7, z0: 4.7, z1: 6.3 };
-    const inWell = (px, pz) => px > W0.x0 && pz > W0.z0 && pz < W0.z1;
-    for (let z = Z(I0.z0); z < Z(I0.z1); z++) for (let x = X(I0.x0); x < X(I0.x1); x++) {
+    const inR = (r, px, pz) => px > r.x0 && px < r.x1 && pz > r.z0 && pz < r.z1;
+    const inU = (px, pz) => inR(KB, px, pz) || inR(KE, px, pz) || inR(KW, px, pz);
+    for (let z = Z(KB.z0); z < Z(KE.z1); z++) for (let x = X(KB.x0); x < X(KB.x1); x++) {
       const px = mx(x), pz = mz(z);
-      if (inWell(px, pz)) continue;
-      const face = z === Z(I0.z0) || z === Z(I0.z1) - 1 || x === X(I0.x0);
-      const lip = inWell(px + VS, pz) || inWell(px, pz + VS) || inWell(px, pz - VS) || x === X(I0.x1) - 1;
+      if (!inU(px, pz)) continue;
+      const nb = [[VS, 0], [-VS, 0], [0, VS], [0, -VS]].map(([dx, dz]) => [px + dx, pz + dz]).filter(([qx, qz]) => !inU(qx, qz) && qz < 10.0);
+      const lip = nb.some(([qx, qz]) => inR(CHEF, qx, qz)), face = nb.length > 0 && !lip;
       for (let y = Y(0.25); y < Y(1.0); y++) {
         const my = myOf(y);
         G.set(x, y, z, face ? (my < 0.375 ? P.walnutD : ((x + z) % 6 === 0 ? P.timberD : P.oak[((x + z) >> 2) % 3])) : lip ? P.oak[0] : P.timberD);
       }
       G.set(x, Y(1.0), z, face || lip ? P.hinokiE : P.hinoki);
     }
-    // raised step for the stools along the back and round the west end
-    B(2.0, 0.25, 7.25, 12.0, 0.375, 8.0, (x, y, z) => (z === Z(8.0) - 1 ? P.walnutD : P.oak[2]));
-    B(2.0, 0.25, 4.625, 2.75, 0.375, 7.25, (x, y, z) => (x === X(2.0) ? P.walnutD : P.oak[2]));
+    // raised steps for the stools at the two ends
+    B(12.75, 0.25, 5.75, 13.5, 0.375, 9.25, (x, y, z) => (x === X(13.5) - 1 ? P.walnutD : P.oak[2]));
+    B(2.0, 0.25, 5.75, 2.75, 0.375, 8.0, (x, y, z) => (x === X(2.0) ? P.walnutD : P.oak[2]));
   }
+  // back bar on the chef's side: dark cabinets, a hinoki top, a plank backsplash and the shelf for the tea cups
+  B(3.75, 0.25, 9.25, 10.0, 0.95, 10.0, (x, y, z) => (z === Z(9.25) && (x & 7) === 0 ? P.walnutD : P.oak[0]));
+  B(3.75, 0.95, 9.125, 10.0, 1.0, 10.0, P.hinoki);
+  B(3.75, 1.0, 9.875, 10.0, 2.25, 10.0, (x, y) => ((y & 3) === 0 ? P.timberD : P.sugi[(x >> 3) % 3]));
+  B(3.75, 2.25, 9.625, 10.0, 2.375, 10.0, P.walnutD);
 
-  // ---- the genkan inside the door: a stone floor at the east end of the front room, the register on a counter
-  // against the partition
+  // ---- the genkan inside the door: a stone floor at the east end of the front room, and the register on a counter
+  // you can stand behind, between it and the partition
   for (let z = Z(-3.125); z < Z(0); z++) for (let x = X(11.5); x < X(15.75); x++) {
     const row = z >> 2, off = (row & 1) * 2, seam = ((x + off) & 3) === 0 || (z & 3) === 0;
     G.set(x, Y(0.25) - 1, z, seam ? P.stoneD : P.flag[Math.floor(hash01(x >> 2, row, 23) * 3.999)]);
   }
   for (let z = Z(-3.125); z < Z(0); z++) G.set(X(11.5), Y(0.25) - 1, z, P.walnutD);
-  B(14.25, 0.25, -0.75, 15.75, 0.875, 0, (x, y, z) => (z === Z(-0.75) && (x & 3) === 0 ? P.walnutD : P.oak[1]));
-  B(14.125, 0.875, -0.875, 15.75, 1.0, 0, (x, y, z) => (x === X(14.125) || z === Z(-0.875) ? P.hinokiE : P.hinoki));
-  // a glowing drinks case against the east wall of the main room
-  {
-    const bottles = ['#3a7a4a', '#e8e0c8', '#c8902a', '#5a2a18', '#e8d070', '#2a4a7a'].map((h) => C(h, 1.0, 0.08));
-    const lit = C('#fff0d8', 1.4, 0.05);
-    B(14.625, 0.25, 1.625, 15.75, 1.875, 2.875, (x, y, z) => {
-      const my = myOf(y);
-      if (my < 0.5 || my > 1.75) return P.timberD;
-      if (z === Z(1.625) || z === Z(2.875) - 1) return P.timberD;
-      const ly = y - Y(0.5);
-      if (ly % 3 === 0) return P.chrome;
-      return ly % 3 === 1 ? bottles[Math.floor(hash01(x >> 1, y, z >> 1) * 5.99)] : lit;
-    });
-  }
-  // a shelf on the back wall for the sake and the daruma
-  B(2.375, 1.875, 9.75, 5.125, 2.0, 10.0, P.walnutD);
-  for (const bx of [2.5, 4.875]) B(bx, 1.625, 9.875, bx + 0.125, 1.875, 10.0, P.walnutD);
+  B(14.375, 0.25, -1.625, 15.75, 0.875, -1.125, (x, y, z) => (z === Z(-1.625) && (x & 3) === 0 ? P.walnutD : P.oak[1]));
+  B(14.25, 0.875, -1.75, 15.75, 1.0, -1.0, (x, y, z) => (x === X(14.25) || z === Z(-1.75) ? P.hinokiE : P.hinoki));
+  // a shelf on the back wall for the sake and the daruma, by the restroom door
+  B(1.875, 1.875, 9.75, 3.625, 2.0, 10.0, P.walnutD);
+  for (const bx of [2.0, 3.375]) B(bx, 1.625, 9.875, bx + 0.125, 1.875, 10.0, P.walnutD);
 
-  // kitchen pass with heat lamps (the kitchen itself is built below)
-  B(10.75, 1.125, 9.875, 12.75, 2.0, 10.25, 0);
-  B(10.75, 1.0, 9.75, 12.75, 1.125, 10.5, P.steel);
-  B(10.75, 1.875, 9.875, 12.75, 2.0, 10.25, P.steelD);
-  B(10.875, 1.75, 9.875, 12.625, 1.875, 10.125, P.heat);
-  // doorways in the back wall: kitchen and the restroom hallway
-  B(14.0, 0.25, 9.875, 15.125, 2.375, 10.25, 0);
-  B(13.875, 0.25, 9.875, 14.0, 2.5, 10.0, P.timberD); B(15.125, 0.25, 9.875, 15.25, 2.5, 10.0, P.timberD); B(13.875, 2.375, 9.875, 15.25, 2.5, 10.0, P.timberD);
+  // the kitchen pass over the counter's east leg: the belt comes through under it; heat lamps above
+  B(11.375, 1.125, 9.875, 13.75, 2.0, 10.25, 0);
+  B(12.75, 1.0, 9.75, 13.75, 1.125, 10.25, P.steel);
+  B(11.375, 1.875, 9.875, 13.75, 2.0, 10.25, P.steelD);
+  B(11.5, 1.75, 9.875, 13.625, 1.875, 10.125, C('#ff9a50', 1.4, 0.05));
+  for (const px of [11.25, 13.75]) B(px, 1.0, 9.875, px + 0.125, 2.125, 10.25, P.timberD);
+  // doorways in the back wall: into the kitchen from the chef's side and from the dining room, and the restroom hallway
+  for (const [d0, d1] of [[10.0, 11.125], [14.0, 15.125]]) {
+    B(d0, 0.25, 9.875, d1, 2.375, 10.25, 0);
+    B(d0 - 0.125, 0.25, 9.875, d0, 2.5, 10.0, P.timberD); B(d1, 0.25, 9.875, d1 + 0.125, 2.5, 10.0, P.timberD); B(d0 - 0.125, 2.375, 9.875, d1 + 0.125, 2.5, 10.0, P.timberD);
+  }
   B(0.375, 0.25, 9.875, 1.625, 2.375, 10.25, 0);
   B(0.25, 0.25, 9.875, 0.375, 2.5, 10.0, P.walnutD); B(1.625, 0.25, 9.875, 1.75, 2.5, 10.0, P.walnutD); B(0.25, 2.375, 9.875, 1.75, 2.5, 10.0, P.walnutD);
 
@@ -391,10 +388,10 @@ export function buildWorld(W) {
 
     // ---- kitchen: cook line under a big hood, prep island, plating shelf, dish station, walk-in, dry storage
     B(6.0, 2.25, 14.25, 14.75, 3.0, 15.75, (x, y, z) => (y === Y(2.25) && z === Z(14.375) && (x % 10 < 3) ? C('#fff4d8', 3.0, 0.03) : P.steel));
-    B(7.0, 0.75, 12.0, 12.0, 0.875, 12.875, P.steel);                       // prep island top
-    B(7.125, 0.375, 12.125, 11.875, 0.5, 12.75, P.steelD);                  // undershelf
-    for (const [lx, lz] of [[7.0, 12.0], [11.875, 12.0], [7.0, 12.75], [11.875, 12.75]]) B(lx, 0.25, lz, lx + 0.125, 0.75, lz + 0.125, P.steelD);
-    B(10.5, 0.25, 10.25, 13.0, 0.875, 10.875, (x, y, z) => (y === Y(0.875) - 1 ? P.steel : P.steelD)); // plating station under the pass
+    B(7.0, 0.75, 12.25, 12.0, 0.875, 13.125, P.steel);                      // prep island top
+    B(7.125, 0.375, 12.375, 11.875, 0.5, 13.0, P.steelD);                  // undershelf
+    for (const [lx, lz] of [[7.0, 12.25], [11.875, 12.25], [7.0, 13.0], [11.875, 13.0]]) B(lx, 0.25, lz, lx + 0.125, 0.75, lz + 0.125, P.steelD);
+    B(11.375, 0.25, 10.25, 13.875, 0.875, 11.25, (x, y, z) => (y === Y(0.875) - 1 ? P.steel : P.steelD)); // plating station under the pass: the belt, the sushi case, the rice
     // dish station: three-well sink against the restroom wall
     B(5.125, 0.25, 10.75, 5.875, 0.875, 13.75, (x, y, z) => (y === Y(0.25) ? P.black : P.steel));
     B(5.125, 0.875, 10.75, 5.25, 1.375, 13.75, P.steel);
@@ -430,12 +427,12 @@ export function buildWorld(W) {
   }
   meta.lights.push({ pos: [3.4, 2.0, -1.6], color: 0xffa860, intensity: 5, distance: 7, name: 'consL' });
   meta.lights.push({ pos: [8.6, 2.0, -1.6], color: 0xffa860, intensity: 5, distance: 7, name: 'consR' });
-  meta.lights.push({ pos: [5.0, 2.6, 5.6], color: 0xffb070, intensity: 6, distance: 8, name: 'chandA' });
-  meta.lights.push({ pos: [10.0, 2.6, 5.6], color: 0xffb070, intensity: 6, distance: 8, name: 'chandB' });
-  meta.lights.push({ pos: [5.0, 2.3, 3.0], color: 0xffc890, intensity: 4, distance: 6, name: 'boothsFront' });
-  meta.lights.push({ pos: [9.5, 2.3, 3.0], color: 0xffc890, intensity: 4, distance: 6, name: 'boothsWest' });
-  meta.lights.push({ pos: [5.0, 2.4, 8.6], color: 0xffc898, intensity: 3.6, distance: 7, name: 'counterL' });
-  meta.lights.push({ pos: [10.5, 2.4, 8.6], color: 0xffc898, intensity: 3.6, distance: 7, name: 'counterR' });
+  meta.lights.push({ pos: [5.0, 2.6, 6.2], color: 0xffb070, intensity: 6, distance: 8, name: 'chandA' });
+  meta.lights.push({ pos: [10.0, 2.6, 6.2], color: 0xffb070, intensity: 6, distance: 8, name: 'chandB' });
+  meta.lights.push({ pos: [3.5, 2.3, 1.3], color: 0xffc890, intensity: 4, distance: 6, name: 'boothsFront' });
+  meta.lights.push({ pos: [9.6, 2.3, 1.3], color: 0xffc890, intensity: 4, distance: 6, name: 'boothsWest' });
+  meta.lights.push({ pos: [5.5, 2.4, 8.4], color: 0xffc898, intensity: 3.6, distance: 7, name: 'counterL' });
+  meta.lights.push({ pos: [9.5, 2.4, 8.4], color: 0xffc898, intensity: 3.6, distance: 7, name: 'counterR' });
   meta.lights.push({ pos: [13.6, 2.1, -1.5], color: 0xffc080, intensity: 3.5, distance: 5, name: 'genkan' });
 
   // ------------------------------------------------------------ upstairs (the apartment) and the big roof
@@ -605,7 +602,7 @@ export function buildWorld(W) {
     B(15.75, F2, 6.5, 16, F2 + 2.125, 7.5, 0);
     B(15.75, F2 + 2.125, 6.375, 16, F2 + 2.25, 7.625, P.timberD);
     for (const z of [6.375, 7.5]) B(15.75, F2, z, 16, F2 + 2.125, z + 0.125, P.timberD);
-    // outdoor stair: treads rising north along the east wall from beside the vending machine, a landing at the door
+    // outdoor stair: treads rising north along the east wall from the front path, a landing at the door
     const sz0 = -0.5, sz1 = 6.0;
     for (let z = Z(sz0); z < Z(sz1); z++) {
       const k = (mz(z) - sz0) / (sz1 - sz0), ty = Y(0.125 + k * (F2 - 0.125));
@@ -758,7 +755,7 @@ export function buildWorld(W) {
   }
 
   meta.lights.push({ pos: [13.4, 2.1, -4.0], color: 0xff9050, intensity: 5, distance: 6, name: 'door' });
-  meta.lights.push({ pos: [17.0, 1.2, -3.9], color: 0xcfe4ff, intensity: 4, distance: 5.5, name: 'vending' });
+  meta.lights.push({ pos: [19.2, 1.2, -3.9], color: 0xcfe4ff, intensity: 4, distance: 5.5, name: 'vending' });
 
   return meta;
 }

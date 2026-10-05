@@ -25,31 +25,33 @@ On a phone: left thumb walks, drag on the right to look, tap to use.
 You wake upstairs in the evening. The shop stays closed until you go down and turn the sign by the front
 door to **OPEN**, so take your time: sit at the kotatsu, read the catalog, look out at the bay.
 
-The shop is laid out like a kaiten-zushi: a long island counter down the middle of the room with the belt
-running round its top in a U, stools along its back and west end, and booths butting up against its front. You
-work in the well inside the island (its open end faces the kitchen door). Behind the shoji partition, a front
-room of booths looks out through the glass over the bay; the belt doesn't reach out there, so those guests are
-served by hand. The register is by the entrance, in the stone-floored genkan.
+The shop is laid out like a kaiten-zushi. A U-shaped counter runs across the main room with the belt on its top:
+booths butt up against the front of it, stools line both ends, and its east leg runs back to the kitchen pass,
+where the belt comes out through the wall. You work on the chef's side behind it, at the back bar where the tea
+is made; a doorway leads straight from there into the kitchen. More booths are backed onto the shoji partition,
+and behind it a front room of booths looks out through the glass over the bay; the belt doesn't reach those, so
+they're served by hand. The register is by the entrance, in the stone-floored genkan; stand behind it to ring
+guests up.
 
 Guests with a **!** want to order: click them. Then make what they asked for:
 
 | Dish | How |
 |---|---|
-| Green tea | take a clean cup from the row inside the well, pour at a tea urn |
-| Salmon nigiri | take a clean plate, use the sushi case inside the well |
+| Green tea | take a clean cup from the shelf over the back bar, pour at a tea urn |
+| Salmon nigiri | take a clean plate, use the sushi case on the plating station under the kitchen pass |
 | Yakitori | lay skewers on a charcoal grill in the kitchen, plate them when they're ready (don't let them burn) |
 | Gyoza | fry a batch on the teppan in the kitchen, plate them when they're ready |
-| Onigiri *(catalog)* | take a clean plate, press them at the rice cookers inside the well |
+| Onigiri *(catalog)* | take a clean plate, press them at the rice cookers under the kitchen pass |
 | Tempura *(catalog)* | drop a batch in the fryers in the kitchen, plate it when it's ready |
 | Miso ramen *(catalog)* | start a bowl on the stove in the kitchen; it takes a while |
 
 Serve it by hand, or set it on the **sushi belt**, anywhere along it: it starts on the plating station in the
-kitchen, slips through a hatch and goes round the island past the stools and the booths. Every guest round the
-island lifts off whatever they ordered as it passes their seat. Anything nobody takes goes back round; you can take it off again. The orders panel counts dishes already
+kitchen, right by the sushi case, slips out under the pass and goes round the counter past the stools and the
+booths. Every guest at the counter lifts off whatever they ordered as it passes their seat. Anything nobody takes goes back round; you can take it off again. The orders panel counts dishes already
 on the belt, so it only asks for what still needs making.
 
 When guests are done they line up at the register (**¥**). Carry dirty dishes to the sink in the kitchen, stay
-there while they wash, then take the clean ones from the rack back to the well. You can set anything down on
+there while they wash, then take the clean ones from the rack back to the shelf. You can set anything down on
 a counter. Each night you finish unlocks a perk.
 
 At 6 AM the last guests leave and the sun comes up over Fuji. Then go up to bed: you sleep through the short
@@ -67,10 +69,11 @@ The rest of the upstairs is the shop's storeroom.
 The **catalog** on the kotatsu sells, for the yen in your cash box:
 
 - **for the shop:** onigiri, tempura and miso ramen for the menu; a stronger belt motor; binchotan charcoal
-  (faster yakitori and gyoza); more cups and plates; kerosene heaters (guests wait longer). Each of those four
-  upgrades has a second level once you own the first.
+  (faster yakitori and gyoza); more cups and plates; kerosene heaters (guests wait longer); a drinks fridge (a
+  bottle on every bill, ¥250). Each of those five upgrades has a second level once you own the first (the
+  fridge's is a sake warmer, another ¥350 a bill).
 - **for home:** paper lanterns, houseplants, a bonsai, a big woodblock print, a cat bed (a black cat moves
-  in), a goldfish tank, a record player, a brass telescope at the front window (look at Fuji up close), and an
+  in), a goldfish tank, a record player, a brass telescope at the front window (put your eye to it and it swings round to Fuji), and an
   irori hearth to sit by, a CRT television, and a Fami-Com console that plugs into it.
 - **for the Fami-Com:** the console comes with *Sushi Catch* (catch falling sushi, dodge the wasabi). Three more
   cartridges: *Snow Dash* (jump snowmen, duck crows), *Koi Pond* (a snake game in a koi pond) and
@@ -91,7 +94,7 @@ shares one arrangement of the apartment.
 **Dev switch:** the **`** key (or "dev · infinite yen" in settings) toggles a cash box that never runs out, for
 testing. It's remembered until you switch it off.
 
-The vending machine outside, at the foot of the stair, takes ¥130 from the cash box for a hot drink. It warms you
+The vending machine outside, along the path past the stair, takes ¥130 from the cash box for a hot drink. It warms you
 up: you walk 25% faster for two minutes of play (the cash box shows the time left, and another can tops it up).
 
 West of the shop, a flagstone path leads past a stone lantern and through a torii to a little hokora in the
