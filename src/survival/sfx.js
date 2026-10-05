@@ -116,6 +116,24 @@ export class ParadeSound {
     for (let i = 0; i < 3; i++) { this.noise(t + i * 0.32, 0.12, 400, 3, 0.4, d, 'bandpass', 250); }
     for (const [k, f] of [[1.1, 1318], [1.25, 1760], [1.4, 2637]]) this.osc(t + k, 1.2, f, f, 0.08, d, 'sine', 0.005);
   }
+  // each blessing's machine has its own little tune, a koto-ish pluck over a soft bass: played when you drink, and
+  // now and then from the machine itself if you're near (the way the perk machines hum their jingles)
+  jingle(id, pos = null) {
+    if (!this.ctx) return; const t0 = this.ctx.currentTime + 0.05, d = this.out(pos ? 1.8 : 0.8, pos);
+    const TUNES = {
+      omamori: [[0, 0], [0.18, 4], [0.36, 7], [0.54, 9], [0.9, 7], [1.08, 4], [1.3, 12]],
+      tetsu: [[0, -5], [0.28, 0], [0.56, -5], [0.84, 2], [1.12, 3], [1.5, 0], [1.62, 0]],
+      hayate: [[0, 7], [0.12, 9], [0.24, 12], [0.36, 9], [0.48, 7], [0.6, 4], [0.72, 7], [0.96, 12]],
+      sake: [[0, 0], [0.22, 3], [0.44, 5], [0.66, 7], [0.88, 10], [1.1, 7], [1.32, 12], [1.54, 15]],
+      sanbon: [[0, 0], [0.3, 0], [0.6, 0], [0.9, 7], [1.2, 5], [1.5, 4], [1.8, 0]],
+    };
+    const base = { omamori: 523, tetsu: 220, hayate: 440, sake: 330, sanbon: 392 }[id] || 440;
+    for (const [at, semi] of TUNES[id] || TUNES.omamori) {
+      const f = base * 2 ** (semi / 12);
+      this.osc(t0 + at, 0.55, f, f, 0.12, d, 'triangle', 0.003); this.osc(t0 + at, 0.22, f * 2, f * 2, 0.035, d, 'sine', 0.002);
+    }
+    this.osc(t0, 1.8, base / 2, base / 2, 0.07, d, 'sine', 0.02);
+  }
   seal() {
     if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(0.9);
     this.noise(t, 0.9, 800, 0.6, 0.5, d, 'bandpass', 2400); // paper catching

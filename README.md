@@ -150,7 +150,8 @@ coin on the offering box.
 A survival mode on the title screen, separate from the shop: your save, yen and purchases are never touched.
 
 It's the old shop up on the snowy mountain, boarded up, with the gaki (the hungry dead, in tattered burial white) coming up out
-of the snow in rounds. The round number is drawn as a kanji numeral in the corner. You start in the front room with
+of the snow in rounds. It plays like Black Ops' zombies, solo. The first five rounds are counted a stroke of 正 at a
+time (the Japanese tally), after that as kanji numerals in the corner. You start in the front room with
 500 points and nothing in your hands. The dishes on the booth tables are your first weapons: grab them with **E** and
 throw them with the mouse or **G** (plates, tea cups and sake flasks all break on whatever they hit). With no weapon
 your fists work too.
@@ -162,22 +163,27 @@ your fists work too.
 | **Mouse** | strike or shoot (hold it to keep swinging a blade) |
 | **Right-click**, **V** or **F** | quick melee |
 | **R** | reload |
-| **1 / 2** or the wheel | switch weapons |
+| **1 / 2 / 3** or the wheel | switch weapons |
 | **G** or **Q** | throw a dish |
 | **E** | use things |
 | hold **E** at a window | rebuild its boards |
 
 On a phone there are strike, use, throw, 1/2 and reload buttons.
 
+- **Rounds, as in Black Ops (solo):** 6 come in round one, then 8, 13, 18, 24, 27, 28, 28, 29, 33, 34 and on up.
+  They rise one at a time, 2.1 s apart on round one and 5% quicker each round, down to 0.2 s by round 56. No more
+  than 24 are up at once; the rest come as those fall. They have 150 health on round one, 100 more each round to
+  the ninth, then a tenth more every round. They walk early on, run from about round five and sprint from about
+  round nine. A hit takes 50 health, so two hits put you down without Tetsu.
 - **Points:** 10 for a hit, 60 for a kill, 100 for a headshot kill, 130 for a melee kill and 300 for an oni. Rebuilding
   boards is worth 10 a plank (up to 500 a round).
 - **Windows and the front door** are boarded. The gaki tear the planks off one at a time and climb through. They
   find their way anywhere you can go: through doors, round the outside of the building, and up the stair to the
   flat.
 - **Sealed doorways:** ofuda talismans and straw rope seal off the rest of the place until you pay to break them.
-  Each one opens more of the map:
-  - the dining room: 750, either partition opening;
-  - the kitchen: 1,000, either door;
+  Breaking one seal opens the whole room: every doorway into it unseals at once. Each opens more of the map:
+  - the dining room: 750 (both openings in the partition);
+  - the kitchen: 1,000 (both doors);
   - the washrooms: 1,000;
   - the back door to the grounds: 1,250;
   - the walk-in freezer: 1,250;
@@ -185,27 +191,35 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
   - the flat upstairs: 1,250.
 
   Once the kitchen and the washrooms are open, gaki also break up through the floorboards there.
-- **Weapons on the walls:**
+- **Windows:** three in the front room (the west window, the bay and the front door), two in the dining room.
+- **Weapons on the walls** are drawn in glowing chalk with the weapon hung over its outline, its name and price
+  written underneath, as in Black Ops:
   - a tantō (750) and a Type 26 revolver (1,000) in the front room;
   - a katana (1,500) in the dining room;
   - a Murata rifle (1,250) in the kitchen.
 
-  Buying a gun you already carry refills its ammunition. You carry two weapons.
+  Buying a gun you already carry refills its ammunition. You carry two weapons (three with Sanbon no Ya).
 - **The omikuji box** (950, in the dining room to start) rattles its fortune sticks and draws you a fortune and a
   weapon. That might be a naginata, a kanabō, a tanegashima matchlock or, at 大吉 (great blessing), the cursed
   Muramasa, which heals you with every kill. Draw 凶 (a curse) and it refunds your points and moves to the kitchen
   or the shrine.
-- **Blessings:**
+- **Blessings** come from tall machines that glow in their colours and play their own tunes now and then. Buy one
+  and you drink it (the weapon goes down and a bottle comes up); its tile lights in the top corner. Each is one of
+  Black Ops' perks:
 
-  | Where | Blessing | Price | Effect |
+  | Where | Blessing | Price | Effect (the perk it is) |
   |---|---|---|---|
-  | Vending machine | 速 Ramune Rush | 2,000 | quicker on your feet and with your hands |
-  | Walk-in freezer | 氷 Kōri | 2,500 | two and a half times the health |
-  | Kura | 酒 Sake Courage | 3,000 | faster swings and reloads |
-  | Kotatsu upstairs | 炬 Kotatsu | 2,000 | you heal sooner and faster |
-  | Shrine | 守 Omamori | 1,500 | get back up once |
+  | Front room | 守 Omamori | 500 | go down and get back up, three times in a game (quick revive, solo) |
+  | Walk-in freezer | 鉄 Tetsu | 2,500 | 250 health instead of 100 (juggernog) |
+  | By the vending machine | 速 Hayate | 2,000 | swing and shoot a third faster (double tap) |
+  | Kura | 酒 Sake Courage | 3,000 | reload twice as fast (speed cola) |
+  | The flat upstairs | 三 Sanbon no Ya | 4,000 | a third weapon (mule kick) |
 
-- **Gifts:** now and then a fallen gaki leaves something floating behind. Walk into it to take it.
+  Going down with the omamori costs you every blessing, and the third weapon with Sanbon no Ya.
+
+- **Gifts:** as in Black Ops, every time your points earned pass the next mark (2,000, then each mark 14% further
+  on) the next yōkai you kill leaves a gift, and now and then one drops by luck, up to four a round. Walk into it to
+  take it.
 
   | Gift | Effect |
   |---|---|
@@ -215,7 +229,7 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
   | A carpenter's mallet | every window boarded again |
   | A crate of cartridges | full ammunition and dishes |
 
-- **Every fifth round is an oni night.** Only oni come: big red and blue brutes with iron kanabō. They smash a
+- **Every fifth round is an oni night.** Only oni come, two on the fifth round and one more every five rounds after: big red and blue brutes with iron kanabō. They smash a
   window's boards in one blow and hit hard enough to knock you back. With a clear run at you, an oni stamps, roars
   and charges in a straight line. If it misses it stands there blowing for a moment and takes extra damage. The last
   oni of the night always leaves ammunition.

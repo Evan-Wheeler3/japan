@@ -71,6 +71,77 @@ export function perkSign(kanji, color = '#ff5a3a') {
   s.scale.set(0.42, 0.63, 1);
   return s;
 }
+// ---- wall buys, as in Black Ops: the weapon's outline drawn in chalk on the wall, glowing faintly in the dark, its
+// name and price written under it. kind: 'blade' | 'pistol' | 'rifle'; len: the weapon's length in metres
+export function chalk(kind, len, name, kanji, price) {
+  const W = Math.max(0.95, len + 0.4), H = 0.72, ppm = 380, cw = Math.round(W * ppm), ch = Math.round(H * ppm);
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const g = c.getContext('2d');
+  g.strokeStyle = 'rgba(255,252,240,0.95)'; g.fillStyle = 'rgba(255,252,240,0.95)'; g.lineWidth = 5; g.lineJoin = g.lineCap = 'round';
+  g.shadowColor = 'rgba(255,250,230,0.9)'; g.shadowBlur = 10;
+  const cx = cw / 2, cy = ch * 0.4, L = len * ppm;
+  const x0 = cx - L / 2, x1 = cx + L / 2;
+  g.beginPath();
+  if (kind === 'blade') { // a long curve of a blade, the guard, the wrapped grip
+    const grip = L * 0.3, gx = x1 - grip;
+    g.moveTo(x0, cy - 4); g.quadraticCurveTo((x0 + gx) / 2, cy - 22, gx, cy - 12); g.lineTo(gx, cy + 6); g.quadraticCurveTo((x0 + gx) / 2, cy - 6, x0, cy - 4);
+    g.moveTo(gx + 6, cy - 4); g.ellipse(gx + 4, cy - 3, 6, 22, 0, 0, Math.PI * 2);
+    g.rect(gx + 10, cy - 11, grip - 12, 16);
+    for (let x = gx + 22; x < x1 - 4; x += 16) { g.moveTo(x, cy - 11); g.lineTo(x + 8, cy + 5); }
+  } else if (kind === 'pistol') { // a barrel, the cylinder, a grip swept back
+    g.rect(x0, cy - 12, L * 0.55, 16); g.ellipse(x0 + L * 0.62, cy - 4, L * 0.1, 18, 0, 0, Math.PI * 2);
+    g.moveTo(x0 + L * 0.68, cy - 16); g.lineTo(x1, cy - 16); g.lineTo(x1 - 6, cy + 46); g.lineTo(x1 - L * 0.24, cy + 46); g.lineTo(x0 + L * 0.7, cy + 8);
+  } else { // a rifle: the long barrel, the bolt, the stock
+    g.rect(x0, cy - 9, L * 0.55, 12); g.moveTo(x0 + L * 0.55, cy - 14); g.lineTo(x0 + L * 0.72, cy - 14); g.lineTo(x0 + L * 0.72, cy + 10); g.lineTo(x0 + L * 0.55, cy + 10); g.closePath();
+    g.moveTo(x0 + L * 0.66, cy - 14); g.lineTo(x0 + L * 0.69, cy - 30); g.moveTo(x0 + L * 0.72, cy - 10); g.lineTo(x1, cy - 4); g.lineTo(x1, cy + 34); g.lineTo(x0 + L * 0.74, cy + 14); g.closePath();
+    g.rect(x0 + L * 0.3, cy + 3, L * 0.25, 10);
+  }
+  g.stroke();
+  g.shadowBlur = 6;
+  g.textAlign = 'center';
+  g.font = `600 ${Math.round(ch * 0.15)}px "Yuji Syuku", serif`; g.fillText(`${kanji}  ${name}`, cx, ch * 0.8);
+  g.font = `700 ${Math.round(ch * 0.12)}px Fredoka, sans-serif`; g.fillText(price, cx, ch * 0.95);
+  // chalk is never solid: rub bits of it away
+  g.globalCompositeOperation = 'destination-out'; g.shadowBlur = 0;
+  for (let i = 0; i < cw * ch / 60; i++) { g.fillStyle = `rgba(0,0,0,${0.3 + hash01(i, 3, 7) * 0.6})`; g.fillRect(hash01(i, 1, 7) * cw, hash01(i, 2, 7) * ch, 2, 2); }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, color: new THREE.Color(1.2, 1.2, 1.15) }));
+  m.renderOrder = 3;
+  return m;
+}
+
+// ---- the blessings' machines: a tall lacquered cabinet in the blessing's colour, a lit crest on top, a hatch the
+// bottle drops into, a coin slot (the lit front panel is perkFace, laid over it)
+const tone = (hex, k) => { const c = new THREE.Color(hex); c.multiplyScalar(k); return '#' + c.getHexString(); };
+export const perkMachine = (color) => keyed('perk' + color, () => {
+  const m = new Model(14, 34, 10, 1 / 16, [7, 0, 5]);
+  const body = C(tone(color, 0.55), 0, 0.04), bodyD = C(tone(color, 0.3), 0, 0.04), trim = C('#d8c8a0', 0, 0.03), dark = C('#101012', 0, 0.02);
+  const lit = C(tone(color, 1), 2.4, 0.03), chrome = C('#c8ccd0', 0.2, 0.03);
+  m.box(0, 0, 0, 14, 30, 10, (x, y, z) => (x === 0 || x === 13 || z === 9 ? bodyD : y < 2 ? dark : body));
+  m.box(1, 30, 1, 13, 34, 9, (x, y) => (y === 33 ? trim : lit));                 // the lit crest on top
+  m.box(0, 29, 0, 14, 30, 10, trim); m.box(0, 2, 0, 14, 3, 10, trim);            // brass bands
+  m.box(3, 4, 0, 11, 9, 2, dark); m.box(3, 4, 0, 11, 5, 3, chrome);              // the hatch the bottle drops into
+  m.box(11, 13, 0, 12, 16, 1, chrome);                                           // the coin slot
+  for (const x of [0, 13]) m.box(x, 6, 0, x + 1, 28, 1, lit);                    // a lit strip down each front edge
+  return m;
+});
+// the machine's lit face: the blessing's kanji in a white disc, its name, its price
+export function perkFace(P) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 400;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, 400); grd.addColorStop(0, tone(P.color, 1.15)); grd.addColorStop(1, tone(P.color, 0.45));
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 400);
+  g.strokeStyle = '#f8f0d8'; g.lineWidth = 8; g.strokeRect(8, 8, 240, 384);
+  g.fillStyle = '#fbf6ea'; g.beginPath(); g.arc(128, 150, 86, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = tone(P.color, 0.6); g.lineWidth = 6; g.stroke();
+  g.fillStyle = tone(P.color, 0.5); g.textAlign = 'center'; g.font = '700 118px "Yuji Syuku", serif'; g.fillText(P.kanji, 128, 192);
+  g.fillStyle = '#fff8e8'; g.font = '700 34px Fredoka, sans-serif'; g.fillText(P.name.toUpperCase(), 128, 284);
+  g.font = '600 24px Fredoka, sans-serif'; g.fillText(P.cost.toLocaleString('en-US'), 128, 330);
+  g.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 0; y < 400; y += 4) g.fillRect(0, y, 256, 1);  // a little scanline glow
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.Mesh(new THREE.PlaneGeometry(0.66, 1.03), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, color: new THREE.Color(1.25, 1.25, 1.25) }));
+}
+
 // a soft glow behind a floating gift
 export function halo(color) {
   const c = document.createElement('canvas'); c.width = c.height = 64;

@@ -314,16 +314,30 @@ try {
     }
     return { round: P.round, kills: P.kills, tore, points: P.points, limbs: P.limbs, splats: P.gore.sN };
   });
-  check(st.round >= 3 && st.kills >= 15 && st.tore && st.splats > 0, `two rounds held: ${st.kills} yōkai cut down, ${st.limbs} limbs taken, boards torn off the windows`);
+  check(st.round >= 3 && st.kills >= 14 && st.tore && st.splats > 0, `two rounds held: ${st.kills} yōkai cut down, ${st.limbs} limbs taken, boards torn off the windows`);
   st = await page.evaluate(() => {
     const d = window.__yoake, P = d.parade, pl = d.player, I = d.interactions;
     P.points = 10000;
     pl.pos.set(7.9, 0.25, -0.9); pl.update(0.016); pl.yaw = Math.PI; pl.pitch = -0.1; pl.update(0.016); I.update();
     const label = I.hover && I.hover.label();
     P.key('KeyE', true); P.key('KeyE', false);
-    return { label, open: P.zones.has('dining'), points: P.points };
+    return { label, open: P.zones.has('dining'), both: P.gates.filter((g) => g.zone === 'dining').every((g) => g.open), points: P.points };
   });
-  check(/break the seal/.test(st.label || '') && st.open && st.points === 9250, 'breaking an ofuda seal (750) opens the dining room');
+  check(/break the seal/.test(st.label || '') && st.open && st.both && st.points === 9250, 'breaking an ofuda seal (750) opens the dining room: both its doorways');
+  // the rules, as in Black Ops (solo): how many come and how fast
+  st = await page.evaluate(async () => {
+    const M = await import('/src/survival/mode.js');
+    return { counts: [1, 2, 3, 4, 5, 6, 10].map(M.roundCount), d1: M.spawnDelay(1), d56: M.spawnDelay(56), oni: [5, 10, 15].map(M.oniCount), hp: [1, 10].map((r) => Math.round(M.roundHealth(r))) };
+  });
+  check(st.counts.join() === '6,8,13,18,24,27,33' && st.d1 === 2.1 && st.d56 === 0.2 && st.oni.join() === '2,3,4' && st.hp.join() === '150,1045',
+    `rounds follow Black Ops: ${st.counts.join(', ')} come, ${st.d1} s apart on round one, ${st.d56} s by round 56; oni ${st.oni.join(', ')}`);
+  // a blessing: the machine takes your points, you drink, and it shows in the corner
+  st = await page.evaluate(() => {
+    const d = window.__yoake, P = d.parade;
+    const before = P.points; P.buyPerk(P.perkMachines.find((m) => m.P.id === 'tetsu').P);
+    return { spent: before - P.points, max: P.maxHp, drinking: P.arsenal.drinkT > 0, hud: document.querySelector('.zm-perks').textContent };
+  });
+  check(st.spent === 2500 && st.max === 250 && st.drinking && st.hud.includes('鉄'), 'the Tetsu machine (2,500): you drink, and can take two and a half times the punishment');
   // every fifth round is an oni night: only oni, and they charge
   st = await page.evaluate(() => {
     const d = window.__yoake, P = d.parade, pl = d.player;

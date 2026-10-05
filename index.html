@@ -321,9 +321,16 @@
     .zm-round b { font-weight: 400; }
     .zm-round.flash { animation: zmRound 3s ease; }
     @keyframes zmRound { 0% { color: #fff; transform: scale(1.5); filter: blur(2px); } 25% { color: #ff3020; transform: scale(1.1); filter: none; } 100% { color: #c8160e; transform: none; } }
-    .zm-perks { position: absolute; left: 30px; top: 26px; display: flex; gap: 8px; }
-    .zm-perks i { font: 400 26px "Yuji Syuku", serif; font-style: normal; width: 42px; height: 54px; display: grid; place-items: center; color: #1a0a08;
-      background: #f2ead8; border: 2px solid #c8201a; box-shadow: 0 0 14px var(--c), 0 4px 12px rgba(0,0,0,.6); }
+    .zm-round svg.tally { width: 110px; height: 110px; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,.85)) drop-shadow(0 0 14px rgba(200,20,10,.35)); }
+    .zm-round svg.tally path { fill: none; stroke: currentColor; stroke-width: 11; stroke-linecap: round; }
+    /* blessings: big glowing tiles in their colours, as the perk icons sit in the corner */
+    .zm-perks { position: absolute; left: 30px; top: 26px; display: flex; gap: 10px; }
+    .zm-perks i { font: 400 34px "Yuji Syuku", serif; font-style: normal; width: 58px; height: 58px; display: grid; place-items: center; color: #fff;
+      background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--c) 70%, white), var(--c) 55%, color-mix(in srgb, var(--c) 45%, black));
+      border: 3px solid rgba(255,248,232,.9); border-radius: 12px; text-shadow: 0 2px 5px rgba(0,0,0,.6);
+      box-shadow: 0 0 20px var(--c), 0 0 3px #000, 0 6px 14px rgba(0,0,0,.6); animation: zmPerk .7s ease-out; }
+    @keyframes zmPerk { 0% { transform: scale(2.4); opacity: 0; } 60% { transform: scale(.92); opacity: 1; } 100% { transform: none; } }
+    body.zm-down .zm-hurt { opacity: .92 !important; transition: opacity .3s ease; }
     .zm-timers { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); display: flex; gap: 12px; font: 600 16px Fredoka, sans-serif; color: #ffd890; text-shadow: 0 2px 8px #000; }
     .zm-right { position: absolute; right: 34px; bottom: 28px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-shadow: 0 2px 10px rgba(0,0,0,.9); }
     .zm-points { font: 400 46px "Yuji Syuku", serif; color: #f6e2b8; letter-spacing: 1px; }

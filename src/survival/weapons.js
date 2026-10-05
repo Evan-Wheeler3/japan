@@ -165,9 +165,14 @@ export class Arsenal {
   }
   refill(id) { const s = this.slots.find((x) => x && x.id === id); if (s) { s.mag = WEAPONS[id].mag; s.reserve = WEAPONS[id].reserve; } }
   refillAll() { for (const s of this.slots) if (s && WEAPONS[s.id].kind === 'gun') { s.mag = WEAPONS[s.id].mag; s.reserve = WEAPONS[s.id].reserve; } }
+  // two hands' worth of weapons (three with the Sanbon no Ya blessing): losing the third drops what's in it
+  setSlots(n) {
+    while (this.slots.length < n) this.slots.push(null);
+    if (this.slots.length > n) { this.slots.length = n; if (this.cur >= n) { this.cur = 0; this.anim.draw = 1; } this.show(); }
+  }
   swap(i = null) {
-    const to = i ?? (this.cur ? 0 : 1);
-    if (to === this.cur || (!this.slots[to] && !this.slots[this.cur])) return;
+    const to = i ?? (this.cur + 1) % this.slots.length;
+    if (to >= this.slots.length || to === this.cur || (!this.slots[to] && !this.slots[this.cur])) return;
     this.cur = to; this.reloading = 0; this.swing = null; this.anim.draw = 1; this.show(); this.audio.zmDraw && this.audio.zmDraw();
   }
   addThrowable(kind) { if (this.throwables.length >= this.maxThrow) return false; this.throwables.push(kind); this.show(); return true; }
@@ -195,8 +200,20 @@ export class Arsenal {
     }
   }
   // ---- input
+  // drinking a blessing: the weapon goes down, a bottle comes up, you knock it back (and can't fight meanwhile)
+  drink(color) {
+    if (!this.bottle) {
+      const b = new THREE.Group(), glass = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x000000 });
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.16, 10), glass); b.add(body);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.03, 0.08, 8), glass); neck.position.y = 0.12; b.add(neck);
+      const label = new THREE.Mesh(new THREE.CylinderGeometry(0.0405, 0.0405, 0.07, 10), new THREE.MeshLambertMaterial({ color: 0xf6efe0 })); label.position.y = -0.01; b.add(label);
+      b.userData.glass = glass; this.bottle = b; this.vScene.add(b);
+    }
+    this.bottle.userData.glass.color.set(color); this.bottle.userData.glass.emissive.set(color).multiplyScalar(0.35);
+    this.drinkT = this.drinkDur = 1.7; this.swing = null; this.reloading = 0;
+  }
   attack(player) {
-    if (this.time < this.next || this.reloading > 0 || player.dead) return;
+    if (this.time < this.next || this.reloading > 0 || player.dead || this.drinkT > 0) return;
     const w = this.w;
     if (!this.slot && this.throwables.length) return this.throw(player);
     if (w.kind === 'melee') return this.startSwing(w);
@@ -205,11 +222,13 @@ export class Arsenal {
     this.shoot(w, s);
   }
   quickMelee() {
+    if (this.drinkT > 0) return;
     if (this.time < this.next || this.swing) return;
     this.reloading = 0;
     this.startSwing({ ...WEAPONS.hands, dmg: 60, quick: true });
   }
   reload() {
+    if (this.drinkT > 0) return;
     const s = this.slot; if (!s) return;
     const w = WEAPONS[s.id];
     if (w.kind !== 'gun' || this.reloading > 0 || s.mag >= w.mag || s.reserve <= 0) return;
@@ -217,6 +236,7 @@ export class Arsenal {
     this.audio.zmReload && this.audio.zmReload(s.id);
   }
   throw(player) {
+    if (this.drinkT > 0) return;
     if (!this.throwables.length || this.time < this.next) return;
     const kind = this.throwables.pop(); this.show();
     this.next = this.time + 0.45 * this.rateMul; this.anim.throwT = 1;
@@ -390,7 +410,18 @@ export class Arsenal {
     this.flash.visible = this.flashT > 0 && kind === 'gun';
     if (this.flash.visible) { this.flash.position.set(Pv.position.x - 0.01, Pv.position.y + 0.03, Pv.position.z - (id === 'revolver' ? 0.22 : 0.95)); this.flash.scale.setScalar(1 + Math.random()); }
     this.flashLight.intensity = Math.max(0, this.flashLight.intensity - dt * 220);
+    // the drink: weapon down, bottle up to the lips and tipped back, weapon up again
+    if (this.bottle) {
+      this.bottle.visible = this.drinkT > 0;
+      if (this.drinkT > 0) {
+        this.drinkT = Math.max(0, this.drinkT - dt);
+        const k = 1 - this.drinkT / this.drinkDur, away = Math.min(1, k * 5, (1 - k) * 5), up = Math.min(1, Math.max(0, (k - 0.15) * 4)), tip = Math.min(1, Math.max(0, (k - 0.35) * 3)) * (k < 0.85 ? 1 : (1 - k) / 0.15);
+        this.rig.position.y -= away * 0.6;
+        this.bottle.position.set(0.02, -0.42 + up * 0.3 + tip * 0.04, -0.3 + tip * 0.08);
+        this.bottle.rotation.set(-0.2 - tip * 1.6, 0, 0.1);
+      }
+    }
   }
   ground(p) { for (let y = p.y; y > p.y - 4; y -= 0.0625) if (this.world.solid(p.x, y, p.z)) return Math.floor((y + 0.25) / 0.125) * 0.125 - 0.25 + 0.125; return p.y - 4; }
-  clear() { for (const T of this.thrown) this.scene.remove(T.mesh); this.thrown = []; this.slots = [null, null]; this.cur = 0; this.throwables = []; this.show(); }
+  clear() { for (const T of this.thrown) this.scene.remove(T.mesh); this.thrown = []; this.slots = [null, null]; this.cur = 0; this.drinkT = 0; this.throwables = []; this.show(); }
 }
