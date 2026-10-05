@@ -1,8 +1,8 @@
-// Kaiten sushi belt. Plates you set on it at the plating station in the kitchen ride straight out through the pass
-// onto the kaiten counter's east leg and go round its U past the stools and the booths; any guest there can lift
-// off what they ordered as it passes. Whatever nobody takes goes back into the kitchen through the hatch at the end
-// of the west return. The corners are rounded, and the belt is drawn as one smooth strip.
+// Kaiten sushi belt. Plates you set on it ride along the counter past the guests; any guest it passes can lift off
+// what they ordered. Whatever nobody takes goes back into the kitchen through the hatch at the end and round again.
+// Its run comes from the map. The corners are rounded, and the belt is drawn as one smooth strip.
 import * as THREE from 'three';
+import { MAP } from './maps/index.js';
 
 export const BELT_SPEED = 0.42;   // metres per second
 const SPACING = 0.32;              // plates keep at least this far apart
@@ -25,15 +25,18 @@ function rounded(pts, r, steps = 12) {
   out.push(pts[pts.length - 1]);
   return out;
 }
-// the visible run: from the plating station, straight out under the pass, round the U, into the hatch
-const PATH = rounded([[12.35, 11.1], [12.35, 10.0], [12.35, 6.15], [3.15, 6.15], [3.15, 7.85]], RADIUS); // (10.0: the wall)
-const SEGS = [];
-for (let i = 0; i < PATH.length - 1; i++) {
-  const a = PATH[i], b = PATH[i + 1];
-  if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1e-6) continue;
-  SEGS.push({ a, b, y: Y, hidden: false, name: (a[1] + b[1]) / 2 > 10.0 ? 'kitchen' : 'counter' });
+// the visible run comes from the map (MAP.shop.belt.path, and which part of it is still in the kitchen), then
+// a hidden return under the counter back to the start
+function layout() {
+  const { path, kitchen } = MAP.shop.belt, PATH = rounded(path, RADIUS), SEGS = [];
+  for (let i = 0; i < PATH.length - 1; i++) {
+    const a = PATH[i], b = PATH[i + 1];
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1e-6) continue;
+    SEGS.push({ a, b, y: Y, hidden: false, name: kitchen((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) ? 'kitchen' : 'counter' });
+  }
+  SEGS.push({ a: PATH[PATH.length - 1], b: PATH[0], y: 0.6, hidden: true, len: 1.8 });
+  return { PATH, SEGS };
 }
-SEGS.push({ a: PATH[PATH.length - 1], b: PATH[0], y: 0.6, hidden: true, len: 1.8 }); // back to the kitchen under the floor
 
 // a band following the path between two sideways offsets, from y0 up to y1: its top and both sides
 function strip(path, o0, o1, y0, y1) {
@@ -58,6 +61,7 @@ export class Belt {
     this.scene = scene; this.dishMesh = dishMesh;
     this.plates = [];
     this.nextId = 1;
+    const { PATH, SEGS } = layout(); this.segs = SEGS;
     let s = 0;
     for (const g of SEGS) {
       g.real = Math.hypot(g.b[0] - g.a[0], g.b[1] - g.a[1]);
@@ -85,7 +89,7 @@ export class Belt {
   // where a point s along the loop is
   at(s) {
     s = ((s % this.length) + this.length) % this.length;
-    const g = SEGS.find((q) => s >= q.s0 && s < q.s0 + q.len) || SEGS[0];
+    const g = this.segs.find((q) => s >= q.s0 && s < q.s0 + q.len) || this.segs[0];
     const k = (s - g.s0) / g.len;
     return { x: g.a[0] + (g.b[0] - g.a[0]) * k, z: g.a[1] + (g.b[1] - g.a[1]) * k, y: g.y, seg: g, yaw: Math.atan2(-g.dir[1], g.dir[0]) };
   }

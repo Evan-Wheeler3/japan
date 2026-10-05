@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { Model, C, PropBatch, hash01 } from './voxel.js';
 import { heater, zabuton, drinksFridge } from './props.js';
+import { MAP } from './maps/index.js';
 
 // ---------------------------------------------------------------- the save file
 const KEY = 'yoake.save';
@@ -223,12 +224,9 @@ const famicom = () => {
 };
 
 // Things that hang on walls (and the shop's heaters) stay where they're put.
-const FIXED = {
-  lanterns: (h) => { h.put(lanternString(), 8.4, 6.3, 0.95, 0); h.put(lanternString(), 13.3, 6.3, 0.95, 0); },
-  print: (h) => { h.put(bigPrint(), 5.77, F2 + 1.25, 2.35, 3); },
-  heaters: (h) => { h.put(heater(), 0.6, 0.25, 3.0, 1); h.put(heater(), 15.3, 0.25, 4.3, 3); },
-  fridge: (h) => { h.put(drinksFridge(), 15.3, 0.25, 2.25, 1); },
-};
+// (where each goes comes from the map: MAP.home.fixed[id] is a list of [x, y, z, quarter turns])
+const FIXED_MODELS = { lanterns: () => lanternString(), print: () => bigPrint(), heaters: () => heater(), fridge: () => drinksFridge() };
+const FIXED = Object.fromEntries(Object.entries(FIXED_MODELS).map(([id, model]) => [id, (h) => { for (const at of MAP.home.fixed[id] || []) h.put(model(), ...at); }]));
 
 // Everything that stands on the apartment floor is a piece you can pick up and move (F), turn (R) and
 // set down again. Each is described around its own origin: `at` is [x, z, quarter turns] for where it
@@ -262,9 +260,8 @@ const PIECES = [
 ];
 // floor you can't put things on: the kotatsu and its cushions, the futon, the genkan, the tokonoma, and the ways
 // through: the gaps in the shoji and the fusuma, the doorway to the back room, the kitchen corner
-const NO_GO = [[7.85, 10.3, 2.5, 4.7], [13.05, 14.15, 2.3, 4.3], [13.9, 15.8, 5.6, 8.5], [5.75, 7.65, 4.7, 5.5],
-  [6.7, 9.3, 1.45, 1.95], [11.8, 14.2, 1.45, 1.95], [10.85, 11.4, 2.85, 3.95], [7.7, 11.0, 5.35, 5.85], [10.9, 13.9, 7.4, 8.5]];
-const ROOM = { x0: 5.8, x1: 15.7, z0: 0.3, z1: 8.45 };
+// where furniture can't go (walkways, doorways, the built-in furniture) and the room it must stay in come from the
+// map: MAP.home.noGo, MAP.home.room. A piece's first spot is MAP.home.at[key].
 
 // rotate a local (x, z) by quarter turns, the same way three.js turns an object about y
 const turn = (x, z, rot) => { const a = rot * Math.PI / 2, c = Math.round(Math.cos(a)), s = Math.round(Math.sin(a)); return [x * c + z * s, -x * s + z * c]; };
@@ -335,8 +332,9 @@ export class Home {
     this.pieces.set(spec.key, p);
     if (host) { this.pose(host, host.x, host.z, host.rot); return p; }
     // a spot saved before the flat was rebuilt may be in the storeroom now: start it over where it first goes
-    let at = this.layout[spec.key] || spec.at;
-    if (at !== spec.at && !this.fits(p, at[0], at[1], at[2])) { at = spec.at; delete this.layout[spec.key]; }
+    const home = MAP.home.at[spec.key] || spec.at;
+    let at = this.layout[spec.key] || home;
+    if (at !== home && !this.fits(p, at[0], at[1], at[2])) { at = home; delete this.layout[spec.key]; }
     this.pose(p, at[0], at[1], at[2]);
     this.mark(p);
     return p;
@@ -381,9 +379,10 @@ export class Home {
   // can it go there? Inside the apartment, clear of walls, furniture, the other pieces, the doorway and you.
   fits(p, x, z, rot, who) {
     const [x0, x1, z0, z1] = this.rect(p, x, z, rot);
+    const ROOM = MAP.home.room;
     if (x0 < ROOM.x0 || x1 > ROOM.x1 || z0 < ROOM.z0 || z1 > ROOM.z1) return false;
     const hit = (r) => x0 < r[1] && x1 > r[0] && z0 < r[3] && z1 > r[2];
-    if (NO_GO.some(hit)) return false;
+    if (MAP.home.noGo.some(hit)) return false;
     for (const q of this.pieces.values()) if (q !== p && !q.host && hit(this.rect(q, q.x, q.z, q.rot))) return false;
     if (who && who.x > x0 - 0.25 && who.x < x1 + 0.25 && who.z > z0 - 0.25 && who.z < z1 + 0.25) return false;
     for (let px = x0 + 0.03; px <= x1; px += 0.1) for (let pz = z0 + 0.03; pz <= z1; pz += 0.1)

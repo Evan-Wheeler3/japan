@@ -3,13 +3,10 @@
 // every drift off the path and guests wait 25% longer. Whatever's left undone when the shop opens is
 // forgotten until tomorrow.
 import { Model, C, hash01 } from './voxel.js';
+import { MAP } from './maps/index.js';
 
 const STROKES = 3;
-const SPOTS = {
-  sweep: [[13.0, -2.15], [5.2, -1.2], [9.4, -1.25], [4.6, 3.05], [8.0, 3.3], [11.4, 3.0]],
-  shovel: [[1.5, -4.3], [4.6, -4.2], [7.6, -4.35], [10.5, -4.25], [13.3, -4.7], [17.0, -2.3]],
-};
-const Y = { sweep: 0.25, shovel: 0.125 };
+// where the slush and the drifts are come from the map (MAP.shop.chores)
 
 const slush = (seed) => {
   const m = new Model(22, 1, 16, 1 / 32, [11, 0, 8]);
@@ -37,6 +34,7 @@ export class Chores {
   constructor({ scene, service, interactions, audio, litMat, emitMat, between }) {
     Object.assign(this, { service, audio, between });
     this.left = { sweep: [], shovel: [] };
+    const CH = MAP.shop.chores, SPOTS = this.SPOTS = { sweep: CH.sweep, shovel: CH.shovel }, Y = { sweep: CH.sweepY, shovel: CH.shovelY };
     this.spots = {};
     for (const kind of ['sweep', 'shovel']) {
       this.spots[kind] = SPOTS[kind].map(([x, z], i) => {
@@ -56,7 +54,7 @@ export class Chores {
   }
   active() { return this.between(); }
   reset() {
-    for (const kind of ['sweep', 'shovel']) this.left[kind] = SPOTS[kind].map(() => STROKES);
+    for (const kind of ['sweep', 'shovel']) this.left[kind] = this.SPOTS[kind].map(() => STROKES);
     this.draw();
   }
   // one stroke of the broom or the shovel (run by whoever owns the shop)

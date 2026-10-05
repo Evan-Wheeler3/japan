@@ -68,17 +68,18 @@ try {
   check(st.drink === 250, 'the drinks fridge puts ¥250 on every bill');
   // ---- the property: the back door, the walk-in freezer and the kura open up from the catalog
   st = await page.evaluate(() => {
-    const d = window.__yoake, locked = () => d.doors.slice(-3).map((x) => x.locked);
+    const d = window.__yoake, locked = () => d.doors.filter((x) => x.spec.needs).map((x) => x.locked);
     const before = locked();
     d.save.devYen = true; for (const id of ['backdoor', 'freezer', 'kura']) d.menu.h.onBuy(id); d.save.devYen = false;
-    return { before, after: locked(), ice: d.service.menuKinds.has('icecream'), drink: d.service.drinkBill, extra: d.service.extraGuests, back: d.crowd.spawns.some((sp) => sp[1] > 16.5) };
+    const B = d.map.shop.crowd.back;
+    return { before, after: locked(), ice: d.service.menuKinds.has('icecream'), drink: d.service.drinkBill, extra: d.service.extraGuests, back: !B || !B.spawn || d.crowd.spawns.some((sp) => sp[0] === B.spawn[0] && sp[1] === B.spawn[1]) };
   });
   check(st.before.every(Boolean) && st.after.every((l) => !l) && st.ice && st.drink === 650 && st.extra === 1 && st.back,
     'digging out the back door, fixing the freezer and restoring the kura open their doors, add ice cream, house sake and more guests');
 
   // ---- the shrine: walk out past the old border, bow, and the kami leave ¥100 once a day
   const bowAt = () => page.evaluate(() => {
-    const d = window.__yoake; d.player.pos.set(-6.4, 0.125, 3.0);
+    const d = window.__yoake; d.player.pos.set(...d.map.test.bowFrom);
     d.interactions.items.find((it) => { try { return it.label() === 'Bow at the shrine'; } catch { return false; } }).act();
   });
   const yen0 = await page.evaluate(() => window.__yoake.save.yen);
@@ -87,8 +88,8 @@ try {
   await bowAt(); await bowDone();
   const yen1 = await page.evaluate(() => window.__yoake.save.yen);
   await bowAt(); await bowDone();
-  st = await page.evaluate(() => { const d = window.__yoake; return { yen: d.save.yen, x: d.player.pos.x, free: !d.player.frozen, clear: !d.player.blocked(-6.4, 3.0, 0.125) }; });
-  check(yen1 === yen0 + 100 && st.yen === yen1 && st.free && st.clear && st.x < -6, `bowing at the shrine leaves ¥100, once a day (¥${yen0} → ¥${yen1} → ¥${st.yen})`);
+  st = await page.evaluate(() => { const d = window.__yoake, [x, y, z] = d.map.test.bowFrom, S = d.map.shop.shrine; return { yen: d.save.yen, near: Math.hypot(d.player.pos.x - S.x, d.player.pos.z - S.z) < 2.2, free: !d.player.frozen, clear: !d.player.blocked(x, z, y) }; });
+  check(yen1 === yen0 + 100 && st.yen === yen1 && st.free && st.clear && st.near, `bowing at the shrine leaves ¥100, once a day (¥${yen0} → ¥${yen1} → ¥${st.yen})`);
 
   // ---- the vending machine: ¥130 for a hot can and a quarter more walking speed for a while
   st = await page.evaluate(() => {
@@ -125,22 +126,24 @@ try {
 
   // ---- the TV carries its cushion and the console with it
   st = await page.evaluate(() => {
-    const d = window.__yoake, tv = d.home.pieces.get('crt'), fc = d.home.pieces.get('famicom'), from = [tv.x, tv.z, tv.rot];
-    d.home.moveTo('crt', 10.5, 2.5, 0);
-    const r = { fc: [fc.x, fc.z, fc.rot], seat: [tv.seats[0].x, tv.seats[0].z] };
+    const d = window.__yoake, tv = d.home.pieces.get('crt'), fc = d.home.pieces.get('famicom'), from = [tv.x, tv.z, tv.rot], [tx, tz] = d.map.test.tvTo;
+    d.home.moveTo('crt', tx, tz, 0);
+    const r = { fc: [fc.x, fc.z, fc.rot], seat: [tv.seats[0].x, tv.seats[0].z], to: [tx, tz] };
     d.home.moveTo('crt', ...from);
     return r;
   });
-  check(st.fc[0] === 10.5 && Math.abs(st.fc[1] - 1.88) < 0.01 && st.fc[2] === 0 && Math.abs(st.seat[1] - 1.25) < 0.01, `moving the TV brings the Fami-Com and the cushion (${st.fc.join(', ')})`);
+  check(st.fc[0] === st.to[0] && Math.abs(st.fc[1] - (st.to[1] - 0.62)) < 0.01 && st.fc[2] === 0 && Math.abs(st.seat[1] - (st.to[1] - 1.25)) < 0.01, `moving the TV brings the Fami-Com and the cushion (${st.fc.join(', ')})`);
 
   // ---- moving furniture: the bonsai goes somewhere new (and the hearth won't fit on the kotatsu)
   st = await page.evaluate(() => {
-    const d = window.__yoake, p = d.home.pieces.get('bonsai'), irori = d.home.pieces.get('irori');
-    const blocked = d.home.fits(irori, 4.5, 4.5, 0);
-    d.service.request('placePiece', 'bonsai', 6.5, 2.5, 1);
-    return { blocked, at: [p.x, p.z, p.rot], solid: d.world.solid(6.5, 3.95, 2.5), oldClear: !d.world.solid(9.9, 3.95, 0.75), saved: d.save.place && d.save.place.bonsai };
+    const d = window.__yoake, p = d.home.pieces.get('bonsai'), irori = d.home.pieces.get('irori'), T = d.map.test;
+    const blocked = d.home.fits(irori, ...T.iroriNo, 0);
+    const [ox, oz] = [p.x, p.z];
+    d.service.request('placePiece', 'bonsai', ...T.bonsaiTo);
+    const places = d.save.places && d.save.places[d.map.id];
+    return { blocked, at: [p.x, p.z, p.rot].join(), want: T.bonsaiTo.join(), solid: d.world.solid(T.bonsaiTo[0], 3.95, T.bonsaiTo[1]), oldClear: !d.world.solid(ox, 3.95, oz), saved: places && places.bonsai };
   });
-  check(!st.blocked && st.at.join() === '6.5,2.5,1' && st.solid && st.oldClear && st.saved, 'furniture moves, takes its collision with it, and the spot is saved');
+  check(!st.blocked && st.at === st.want && st.solid && st.oldClear && st.saved, 'furniture moves, takes its collision with it, and the spot is saved');
 
   // ---- before opening: upgrade the kitchen's stations, hire help, and do the chores
   st = await page.evaluate(() => {
@@ -176,13 +179,13 @@ try {
     s.request('openShop');
     const stats = window.stats = { ordered: 0, served: 0, belt: 0, washes: 0, kinds: {} };
     const act = (n, ...a) => s.request(n, ...a);
-    const atSink = () => d.player.pos.set(5.9, 0.25, 12.3);
+    const atSink = () => d.player.pos.set(d.map.test.sink[0], 0.25, d.map.test.sink[1]);
     let looks = 0;
     window.botStep = () => {
       const H = s.hands;
       // now and then look at the belt the way a player does, so the reticle code runs too
       if (looks++ % 7 === 0) {
-        const cam = d.camera; cam.position.set(12.35, 1.8, 11.75); cam.lookAt(12.35, 1.125, 10.9); cam.updateMatrixWorld();
+        const cam = d.camera, [cp, ct] = d.map.test.beltCam; cam.position.set(...cp); cam.lookAt(...ct); cam.updateMatrixWorld();
         d.interactions.update();
       }
       if (s.washing > 0) { atSink(); return; }
@@ -257,8 +260,8 @@ try {
   await page.click('#screen [data-act="solo"]');
   st = await page.evaluate(() => { const d = window.__yoake; return { n: d.shift.n, hands: d.service.handCap, placed: [...d.home.placed], menu: [...d.service.menuKinds] }; });
   check(st.n === 2 && st.hands === 2 && st.placed.includes('irori') && st.placed.includes('famicom') && st.menu.includes('tempura'), "night 2 starts with last night's perk and everything you bought");
-  st = await page.evaluate(() => { const p = window.__yoake.home.pieces.get('bonsai'); return [p.x, p.z, p.rot].join(); });
-  check(st === '6.5,2.5,1', 'the bonsai is still where you put it');
+  st = await page.evaluate(() => { const d = window.__yoake, p = d.home.pieces.get('bonsai'); return { at: [p.x, p.z, p.rot].join(), want: d.map.test.bonsaiTo.join() }; });
+  check(st.at === st.want, 'the bonsai is still where you put it');
 
   // ---- 百鬼夜行: the night parade (a survival mode that leaves the shop's save alone)
   await page.reload(); await ready();

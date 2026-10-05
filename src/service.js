@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { Model, C } from './voxel.js';
 import { Belt } from './belt.js';
+import { MAP } from './maps/index.js';
 
 export const MENU = {
   tea: { name: 'Green tea', price: 300 },
@@ -24,16 +25,8 @@ const yen = (v) => `¥${Math.round(v).toLocaleString('en-US')}`;
 // ---------------------------------------------------------------- little voxel models for dishes
 const INVISIBLE = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 
-// counter tops you can set things on: [x0, x1, z0, z1, top y]. Spots near props on the counters are kept clear.
-const COUNTERS = [
-  [3.8, 11.7, 6.32, 6.7, 1.125],     // the kaiten counter, your side of the belt
-  [11.8, 12.17, 6.8, 9.6, 1.125],    // ...and its east leg
-  [3.8, 9.95, 9.15, 9.5, 1.0],       // the back bar, in front of the urns and plates
-  [14.3, 15.7, -1.7, -1.05, 1.0],    // the register counter in the genkan
-  [7.35, 10.4, 12.55, 13.2, 0.875],  // kitchen prep table
-];
-const KEEP_CLEAR = [[4.3, 9.75, 0.25], [5.0, 9.75, 0.25], [6.3, 9.65, 0.6], [7.95, 9.7, 0.35], [9.5, 9.7, 0.22],
-  [15.0, -1.35, 0.3], [15.55, -1.45, 0.2], [14.5, -1.35, 0.2], [8.9, 12.875, 0.45]];
+// counter tops you can set things on, and the spots on them kept clear for props, come from the map
+// (MAP.shop.counters, MAP.shop.keepClear)
 
 const W = C('#f2efe8', 0, 0.03), rim = C('#2a4a7a', 0, 0.04), teaC = C('#8ab840', 0, 0.05), ring = C('#6a7a4a', 0, 0.06);
 const glaze = C('#6d7a5a', 0, 0.05), glazeL = C('#a8b08a', 0, 0.05);
@@ -207,8 +200,8 @@ export class Service {
     this.counterItems = []; // things set down on a counter
     this.nextItemId = 1;
     this.queue = [];
-    this.queueSpots = [[15.0, -2.3], [15.3, -2.85], [14.45, -2.75]];
-    this.register = { x: 15.0, z: -1.35 };
+    this.queueSpots = MAP.shop.queue;
+    this.register = MAP.shop.register;
     this.nameIdx = Math.floor(Math.random() * NAMES.length); // who walks in first changes every night
     this.models = {};
     this.heldLit = this.litMat.clone(); this.heldLit.depthTest = false;
@@ -360,7 +353,7 @@ export class Service {
     // washing happens while you stay at the sink
     if (sim && this.washing > 0) {
       const p = this.posOf(this.washer) || this.player.pos;
-      if (Math.hypot(p.x - 5.6, p.z - 12.3) > 1.8) { this.washing = 0; this.washShow = 0; this.say('stopped washing — stay at the sink', this.washer); }
+      if (Math.hypot(p.x - MAP.shop.sink.x - 0.1, p.z - MAP.shop.sink.z - 0.05) > 1.8) { this.washing = 0; this.washShow = 0; this.say('stopped washing — stay at the sink', this.washer); }
       else {
         this.washT = (this.washT || 0) + dt;
         if (this.washT > this.washTime) {
@@ -460,15 +453,10 @@ export class Service {
       const tag = tagSprite(); tag.position.set(x, 1.75, z - 0.3); this.scene.add(tag); tag.visible = false;
       return { label, kind, x, z, cook, baseCook: cook, burn: 30, state: 'idle', t: 0, tag, redraw: 0, shapeTag, idleText };
     };
-    this.stations = [
-      mk('Yakitori', 'yakitori', 9.65, 15.3, 10, undefined, 'Lay skewers on the grill'), mk('Yakitori', 'yakitori', 10.65, 15.3, 10, undefined, 'Lay skewers on the grill'),
-      mk('Gyoza', 'gyoza', 8.1, 15.3, 13, undefined, 'Fry a batch of gyoza'),
-      mk('Tempura', 'tempura', 6.78, 15.3, 11, 'fry', 'Drop tempura in the fryer'),
-      mk('Ramen', 'ramen', 12.0, 15.3, 15, 'ramen', 'Start a bowl of ramen'),
-    ];
-    this.washTag = tagSprite(); this.washTag.position.set(5.65, 1.65, 12.3); this.washTag.visible = false; this.scene.add(this.washTag);
+    this.stations = MAP.shop.stations.map((t) => mk(t.label, t.kind, t.x, t.z, t.cook, t.shape, t.idle));
+    const SK = MAP.shop.sink; this.washTag = tagSprite(); this.washTag.position.set(SK.x + 0.15, 1.65, SK.z + 0.05); this.washTag.visible = false; this.scene.add(this.washTag);
   }
-  setWater(on) { if (!this.sinkWater) this.sinkWater = this.audio.water([5.5, 0.9, 12.3]); if (this.sinkWater) this.sinkWater.on = on; }
+  setWater(on) { if (!this.sinkWater) this.sinkWater = this.audio.water([MAP.shop.sink.x, 0.9, MAP.shop.sink.z + 0.05]); if (this.sinkWater) this.sinkWater.on = on; }
 
   // ------------------------------------------------ what you can click
   // everything you can do, run by whoever owns the shop (you, or the co-op host) as the player who clicked
@@ -572,7 +560,8 @@ export class Service {
       () => { const u = !busy() && this.upNext(kind); if (u) this.upBuy(u); else act(); },
     ];
     const sinkMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 2.75), INVISIBLE);
-    sinkMesh.position.set(5.5, 0.85, 12.25); this.scene.add(sinkMesh);
+    const SK = MAP.shop.sink, BX = MAP.shop.boxes;
+    sinkMesh.position.set(SK.x, 0.85, SK.z); this.scene.add(sinkMesh);
     // customers (seated, or waiting at the register)
     I.add(() => this.custBox, () => this.custLabel(), () => this.request('cust', this.target.id), () => this.pickCustomer());
     // dishes left on tables
@@ -581,20 +570,18 @@ export class Service {
       return this.hands.length && !this.has('tub') ? 'Hands full' : `Bus the table (${n} dish${n > 1 ? 'es' : ''})`;
     }, () => this.request('bus', this.crowd.seats.indexOf(this.dirtySeat)), () => this.pickDirty(), { highlight: () => this.dirtySeat.dishGroup });
     // tea cups along the shelf over the back bar
-    I.add([6.9, 2.45, 9.8, 3.0, 0.12, 0.18], () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean cup (${this.stock.mugs} left)`), R('mug'), null, shape('mugs'));
+    I.add(BX.mugs, () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean cup (${this.stock.mugs} left)`), R('mug'), null, shape('mugs'));
     // plate stacks (three on the back bar, two on the plating station under the pass)
     const plateLabel = () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean plate (${this.stock.plates} left)`);
-    I.add([7.95, 1.2, 9.7, 0.35, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesA'));
-    I.add([9.5, 1.2, 9.7, 0.2, 0.25, 0.25], plateLabel, R('plate'), null, shape('platesB'));
-    I.add([11.75, 1.35, 10.48, 0.32, 0.24, 0.18], plateLabel, R('plate'), null, shape('platesK'));
+    for (const [box, tag] of BX.plates) I.add(box, plateLabel, R('plate'), null, shape(tag));
     // tea urns
-    I.add([6.3, 1.45, 9.65, 0.55, 0.45, 0.25], ...up('tea', () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn')), null, shape('urns'));
+    I.add(BX.urns, ...up('tea', () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn')), null, shape('urns'));
     // the sushi case on the plating station, right by the belt
-    I.add([13.1, 1.3, 10.98, 0.42, 0.2, 0.2], ...up('sushi', () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi')), null, shape('sushi'));
+    I.add(BX.sushi, ...up('sushi', () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi')), null, shape('sushi'));
     // the chest freezer in the walk-in: matcha ice cream, once it's running
-    I.add([17.35, 1.05, 10.85, 0.6, 0.15, 0.38], () => (this.has('plate') ? 'Scoop a matcha ice cream' : 'Chest freezer (grab a clean plate for ice cream)'), R('icecream'), () => this.menuKinds.has('icecream'));
+    I.add(BX.icecream, () => (this.has('plate') ? 'Scoop a matcha ice cream' : 'Chest freezer (grab a clean plate for ice cream)'), R('icecream'), () => this.menuKinds.has('icecream'));
     // the rice cookers: onigiri, once they're on the menu
-    I.add([11.74, 1.3, 10.98, 0.4, 0.2, 0.2], ...up('onigiri', () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri')), () => this.menuKinds.has('onigiri'), shape('rice'));
+    I.add(BX.rice, ...up('onigiri', () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri')), () => this.menuKinds.has('onigiri'), shape('rice'));
     // the sushi belt: put finished dishes on it (in the kitchen, in the well or anywhere along it), or take one off
     I.add(() => this.beltBox, () => {
       const h = this.hands[this.hands.length - 1];
@@ -615,7 +602,7 @@ export class Service {
       }, R('station', i), () => st.state !== 'idle'), () => this.menuKinds.has(st.kind), shape(st.shapeTag));
     });
     // dish station sink
-    I.add([5.5, 0.85, 12.25, 0.36, 0.22, 1.4], () => {
+    I.add([SK.x, 0.85, SK.z, 0.36, 0.22, 1.4], () => {
       if (this.has('tub')) return 'Drop the dirty dishes in the sink';
       const food = this.hands.find((h) => MENU[h.type]);
       if (food) return `Scrape the ${MENU[food.type].name.toLowerCase()} into the trash`;
@@ -624,12 +611,12 @@ export class Service {
       return n ? `Wash dishes (${n} in the sink)` : 'Sink (empty)';
     }, R('sink'), null, { highlight: sinkMesh });
     // dish rack: carry the clean ones back out
-    I.add([5.5, 1.0, 13.3, 0.32, 0.2, 0.3], () => {
+    I.add([SK.x, 1.0, SK.z + 1.05, 0.32, 0.2, 0.3], () => {
       const n = this.rack.mugs + this.rack.plates;
       return n ? `Take the clean dishes (${this.rack.mugs} cups, ${this.rack.plates} plates)` : 'Dish rack (empty)';
     }, R('rack'), null, shape('dishRack'));
     // the register
-    I.add([15.0, 1.12, -1.35, 0.24, 0.22, 0.22], () => {
+    I.add(MAP.shop.register.box, () => {
       const q = this.queue[0];
       if (!q || !q.svc || q.svc.phase !== 'pay') return 'Register (nobody waiting)';
       const b = this.bill(q);
@@ -701,7 +688,7 @@ export class Service {
     const o = this.camera.getWorldPosition(new THREE.Vector3()), d = this.camera.getWorldDirection(new THREE.Vector3());
     if (d.y > -0.05) return false;
     let best = null, bt = 2.3;
-    for (const [x0, x1, z0, z1, y] of COUNTERS) {
+    for (const [x0, x1, z0, z1, y] of MAP.shop.counters) {
       const t = (y - o.y) / d.y;
       if (t <= 0 || t >= bt) continue;
       const x = o.x + d.x * t, z = o.z + d.z * t;
@@ -710,7 +697,7 @@ export class Service {
     }
     if (!best) return false;
     const [x, y, z] = best;
-    if (KEEP_CLEAR.some(([kx, kz, r]) => Math.hypot(x - kx, z - kz) < r)) return false;
+    if (MAP.shop.keepClear.some(([kx, kz, r]) => Math.hypot(x - kx, z - kz) < r)) return false;
     const big = this.hands[this.hands.length - 1].type === 'tub' || this.hands[this.hands.length - 1].type === 'clean';
     if (this.counterItems.some((c) => Math.hypot(x - c.x, z - c.z) < (big || c.big ? 0.42 : 0.24))) return false;
     this.counterSpot = best;
@@ -941,12 +928,14 @@ export class Service {
       m.position.set(x, y, z); m.rotation.set(rx, ry, rz); this.dishVis.add(m);
     };
     // sink: plates lean in the first two wells, mugs bob in between; water is at 0.75
+    // (laid out round the sink's middle, which sits at x 5.5, z 12.25 in the shop the numbers were drawn for)
+    const SK = MAP.shop.sink, dx = SK.x - 5.5, dz = SK.z - 12.25;
     const plateSlots = [11.0, 11.6, 12.0, 12.6, 11.3, 12.3], mugSlots = [[5.62, 11.15], [5.38, 11.45], [5.62, 12.15], [5.38, 12.45], [5.6, 11.7], [5.4, 12.0]];
-    for (let i = 0; i < Math.min(this.sink.plates, plateSlots.length); i++) put('plateDirty', 5.47 + (i & 1) * 0.06, 0.72, plateSlots[i], 1.15 + (i % 3) * 0.12, 0, (i & 1 ? 0.15 : -0.15));
-    for (let i = 0; i < Math.min(this.sink.mugs, mugSlots.length); i++) put('mugDirty', mugSlots[i][0], 0.66, mugSlots[i][1], 0.55, i * 1.7, 0.3);
+    for (let i = 0; i < Math.min(this.sink.plates, plateSlots.length); i++) put('plateDirty', 5.47 + (i & 1) * 0.06 + dx, 0.72, plateSlots[i] + dz, 1.15 + (i % 3) * 0.12, 0, (i & 1 ? 0.15 : -0.15));
+    for (let i = 0; i < Math.min(this.sink.mugs, mugSlots.length); i++) put('mugDirty', mugSlots[i][0] + dx, 0.66, mugSlots[i][1] + dz, 0.55, i * 1.7, 0.3);
     // rack: plates upright between the pegs, mugs upside down along the side
-    for (let i = 0; i < Math.min(this.rack.plates, 6); i++) put('plate', 5.42, 1.04, 13.08 + i * 0.085, Math.PI / 2, 0, 0);
-    for (let i = 0; i < Math.min(this.rack.mugs, 4); i++) put('mug', 5.67, 1.03, 13.1 + i * 0.13, Math.PI, 0, 0);
+    for (let i = 0; i < Math.min(this.rack.plates, 6); i++) put('plate', 5.42 + dx, 1.04, 13.08 + i * 0.085 + dz, Math.PI / 2, 0, 0);
+    for (let i = 0; i < Math.min(this.rack.mugs, 4); i++) put('mug', 5.67 + dx, 1.03, 13.1 + i * 0.13 + dz, Math.PI, 0, 0);
   }
 
   // ------------------------------------------------ HUD

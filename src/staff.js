@@ -3,19 +3,22 @@
 // co-op host) does their work for them, and everyone sees them at it.
 import { Person } from './npc.js';
 import { MENU } from './service.js';
+import { MAP } from './maps/index.js';
 
 const MENU_PLATE = ['sushi'];
-const POSTS = {
-  staff_wash: { name: 'Taro', x: 6.05, z: 12.55, yaw: Math.PI / 2, look: { skin: '#e0ac85', hair: '#1a1412', coat: '#e8e4dc', pants: '#2a3a5a', shoes: '#141414', hairStyle: 0, hat: -1, glasses: true, long: false, umbrella: '#141416', scarf: '#2a5a8a' } },
-  staff_sushi: { name: 'Kenji', x: 13.55, z: 11.62, yaw: 0, look: { skin: '#c68863', hair: '#3a2418', coat: '#f0ece4', pants: '#1c1c20', shoes: '#141414', hairStyle: 3, hat: 0, glasses: false, long: false, umbrella: '#141416', scarf: null } },
-  staff_hall: { name: 'Hana', x: 15.48, z: -0.62, yaw: 0, look: { skin: '#f1c9a5', hair: '#1a1412', coat: '#24324e', pants: '#24324e', shoes: '#4a2a18', hairStyle: 4, hat: -1, glasses: false, long: true, umbrella: '#141416', scarf: '#a82a2a' } },
+// who stands where comes from the map (MAP.shop.staff); what they look like is theirs
+const LOOKS = {
+  staff_wash: { name: 'Taro', look: { skin: '#e0ac85', hair: '#1a1412', coat: '#e8e4dc', pants: '#2a3a5a', shoes: '#141414', hairStyle: 0, hat: -1, glasses: true, long: false, umbrella: '#141416', scarf: '#2a5a8a' } },
+  staff_sushi: { name: 'Kenji', look: { skin: '#c68863', hair: '#3a2418', coat: '#f0ece4', pants: '#1c1c20', shoes: '#141414', hairStyle: 3, hat: 0, glasses: false, long: false, umbrella: '#141416', scarf: null } },
+  staff_hall: { name: 'Hana', look: { skin: '#f1c9a5', hair: '#1a1412', coat: '#24324e', pants: '#24324e', shoes: '#4a2a18', hairStyle: 4, hat: -1, glasses: false, long: true, umbrella: '#141416', scarf: '#a82a2a' } },
 };
 
 export class Staff {
   constructor({ scene, service, litMat, emitMat }) {
     this.service = service;
     this.people = {};
-    for (const [id, p] of Object.entries(POSTS)) {
+    for (const [id, l] of Object.entries(LOOKS)) {
+      const p = { ...l, ...MAP.shop.staff[id] };
       const person = new Person(p.look, litMat, emitMat);
       person.group.position.set(p.x, 0.25, p.z); person.group.rotation.y = p.yaw; person.group.visible = false;
       scene.add(person.group);
@@ -66,8 +69,8 @@ export class Staff {
         want -= s.belt.plates.filter((b) => b.type === kind).length;
         want -= Object.values(s.handsBy).flat().filter((h) => h.type === kind).length + s.counterItems.filter((c) => c.item.type === kind).length;
         if (want <= 0 || s.stock.plates <= 0) continue;
-        const at = s.belt.sAt(12.35, 10.7);
-        if (at === null || !s.belt.isFree(at)) continue;
+        const at = 0.25; // just past where the belt comes out of the kitchen
+        if (!s.belt.isFree(at)) continue;
         s.stock.plates--; s.belt.add(kind, at); this.people.staff_sushi.busy = 1.5; this.did.sushi++;
       }
     }

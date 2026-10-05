@@ -1,6 +1,7 @@
 // Customers: voxel people who come in from the snow, find a seat, linger, and leave.
 import * as THREE from 'three';
 import { Model, C } from './voxel.js';
+import { MAP } from './maps/index.js';
 
 const V = 1 / 16;
 
@@ -190,13 +191,14 @@ export class NavGrid {
 export class Crowd {
   constructor({ scene, world, seats, doors, litMat, emitMat, audio, player, inside }) {
     Object.assign(this, { scene, world, seats, doors, litMat, emitMat, audio, player, inside });
-    this.nav = new NavGrid(world, -1.5, -5.0, 34, 17.5);
+    const C = MAP.shop.crowd;
+    this.nav = new NavGrid(world, ...C.nav);
     this.people = [];
     this.nextId = 1;
     this.others = []; // other players' positions (co-op), so customers step around them too
     this.puppet = false; // co-op guest: customers are positioned by the host, not simulated here
     this.r = Math.random; // a different crowd every night: looks, seats, timing
-    this.spawns = [[33.5, -4.3], [-1.0, 15.2], [-1.0, -4.6]];
+    this.spawns = C.spawns.map((s) => [...s]);
     this.nextArrival = 12;
     this.max = 10;
     this.auto = true; // random walk-ins; the shift turns this off and sends people in waves
@@ -212,7 +214,7 @@ export class Crowd {
   pickSeat() {
     const free = this.freeSeats();
     if (!free.length) return null;
-    const wt = (s) => (s.z < 0 ? 1.6 : s.kind === 'stool' ? 1.7 : s.kind === 'booth' ? 1.6 : 0.8); // the window booths are popular
+    const wt = MAP.shop.seatWeight;
     let tot = free.reduce((a, s) => a + wt(s), 0), x = this.r() * tot;
     for (const s of free) { x -= wt(s); if (x <= 0) return s; }
     return free[0];

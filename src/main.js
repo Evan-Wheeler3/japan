@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { World, buildWorld, L } from './world.js';
+import { World, L } from './world.js';
 import { PropBatch } from './voxel.js';
 import * as Props from './props.js';
-import { makeSky, makeSnow, makeGlassMaterial, makeSteam, makeBackdrop, makeComposer, hazeColor, sunDir, FUJI, FOG_COLOR, FOG_DENSITY } from './effects.js';
+import { makeSky, makeSnow, makeGlassMaterial, makeSteam, makeComposer, hazeColor, sunDir, FOG_COLOR, FOG_DENSITY } from './effects.js';
 import { Player } from './player.js';
 import { Ambience } from './audio.js';
 import { Interactions, Door } from './interact.js';
@@ -18,12 +18,24 @@ import { Net, newCode } from './net.js';
 import { Coop } from './coop.js';
 import { TouchControls, isTouch } from './touch.js';
 import { Parade } from './survival/mode.js';
+import { MAP, setMap } from './maps/index.js';
+import { MOUNTAIN } from './maps/mountain.js';
 
 const $ = (id) => document.getElementById(id);
 const status = (t) => { const el = document.querySelector('#screen .loading'); if (el) el.textContent = t; };
 const frame = () => new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 60); });
 
+// which map to build: the night parade (and ?map=mountain) are on the mountain; the shop is on the Tokyo street
+const paradeNext = (() => { try { const v = sessionStorage.getItem('yoake.parade'); sessionStorage.removeItem('yoake.parade'); return v; } catch { return null; } })();
+const MAPS = { mountain: MOUNTAIN };
+const pickMap = () => {
+  const asked = new URLSearchParams(location.search).get('map');
+  if (paradeNext) return MOUNTAIN;
+  return MAPS[asked] || MAPS.tokyo || MOUNTAIN;
+};
+
 async function boot() {
+  setMap(pickMap()); Object.assign(L, MAP.L);
   // ---------------------------------------------------------------- renderer
   const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
   const touchDevice = isTouch();
@@ -47,16 +59,16 @@ async function boot() {
   status('shoveling the path…'); await frame();
   const T0 = performance.now();
   const world = new World();
-  const meta = buildWorld(world);
+  const meta = MAP.build(world);
   const T1 = performance.now();
   status('setting out the cushions…'); await frame();
   const batch = new PropBatch(world);
-  Props.placeProps(batch);
+  MAP.props(batch);
   status('lighting the lanterns…'); await frame();
   scene.add(world.mesh(litMat, emitMat));
   scene.add(batch.build(litMat, emitMat));
   console.log(`[yoake] build ${(T1 - T0) | 0}ms, mesh+props ${(performance.now() - T1) | 0}ms`);
-  const backdrop = makeBackdrop(); scene.add(backdrop);
+  const backdrop = MAP.backdrop(); scene.add(backdrop);
   const sky = makeSky(); scene.add(sky);
 
   // ---------------------------------------------------------------- lights
@@ -96,44 +108,33 @@ async function boot() {
   }
 
   // ---------------------------------------------------------------- snow, steam
-  const snowLights = meta.lights.filter((l) => ['door', 'vending', 'kanban', 'toroA', 'toroB', 'upstairs', 'consL', 'consR'].includes(l.name));
+  const snowLights = meta.lights.filter((l) => MAP.view.snowLights.includes(l.name));
   const snow = makeSnow(7000, snowLights, L.roofDry); scene.add(snow);
   const steam = makeSteam([
-    { pos: [6.0, 1.95, 9.65], size: 0.35 }, { pos: [6.6, 1.95, 9.65], size: 0.3 },        // the tea urns on the back bar
-    { pos: [11.74, 1.55, 10.98], size: 0.3 },                                                 // the rice cookers by the pass
-    { pos: [11.75, 1.6, 15.1], size: 0.7 }, { pos: [13.4, 1.4, 15.1], size: 0.5 },
-    { pos: [9.65, 1.3, 15.2], size: 0.9 }, { pos: [10.65, 1.3, 15.2], size: 0.9 }, { pos: [8.1, 1.2, 15.1], size: 0.6 },
+    ...MAP.shop.steam,
     ...meta.steam,
   ]);
   scene.add(steam);
 
   // ---------------------------------------------------------------- living things
-  // the front door and the restroom doors slide into their pockets; the kitchen door swings
-  const door = Props.doorModel().mesh(litMat, emitMat);
-  const doorGlass = new THREE.Mesh(new THREE.PlaneGeometry(15 / 16, 26 / 16), glassMat);
-  doorGlass.position.set(9.5 / 16, 22.5 / 16, 0); door.add(doorGlass);
-  door.position.set(L.door.hinge, L.floor, L.door.z);
-  scene.add(door);
-  // doors open away from whoever opens them; closed doors are solid
-  const doors = [];
-  const frontDoor = new Door(door, { hinge: { x: L.door.hinge, z: L.door.z }, plusDir: [0, -1], max: 1.6, block: [12.75, 14.0, -3.375, -3.125], bell: true, slide: 1.12 });
-  doors.push(frontDoor);
-  const addDoor = (kind, hx, hz, base, plusDir, block, slide = null, slideDist = 0.95, y = L.floor) => {
-    const mesh = Props.swingDoor(kind).mesh(litMat, emitMat);
-    mesh.position.set(hx, y, hz); mesh.rotation.y = base; scene.add(mesh);
-    const d = new Door(mesh, { hinge: { x: hx, z: hz }, base, plusDir, max: 1.45, block, ...(slide ? { slide: slideDist, slideDir: slide } : {}) }); doors.push(d); return d;
-  };
-  const kitchenDoor = addDoor('kitchen', 14.0, 10.0625, 0, [0, -1], [14.0, 15.125, 9.875, 10.25]);
-  const restDoorA = addDoor('restroom', 1.8125, 11.0, -Math.PI / 2, [1, 0], [1.75, 2.0, 11.0, 12.0], [0, 1]);   // slide along into the wall
-  const restDoorB = addDoor('restroom', 1.8125, 13.75, -Math.PI / 2, [1, 0], [1.75, 2.0, 13.75, 14.75], [0, 1]);
-  // three doors that open up as the place grows: the hall's back door, the walk-in freezer, the old kura
-  const backDoor = addDoor('exit', 0.375, 15.6875, 0, [0, 1], [0.375, 1.625, 15.625, 16.0]);
-  const freezerDoor = addDoor('freezer', 15.6875, 11.0, -Math.PI / 2, [1, 0], [15.625, 16.125, 11.0, 12.25]);
-  const kuraDoor = addDoor('kura', 23.25, 2.9375, 0, [0, -1], [23.25, 24.75, 2.875, 3.25], [-1, 0], 1.45, 0.5);
-  backDoor.locked = freezerDoor.locked = kuraDoor.locked = true;
-  backDoor.lockedText = ['Back door (snowed shut)', "a wall of snow on the other side. (the catalog: dig out the back door)"];
-  freezerDoor.lockedText = ['Walk-in freezer (switched off)', "the old walk-in's been off for years. (the catalog: get it running)"];
-  kuraDoor.lockedText = ['The old kura (boarded up)', "the storehouse is full of junk and cobwebs. (the catalog: restore it)"];
+  // doors open away from whoever opens them; closed doors are solid. The front door slides into its pocket (its own
+  // model); the rest are props.swingDoor kinds, some sliding. Doors with `needs` stay locked until it's bought.
+  const doors = [], D = {};
+  for (const spec of MAP.shop.doors) {
+    let mesh;
+    if (spec.front) {
+      mesh = Props.doorModel().mesh(litMat, emitMat);
+      const doorGlass = new THREE.Mesh(new THREE.PlaneGeometry(15 / 16, 26 / 16), glassMat);
+      doorGlass.position.set(9.5 / 16, 22.5 / 16, 0); mesh.add(doorGlass);
+    } else mesh = Props.swingDoor(spec.kind).mesh(litMat, emitMat);
+    mesh.position.set(spec.hinge[0], spec.y ?? L.floor, spec.hinge[1]); mesh.rotation.y = spec.base || 0; scene.add(mesh);
+    const d = new Door(mesh, { hinge: { x: spec.hinge[0], z: spec.hinge[1] }, base: spec.base || 0, plusDir: spec.plusDir, max: spec.max || 1.45, block: spec.block, bell: !!spec.bell,
+      ...(spec.slide ? { slide: spec.slide } : spec.slideDir ? { slide: spec.slideDist || 0.95, slideDir: spec.slideDir } : {}) });
+    d.spec = spec; d.name = spec.name;
+    if (spec.needs) { d.locked = true; d.lockedText = spec.locked; }
+    doors.push(d); D[spec.key] = d;
+  }
+  const frontDoor = D.front;
   world.blockers = doors;
 
   // shoji panels in the partition: paper with a kumiko lattice, drawn once to a canvas
@@ -155,13 +156,16 @@ async function boot() {
     scene.add(m);
   }
 
-  const clock = Props.clockFace().mesh(litMat, emitMat); clock.position.set(14.56, 2.85, 10.0); scene.add(clock);
+  // the wall clock (it faces into the room: -z for yaw 0)
+  const CK = MAP.shop.clock, clockRoot = new THREE.Group(); clockRoot.position.set(...CK.pos); clockRoot.rotation.y = CK.yaw; scene.add(clockRoot);
+  const clock = Props.clockFace().mesh(litMat, emitMat); clockRoot.add(clock);
   const handMat = new THREE.MeshBasicMaterial({ color: 0x151515 });
-  const mkHand = (len, w) => { const g = new THREE.BoxGeometry(w, len, 0.02); g.translate(0, len / 2 - 0.02, 0); const m = new THREE.Mesh(g, handMat); m.position.set(14.56, 2.85, 10.0 - 2 / 16 - 0.02); scene.add(m); return m; };
+  const mkHand = (len, w) => { const g = new THREE.BoxGeometry(w, len, 0.02); g.translate(0, len / 2 - 0.02, 0); const m = new THREE.Mesh(g, handMat); m.position.set(0, 0, -2 / 16 - 0.02); clockRoot.add(m); return m; };
   const hourHand = mkHand(0.16, 0.035), minHand = mkHand(0.24, 0.025);
 
   // ---------------------------------------------------------------- player, audio, post
   const player = new Player(camera, world, renderer.domElement);
+  { const T = MAP.shop.title; player.pos.set(T.x, L.floor, T.z); player.yaw = T.yaw; player.pitch = T.pitch; } // the view behind the menu
   const audio = new Ambience();
   player.onStep = () => audio.step(indoor);
   const { composer, bloom, grade, outline } = makeComposer(renderer, scene, camera);
@@ -234,15 +238,8 @@ async function boot() {
     if (moving && e.button === 2) { endMove(false); return; }
     if (e.button === 0) interactions.click();
   });
-  for (const [di, [d, name]] of [
-    [frontDoor, 'door'],
-    [kitchenDoor, 'kitchen door'],
-    [restDoorA, 'restroom door'],
-    [restDoorB, 'restroom door'],
-    [backDoor, 'back door'],
-    [freezerDoor, 'freezer door'],
-    [kuraDoor, 'kura door'],
-  ].entries()) {
+  for (const [di, d] of doors.entries()) {
+    const name = d.name;
     d.onAutoClose = () => audio.doorSound(false, d.slide);
     interactions.add(() => d.box(), () => (d.locked ? d.lockedText[0] : (d.open ? 'Close the ' : 'Open the ') + name), () => {
       if (d.locked) { audio.rattle(); toast(d.lockedText[1]); return; }
@@ -266,26 +263,31 @@ async function boot() {
       if (w.h) { w.h.on = !w.h.on; audio.clickSound(); }
     });
   };
-  for (const rz0 of [10.25, 13.125]) addFaucet(3.1, 1.3, 1.13, rz0 + 0.24, [3.1, 1.2, rz0 + 0.3, 0.34, 0.2, 0.3], 'water'); // the bamboo spouts
-  addFaucet(5.46, 1.55, 0.75, 12.3, [5.32, 1.45, 12.3, 0.09, 0.14, 0.12], 'water');
-  interactions.add([4.49, 0.6, 12.45, 0.4, 0.45, 0.3], () => 'Flush', () => audio.flush());
-  interactions.add([4.3, 0.74, 12.2, 0.14, 0.08, 0.16], () => 'Press the sound princess button', () => { audio.clickSound(); toast('a recording of a babbling brook plays, very politely.'); });
-  interactions.add([4.66, 1.5, 14.26, 0.14, 0.22, 0.14], () => 'Pull the chain', () => audio.flush());
-  for (const rz0 of [10.25, 13.125]) interactions.add([4.15, 1.1, rz0 + 0.08, 0.22, 0.28, 0.08], () => 'Dry your hands on the tenugui', () => audio.cloth());
-  interactions.add([4.3, 1.12, 9.75, 0.22, 0.16, 0.14], () => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => {
-    audio.musicOn = !audio.musicOn; audio.clickSound(); toast(audio.musicOn ? 'radio on' : 'radio off');
-  });
+  for (const f of MAP.shop.faucets) addFaucet(...f.stream, f.box, f.label || 'water');
   const cans = ['a hot can of royal milk tea', 'hot corn soup. somehow perfect.', 'a hot can of coffee. it warms your hands.', 'hot lemon. a little treat.'];
   // a hot can warms you up and puts a spring in your step: 1.25x walking speed for two minutes of play
   const BOOST = { mul: 1.25, secs: 120 };
   let boostLeft = 0;
-  interactions.add([19.2, 1.2, -2.95, 0.45, 0.6, 0.12], () => (boostLeft > 0 ? 'Buy a hot drink · ¥130 (tops up your boost)' : 'Buy a hot drink · ¥130 · walk 25% faster for 2 min'), () => {
-    if (cashBox() < 130) { toast('the cash box is empty. maybe after tonight.'); audio.rattle(); return; }
-    if (!save.devYen) { save.yen -= 130; writeSave(save); }
-    boostLeft = BOOST.secs; player.speedMul = BOOST.mul;
-    audio.vend(); toast(`${cans[Math.floor(Math.random() * cans.length)]} · +25% speed for 2 minutes`);
-  });
-  interactions.add([12.3, 1.12, -3.0, 0.28, 0.16, 0.16], () => 'Pet the cat', () => { audio.purr(); toast('she stretches one paw. purrrr.'); });
+  // the little things to click round the shop, the street and the flat (the map says where)
+  const ACTS = {
+    flush: [() => 'Flush', () => audio.flush()],
+    princess: [() => 'Press the sound princess button', () => { audio.clickSound(); toast('a recording of a babbling brook plays, very politely.'); }],
+    chain: [() => 'Pull the chain', () => audio.flush()],
+    towel: [() => 'Dry your hands on the tenugui', () => audio.cloth()],
+    radio: [() => (audio.musicOn ? 'Turn the radio off' : 'Turn the radio on'), () => { audio.musicOn = !audio.musicOn; audio.clickSound(); toast(audio.musicOn ? 'radio on' : 'radio off'); }],
+    cat: [() => 'Pet the cat', () => { audio.purr(); toast('she stretches one paw. purrrr.'); }],
+    vending: [() => (boostLeft > 0 ? 'Buy a hot drink · ¥130 (tops up your boost)' : 'Buy a hot drink · ¥130 · walk 25% faster for 2 min'), () => {
+      if (cashBox() < 130) { toast('the cash box is empty. maybe after tonight.'); audio.rattle(); return; }
+      if (!save.devYen) { save.yen -= 130; writeSave(save); }
+      boostLeft = BOOST.secs; player.speedMul = BOOST.mul;
+      audio.vend(); toast(`${cans[Math.floor(Math.random() * cans.length)]} · +25% speed for 2 minutes`);
+    }],
+    catalog: [() => 'Read the catalog', () => openCatalog()],
+    futon: [() => 'Lie down for a minute', () => { audio.purr(); toast(shift.waiting ? "you're wide awake. the shop is waiting." : shift.active ? 'just a minute… then back down to the shop.' : 'the futon is still warm.'); }],
+    kettle: [() => 'Put the kettle on', () => { audio.pour(); toast('a cup of hojicha, just for you.'); }],
+    andon: [() => 'Andon lamp', () => { const l = named.aptBed; if (l) l.mul = l.mul > 0.5 ? 0.15 : 1; audio.clickSound(); }],
+  };
+  for (const a of MAP.shop.acts) { const [label, fn] = ACTS[a.act]; interactions.add(a.box, label, fn); }
 
   // ---------------------------------------------------------------- customers + seats
   const isInside = (x, z) => x > L.inside.x0 && x < L.inside.x1 && z > L.inside.z0 && z < L.inside.z1;
@@ -305,10 +307,10 @@ async function boot() {
     $('fade').classList.toggle('on', on);
     const cap = $('fade').querySelector('.cap'); cap.textContent = caption; cap.classList.toggle('show', !!caption);
   };
-  const lookAtBay = (from) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(from, new THREE.Vector3(FUJI.x * 0.5 + 40, 22, FUJI.z * 0.5), new THREE.Vector3(0, 1, 0)));
+  const lookAtBay = (from) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(from, new THREE.Vector3(...MAP.view.sunrise.look), new THREE.Vector3(0, 1, 0)));
   const sunriseStart = () => {
     if (sunrise) return;
-    const from = new THREE.Vector3(13.4, 1.75, -4.9), to = new THREE.Vector3(6.0, 1.75, -7.4);
+    const from = new THREE.Vector3(...MAP.view.sunrise.from), to = new THREE.Vector3(...MAP.view.sunrise.to);
     sunrise = { t: 0, t0: performance.now(), from, fromQ: lookAtBay(from), to, toQ: lookAtBay(to), dawn0: dawn, cut: false };
     fade(true);
   };
@@ -329,7 +331,7 @@ async function boot() {
   arcade.hi = { ...(save.hi || {}) };
   arcade.onHi = (id, score) => { save.hi = { ...(save.hi || {}), [id]: score }; writeSave(save); };
   arcade.onSfx = (kind) => audio.chip(kind);
-  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast, arcade, touch: !!touchUI, layout: save.place,
+  const home = new Home({ scene, world, litMat, emitMat, interactions, audio, toast, arcade, touch: !!touchUI, layout: (save.places || {})[MAP.id] || (MAP.id === 'mountain' ? save.place : undefined),
     addSeat: (seat) => addSitSpot(seat, seat.local.label || 'Sit by the fire', seat.local.note || 'warm hands. the kettle ticks. · walk to stand up'),
     addLamp: (l) => { const r = { ...l, mul: 1, v: new THREE.Vector3(...l.pos) }; lamps.push(r); named[l.name] = r; return r; },
     addSteam: (src) => { const st = makeSteam([src]); scene.add(st); homeSteam.push(st); return st; } });
@@ -339,7 +341,7 @@ async function boot() {
   service.onPlace = (key, x, z, rot) => {
     home.moveTo(key, x, z, rot);
     service.layout = home.layout;
-    if (!coop || coop.isHost) { save.place = { ...home.layout }; writeSave(save); }
+    if (!coop || coop.isHost) { save.places = { ...(save.places || {}), [MAP.id]: { ...home.layout } }; writeSave(save); } // each map keeps its own arrangement
   };
   service.onLayout = (lay) => home.applyLayout(lay);
 
@@ -411,14 +413,20 @@ async function boot() {
   menu.devYen = !!save.devYen;
   addEventListener('keydown', (e) => { if (e.code === 'Backquote' && !arcadeOpen) setDevYen(!save.devYen); });
   // the drift against the back door, until you dig it out
-  const snowPile = Props.snowPile().mesh(litMat, emitMat); snowPile.position.set(1.0, 0.125, 16.55); scene.add(snowPile);
+  // what's piled against the back door until it's cleared (snow on the mountain)
+  const snowPile = (MAP.shop.backPile ? MAP.shop.backPile() : Props.snowPile()).mesh(litMat, emitMat); snowPile.position.set(...MAP.shop.snowPile); snowPile.rotation.y = MAP.shop.snowPileYaw || 0; scene.add(snowPile);
   const applyProperty = () => {
     const has = (id) => service.owned.includes(id);
-    backDoor.locked = !has('backdoor'); freezerDoor.locked = !has('freezer'); kuraDoor.locked = !has('kura');
-    snowPile.visible = backDoor.locked;
-    crowd.nav.setBlocked([0.25, 1.75, 15.4, 16.6], backDoor.locked);   // guests can't come through a door that's shut
-    const back = [1.0, 17.0], i = crowd.spawns.findIndex((s) => s[1] > 16.5);
-    if (!backDoor.locked && i < 0) crowd.spawns.push(back); else if (backDoor.locked && i >= 0) crowd.spawns.splice(i, 1);
+    for (const d of doors) if (d.spec.needs) d.locked = !has(d.spec.needs);
+    const back = D.back, B = MAP.shop.crowd.back;
+    snowPile.visible = !!back && back.locked;
+    if (back && B) {
+      crowd.nav.setBlocked(B.block, back.locked);   // guests can't come through a door that's shut
+      if (B.spawn) {
+        const i = crowd.spawns.findIndex((s) => s[0] === B.spawn[0] && s[1] === B.spawn[1]);
+        if (!back.locked && i < 0) crowd.spawns.push(B.spawn); else if (back.locked && i >= 0) crowd.spawns.splice(i, 1);
+      }
+    }
   };
   const applyAll = () => {
     applyUpgrades(service, service.owned); home.sync(service.owned); applyProperty();
@@ -477,7 +485,7 @@ async function boot() {
   addEventListener('keyup', (e) => { if (arcadeOpen && arcade.key(e.code, false)) e.preventDefault(); });
   applyAll();
   service.onOpenShop = () => { if (shift.openShop()) { audio.doorBell(); } };
-  const WAKE = { x: 12.4, z: 2.4, yaw: 0.15 }; // in the bedroom, beside the futon, facing the bay
+  const WAKE = MAP.shop.wake; // in the bedroom, beside the futon
   const wakeUp = () => {
     if (player.seated) player.standUp();
     const k = coop && net ? Math.max(0, net.players.findIndex((p) => p.id === net.id)) : 0;
@@ -528,10 +536,9 @@ async function boot() {
   };
   service.onBuy = buyItem;
   const openCatalog = () => { catalogOpen = true; unlock(); if (touchUI || !document.pointerLockElement) setPlaying(false); };
-  interactions.add([9.25, 4.28, 3.7, 0.16, 0.06, 0.2], () => 'Read the catalog', openCatalog);
 
   // the little shrine on the west slope: bow twice, clap twice, bow once. Once a day the kami leave ¥100.
-  const SHRINE = { x: -7.6, z: 3.0 };
+  const SHRINE = MAP.shop.shrine;
   const guestBowed = new Map(); // co-op guests: pid -> the night they last bowed
   service.onBow = (pid) => {
     const day = save.night;
@@ -560,12 +567,12 @@ async function boot() {
     for (const c of [2.3, 2.65]) if (prev < c && t >= c) audio.clap();
     if (t >= BOW_LEN) { bowing = 0; updateBow.t = 0; player.nod = 0; player.frozen = false; service.request('bow'); }
   };
-  interactions.add([-7.45, 0.8, 3.0, 0.55, 0.7, 0.62], () => 'Bow at the shrine', bow, () => !bowing && !player.seated);
+  interactions.add(SHRINE.box, () => 'Bow at the shrine', bow, () => !bowing && !player.seated);
 
   // the OPEN / CLOSED sign in the front window by the door
   const signOpen = Props.openSign().mesh(litMat, emitMat), signClosed = Props.closedSign().mesh(litMat, emitMat);
-  for (const m of [signOpen, signClosed]) { m.position.set(14.9, 1.55, -3.07); scene.add(m); }
-  interactions.add([14.9, 1.7, -3.05, 0.32, 0.2, 0.14], () => (shift.waiting ? 'Turn the sign to OPEN' : shift.active ? 'Open until dawn' : 'Closed'), () => {
+  for (const m of [signOpen, signClosed]) { m.position.set(...MAP.shop.sign.pos); m.rotation.y = MAP.shop.sign.yaw || 0; scene.add(m); }
+  interactions.add(MAP.shop.sign.box, () => (shift.waiting ? 'Turn the sign to OPEN' : shift.active ? 'Open until dawn' : 'Closed'), () => {
     if (shift.waiting) { service.request('openShop'); audio.clickSound(); }
   });
 
@@ -682,7 +689,7 @@ async function boot() {
   try { notice = sessionStorage.getItem('yoake.notice'); sessionStorage.removeItem('yoake.notice'); } catch {}
   const joinCode = (new URLSearchParams(location.search).get('join') || '').toUpperCase();
   if (joinCode) { history.replaceState(null, '', location.pathname); menu.show('join', { code: joinCode, notice: null }); }
-  else if ((() => { try { const v = sessionStorage.getItem('yoake.parade'); sessionStorage.removeItem('yoake.parade'); return v; } catch { return null; } })()) {
+  else if (paradeNext) {
     menu.h.onResume = () => startParade();
     menu.show('ready', { readyNote: 'the snow is falling. something is coming up out of it', readyTitle: '百鬼夜行', readyItem: 'rise again' });
   }
@@ -699,16 +706,11 @@ async function boot() {
     }, () => !seat.occupant && !player.seated && !moving);
   }
   for (const seat of batch.homeSeats) addSitSpot(seat, 'Sit at the kotatsu', 'toes under the quilt. warm. · walk to stand up');
-  interactions.add([13.6, 3.95, 3.3, 0.5, 0.2, 1.0], () => 'Lie down for a minute', () => {
-    audio.purr(); toast(shift.waiting ? "you're wide awake. the shop is waiting." : shift.active ? 'just a minute… then back down to the shop.' : 'the futon is still warm.');
-  });
-  interactions.add([12.5, 4.8, 8.1, 0.2, 0.15, 0.22], () => 'Put the kettle on', () => { audio.pour(); toast('a cup of hojicha, just for you.'); });
-  interactions.add([12.0, 4.2, 4.3, 0.22, 0.45, 0.22], () => 'Andon lamp', () => { const l = named.aptBed; l.mul = l.mul > 0.5 ? 0.15 : 1; audio.clickSound(); });
 
   // the telescope at the front window: you put your eye to the eyepiece and it swings round to Fuji. A round brass
   // field of view, a narrow lens; the mouse pans it slowly, walking steps back.
   let zoom = false, aimFuji = 0;
-  const fujiAt = new THREE.Vector3(FUJI.x, FUJI.y + 118, FUJI.z); // the snowy top of the cone
+  const fujiAt = new THREE.Vector3(...MAP.view.scope); // what the telescope swings round to
   home.onTelescope = () => { zoom = true; aimFuji = 1.2; document.body.classList.add('scope'); audio.clickSound(); };
   const scopeOff = () => { zoom = false; document.body.classList.remove('scope'); };
 
@@ -723,7 +725,7 @@ async function boot() {
     service.held.visible = false; crowd.auto = false; crowd.clearAll();
     frontDoor.stuck = true;
     parade = new Parade({ scene, camera, player, world, interactions, audio, toast, litMat, emitMat, glassMat, composer, snowPile,
-      doors: { front: frontDoor, kitchen: kitchenDoor, restA: restDoorA, restB: restDoorB, back: backDoor, freezer: freezerDoor, kura: kuraDoor },
+      doors: D,
       allDoors: doors, glass: glassPanes, lamps, hud: $('zm'),
       onQuit: () => location.reload(),
       onAgain: () => { try { sessionStorage.setItem('yoake.parade', '1'); } catch {} location.reload(); } });
@@ -753,7 +755,7 @@ async function boot() {
 
   // ---------------------------------------------------------------- loop
   let indoor = 1, last = performance.now(), time = 0, dawn = 0, purseT = 0;
-  const radioPos = new THREE.Vector3(4.3, 1.2, 9.75); // the radio on the back bar
+  const radioPos = new THREE.Vector3(...MAP.shop.radio); // the shop's radio
   const sunV = new THREE.Vector3(), haze = new THREE.Color(), wind = new THREE.Vector2();
   const mats = backdrop.userData.mats;
 
@@ -887,7 +889,7 @@ async function boot() {
     grade.uniforms.time.value = time;
 
     audio.update(dt, {
-      indoor, listener: camera.position, musicDist: Math.min(camera.position.distanceTo(radioPos), home.recordOn ? camera.position.distanceTo(home.recordPos) : Infinity), sizzleDist: Math.hypot(p.x - 10.15, p.z - 15.2), gust, dawn,
+      indoor, listener: camera.position, musicDist: Math.min(camera.position.distanceTo(radioPos), home.recordOn ? camera.position.distanceTo(home.recordPos) : Infinity), sizzleDist: Math.hypot(p.x - MAP.shop.sizzle[0], p.z - MAP.shop.sizzle[1]), gust, dawn,
     });
 
     if (innerWidth && innerHeight) composer.render(dt);
@@ -895,7 +897,7 @@ async function boot() {
   }
   requestAnimationFrame(tick);
   window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home, arcade,
-    get coop() { return coop; }, get net() { return net; }, get parade() { return parade; }, startParade, get dawn() { return dawn; }, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
+    get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
 }
 
 boot().catch((e) => { console.error(e); status('something spilled: ' + e.message); });
