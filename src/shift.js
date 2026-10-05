@@ -56,7 +56,7 @@ export class Shift {
     const count = Math.min(5, 2 + n), first = 8, last = LAST_CALL - 50;
     this.waves = Array.from({ length: count }, (_, i) => ({
       at: first + (count > 1 ? i * (last - first) / (count - 1) : 0),
-      size: Math.min(9, 2 + Math.floor(n / 2) + i),
+      size: Math.min(9, 2 + Math.floor(n / 2) + i) + (s.extraGuests || 0), // the back door brings a few more
       name: WAVE_NAMES[(i + n - 1) % WAVE_NAMES.length],
     }));
     this.pending = []; this.waveIdx = 0;

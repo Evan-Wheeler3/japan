@@ -12,9 +12,10 @@ export const MENU = {
   onigiri: { name: 'Onigiri', price: 350 },    // these three are bought from the catalog
   tempura: { name: 'Tempura', price: 900 },
   ramen: { name: 'Miso ramen', price: 1100 },
+  icecream: { name: 'Matcha ice cream', price: 450 }, // once the walk-in freezer is running
 };
 // how often each dish is ordered, when it's on the menu
-const FOOD_WEIGHT = { yakitori: 0.3, sushi: 0.22, gyoza: 0.2, onigiri: 0.16, tempura: 0.16, ramen: 0.18 };
+const FOOD_WEIGHT = { yakitori: 0.3, sushi: 0.22, gyoza: 0.2, onigiri: 0.16, tempura: 0.16, ramen: 0.18, icecream: 0.14 };
 const NAMES = ['a tired salaryman', 'the ski instructor', 'two snowboarders', 'a night-shift nurse', 'the old fisherman', 'a ferry deckhand',
   'an onsen tourist', 'the snowplow driver', 'a poet in a long scarf', 'a nervous first date', 'the shrine caretaker', 'a student up late cramming',
   'the mountain hut keeper', 'a long-haul trucker', 'the baker from the village', 'an off-duty taxi driver'];
@@ -75,6 +76,11 @@ function plateModel(food) {
     m.box(3, 5, 3, 5, 6, 5, C('#f0e8d8', 0, 0.03)); m.set(3, 5, 4, C('#f2c840', 0, 0.04)); // egg
     m.box(5, 5, 5, 7, 6, 7, C('#d89a8a', 0, 0.05)); m.set(6, 5, 3, C('#3a8a3a', 0, 0.06)); m.set(4, 5, 6, C('#1b2a1a', 0, 0.05));
   }
+  if (food === 'icecream') {
+    m.cyl(5, 5, 2.6, 1, 3, C('#d8e8f0', 0, 0.03), 1.8); m.cyl(5, 5, 2.0, 1, 2, C('#d8e8f0', 0, 0.03));   // a little glass dish
+    m.cyl(5, 5, 1.9, 3, 5, (x, y) => (y === 4 ? C('#9ac860', 0, 0.05) : C('#7ab040', 0, 0.06))); m.set(5, 5, 5, C('#7ab040', 0, 0.06));
+    m.set(7, 1, 7, C('#e8d8b0', 0, 0.04)); m.set(7, 1, 8, C('#e8d8b0', 0, 0.04));                         // a wafer
+  }
   if (food === 'dirty') { m.set(4, 1, 4, C('#8a5a2a', 0, 0.1)); m.set(6, 1, 5, C('#6a3a1a', 0, 0.1)); m.set(5, 1, 6, C('#a8703a', 0, 0.1)); m.set(3, 1, 6, C('#c8b070', 0, 0.1)); }
   return m;
 }
@@ -126,6 +132,9 @@ function drawIcon(g, ic) {
       g.fillStyle = '#f08a5a'; g.beginPath(); g.moveTo(-6, -22); g.lineTo(0, -32); g.lineTo(6, -22); g.fill();
       g.restore();
     }
+  } else if (ic === 'icecream') {
+    g.fillStyle = '#d8e8f0'; g.strokeStyle = '#3a2a20'; g.lineWidth = 4; g.beginPath(); g.moveTo(-24, 6); g.lineTo(24, 6); g.lineTo(14, 26); g.lineTo(-14, 26); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#8ac050'; for (const [x, y, r] of [[-10, -2, 13], [10, -2, 13], [0, -16, 13]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke(); }
   } else if (ic === 'ramen') {
     g.fillStyle = '#8a2a20'; g.strokeStyle = '#2a1a10'; g.lineWidth = 4;
     g.beginPath(); g.moveTo(-30, -4); g.lineTo(30, -4); g.quadraticCurveTo(26, 26, 0, 26); g.quadraticCurveTo(-26, 26, -30, -4); g.fill(); g.stroke();
@@ -484,6 +493,11 @@ export class Service {
         if (!this.has('plate')) return T('grab a clean plate first');
         this.takeHand('plate'); this.hold({ type: 'sushi' }); this.sfx('clickSound');
       },
+      icecream: () => {
+        if (!this.menuKinds.has('icecream')) return;
+        if (!this.has('plate')) return T('grab a clean plate first');
+        this.takeHand('plate'); this.hold({ type: 'icecream' }); this.sfx('clickSound');
+      },
       onigiri: () => {
         if (!this.menuKinds.has('onigiri')) return;
         if (!this.has('plate')) return T('grab a clean plate first');
@@ -559,6 +573,8 @@ export class Service {
     I.add([6.3, 1.45, 9.65, 0.55, 0.45, 0.25], () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn'), null, shape('urns'));
     // the sushi case on the plating station, right by the belt
     I.add([13.1, 1.3, 10.98, 0.42, 0.2, 0.2], () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi'), null, shape('sushi'));
+    // the chest freezer in the walk-in: matcha ice cream, once it's running
+    I.add([17.35, 1.05, 10.85, 0.6, 0.15, 0.38], () => (this.has('plate') ? 'Scoop a matcha ice cream' : 'Chest freezer (grab a clean plate for ice cream)'), R('icecream'), () => this.menuKinds.has('icecream'));
     // the rice cookers: onigiri, once they're on the menu
     I.add([11.74, 1.3, 10.98, 0.4, 0.2, 0.2], () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri'), () => this.menuKinds.has('onigiri'), shape('rice'));
     // the sushi belt: put finished dishes on it (in the kitchen, in the well or anywhere along it), or take one off

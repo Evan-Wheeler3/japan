@@ -584,13 +584,24 @@ const exitSign = memo(() => board(['EXIT'], 1 / 40, C('#0a3a1a', 0, 0.03), C('#5
 // a door panel, hinge (or leading edge, for a sliding door) at local x 0
 const doorCache = {};
 export const swingDoor = (kind) => doorCache[kind] || (doorCache[kind] = (() => {
-  const w = kind === 'kitchen' ? 18 : 16, h = 34;
+  const w = { kitchen: 18, exit: 20, freezer: 20, kura: 24 }[kind] || 16, h = kind === 'kura' ? 34 : 34;
   const m = new Model(w, h, 1, 1 / 16, [0, 0, 0.5]);
   const face = kind === 'kitchen' ? C('#a8aeb4', 0, 0.04) : C('#6a4428', 0, 0.06), kick = kind === 'kitchen' ? K.chromeD : C('#4a2c18', 0, 0.05);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     let c = face;
     if (y < 4) c = kick;
-    if (kind === 'kitchen') { const d = Math.hypot(x + 0.5 - w / 2, y + 0.5 - 24); if (d < 3) c = C('#ffe8c0', 1.4, 0.04); else if (d < 4) c = K.chrome; }
+    if (kind === 'exit') { // a grey steel back door with a push bar
+      c = x === 0 || x === w - 1 || y === h - 1 ? C('#5a5e64', 0, 0.04) : C('#7a7e84', 0, 0.04);
+      if (y === 17 && x > 2 && x < w - 3) c = K.chrome;
+    } else if (kind === 'freezer') { // a fat insulated door with a little frosted window and a big handle
+      c = x === 0 || x === w - 1 || y === 0 || y === h - 1 ? C('#8c9298', 0, 0.04) : C('#c8ccd0', 0, 0.03);
+      if (y > 22 && y < 28 && x > 6 && x < 13) c = C('#b8d8f0', 0.6, 0.05);
+      if (x === w - 3 && y > 14 && y < 20) c = K.chromeD;
+    } else if (kind === 'kura') { // the kura's heavy plank door, studded with iron
+      c = (x >> 2) & 1 ? C('#3a2416', 0, 0.06) : C('#2e1c10', 0, 0.06);
+      if ((y === 8 || y === 26) && x % 3 === 1) c = K.black;
+      if (y === 7 || y === 9 || y === 25 || y === 27) c = C('#1c1c1e', 0, 0.04);
+    } else if (kind === 'kitchen') { const d = Math.hypot(x + 0.5 - w / 2, y + 0.5 - 24); if (d < 3) c = C('#ffe8c0', 1.4, 0.04); else if (d < 4) c = K.chrome; }
     else { // a sliding koshi door: slats over paper above, a plain board below
       if (y >= 14 && y < h - 2) c = x % 2 ? C('#efe4cc', 0.2, 0.03) : C('#5a3820', 0, 0.05);
       if (x === 0 || x === w - 1 || y === 4 || y === 13 || y === 14 || y >= h - 2) c = C('#4a2c18', 0, 0.05);
@@ -600,6 +611,53 @@ export const swingDoor = (kind) => doorCache[kind] || (doorCache[kind] = (() => 
   }
   return m;
 })());
+
+// ---------------------------------------------------------------- the walk-in freezer and the kura
+// steel shelving with frosted boxes and wrapped fish (faces -z, against a wall at +z)
+export const freezerShelf = memo(() => {
+  const m = new Model(30, 32, 7, 1 / 16);
+  const goods = ['#e8eef4', '#c8302a', '#f0c860', '#7a9ab8', '#e8e0d0', '#5a7a5a'].map((h) => C(h, 0, 0.06));
+  for (const x of [0, 29]) m.box(x, 0, 0, x + 1, 32, 7, K.chromeD);
+  for (const y of [1, 11, 21, 31]) {
+    m.box(0, y, 0, 30, y + 1, 7, K.chrome);
+    if (y < 31) for (let x = 1; x < 29; x += 4) if (hash01(x, y, 2) > 0.2) m.box(x, y + 1, 1, x + 3, y + 3 + Math.floor(hash01(x, y, 3) * 4), 6, goods[Math.floor(hash01(x, y, 4) * 5.99)]);
+  }
+  return m;
+});
+// a chest freezer for the ice cream: white, a frosty lid, tubs of matcha inside the glass
+export const chestFreezer = memo(() => {
+  const m = new Model(18, 14, 11, 1 / 16);
+  m.box(0, 0, 0, 18, 13, 11, (x, y) => (y === 0 ? K.chromeD : K.white));
+  m.box(1, 13, 1, 17, 14, 10, (x, z) => C('#b8d8f0', 0.35, 0.05));
+  for (const x of [3, 8, 13]) m.box(x, 12, 3, x + 3, 13, 8, C('#7ab040', 0, 0.05));
+  m.box(7, 9, 0, 11, 10, 1, K.chrome);
+  return m;
+});
+// a sake barrel (taru) in a straw jacket with a painted label
+export const sakeTaru = memo(() => {
+  const m = new Model(10, 12, 10, 1 / 16);
+  m.cyl(5, 5, 4.8, 0, 12, (x, y, z, a) => (y === 0 || y === 11 ? K.woodD : y === 3 || y === 9 ? C('#2a2a2a', 0, 0.04) : Math.abs(a + Math.PI / 2) < 0.5 && y > 4 && y < 8 ? C('#c8302a', 0, 0.05) : C('#d8c48a', 0, 0.07)));
+  return m;
+});
+// a rack of brown sake bottles (faces -z)
+export const sakeRack = memo(() => {
+  const m = new Model(24, 28, 6, 1 / 16);
+  for (const x of [0, 23]) m.box(x, 0, 0, x + 1, 28, 6, K.woodD);
+  for (const y of [0, 9, 18, 27]) {
+    m.box(0, y, 0, 24, y + 1, 6, K.wood);
+    if (y < 27) for (let x = 2; x < 22; x += 2) { m.box(x, y + 1, 2, x + 1, y + 6, 4, C('#5a2a18', 0.15, 0.06)); m.set(x, y + 6, 3, C('#e8e0d0', 0, 0.03)); }
+  }
+  return m;
+});
+// the drift heaped against the back door until you dig it out
+export const snowPile = memo(() => {
+  const m = new Model(28, 12, 14, 1 / 16);
+  for (let x = 0; x < 28; x++) for (let z = 0; z < 14; z++) {
+    const h = Math.round(11 * (1 - Math.pow(Math.abs(x - 13.5) / 14, 2)) * (1 - z / 16) + hash01(x, z, 9) * 1.5);
+    for (let y = 0; y < h; y++) m.set(x, y, z, y === h - 1 ? K.snow : K.snow2);
+  }
+  return m;
+});
 
 // ---------------------------------------------------------------- kitchen
 const st = C('#a8aeb4', 0, 0.05), stD = C('#7c8288', 0, 0.05), grate = C('#1e1e20', 0, 0.04);
@@ -907,6 +965,14 @@ export function placeProps(batch) {
   for (let z = 7.9, k = 3; z < 9.6; z += 0.75, k++) batch.add(prints[k % 10](), 15.74, 2.0, z, 1, false);
   for (let z = 0.6, k = 5; z < 1.6; z += 0.7, k++) batch.add(prints[k % 10](), 15.74, 2.2, z, 1, false);
   batch.add(prints[2](), 0.26, 2.5, 9.2, 3, false);
+
+  // ================= the walk-in freezer and the kura (both opened up from the catalog)
+  batch.add(freezerShelf(), 17.2, 0.25, 12.78, 0);
+  batch.add(chestFreezer(), 17.35, 0.25, 10.85, 2);
+  for (let i = 0; i < 7; i++) batch.add(sakeTaru(), 21.85 + i * 0.7, 0.5, 8.3, 0);           // barrels along the back wall
+  for (let i = 0; i < 6; i++) batch.add(sakeTaru(), 22.2 + i * 0.7, 1.25, 8.3, 0, false);   // and a second tier on top
+  batch.add(sakeRack(), 21.47, 0.5, 5.5, 3); batch.add(sakeRack(), 26.53, 0.5, 5.5, 1);
+  batch.add(chochin(6, 'red'), 24.0, 3.1, 5.5, 0, false);
 
   // ================= outside
   const S = 0.125;

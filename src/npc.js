@@ -115,12 +115,19 @@ export class NavGrid {
     Object.assign(this, { x0, z0, cell });
     this.w = Math.ceil((x1 - x0) / cell); this.h = Math.ceil((z1 - z0) / cell);
     this.ok = new Uint8Array(this.w * this.h);
-    for (let j = 0; j < this.h; j++) for (let i = 0; i < this.w; i++) {
-      const cx = x0 + (i + 0.5) * cell, cz = z0 + (j + 0.5) * cell;
+    this.test = (cx, cz) => {
       let good = world.solid(cx, 0.06, cz); // sidewalk or floor under foot (not the street)
       for (const [dx, dz] of [[0, 0], [0.2, 0], [-0.2, 0], [0, 0.2], [0, -0.2]]) for (const y of [0.6, 1.05, 1.55])
         if (good && world.solid(cx + dx, y, cz + dz)) good = false;
-      this.ok[j * this.w + i] = good ? 1 : 0;
+      return good;
+    };
+    for (let j = 0; j < this.h; j++) for (let i = 0; i < this.w; i++) this.ok[j * this.w + i] = this.test(x0 + (i + 0.5) * cell, z0 + (j + 0.5) * cell) ? 1 : 0;
+  }
+  // shut a doorway to walkers (a locked door), or open it again: [x0, x1, z0, z1]
+  setBlocked([x0, x1, z0, z1], blocked) {
+    for (let j = 0; j < this.h; j++) for (let i = 0; i < this.w; i++) {
+      const cx = this.x0 + (i + 0.5) * this.cell, cz = this.z0 + (j + 0.5) * this.cell;
+      if (cx > x0 && cx < x1 && cz > z0 && cz < z1) this.ok[j * this.w + i] = !blocked && this.test(cx, cz) ? 1 : 0;
     }
   }
   idx(x, z) { const i = Math.floor((x - this.x0) / this.cell), j = Math.floor((z - this.z0) / this.cell); return (i < 0 || j < 0 || i >= this.w || j >= this.h) ? -1 : j * this.w + i; }
@@ -183,7 +190,7 @@ export class NavGrid {
 export class Crowd {
   constructor({ scene, world, seats, doors, litMat, emitMat, audio, player, inside }) {
     Object.assign(this, { scene, world, seats, doors, litMat, emitMat, audio, player, inside });
-    this.nav = new NavGrid(world, -1.5, -5.0, 34, 16);
+    this.nav = new NavGrid(world, -1.5, -5.0, 34, 17.5);
     this.people = [];
     this.nextId = 1;
     this.others = []; // other players' positions (co-op), so customers step around them too

@@ -74,6 +74,10 @@ The **catalog** on the kotatsu sells, for the yen in your cash box:
   (faster yakitori and gyoza); more cups and plates; kerosene heaters (guests wait longer); a drinks fridge (a
   bottle on every bill, ¥250). Each of those five upgrades has a second level once you own the first (the
   fridge's is a sake warmer, another ¥350 a bill).
+- **for the property:** dig out the hall's back door (guests come in from the shrine path too: one more in every
+  rush), get the walk-in freezer off the kitchen running (matcha ice cream on the menu, scooped from the chest
+  freezer inside), and, once the back door's open, restore the old kura across the yard as your sake cellar (house
+  sake on every bill).
 - **for home:** paper lanterns, houseplants, a bonsai, a big woodblock print, a cat bed (a black cat moves
   in), a goldfish tank, a record player, a brass telescope at the front window (put your eye to it and it swings round to Fuji), and an
   irori hearth to sit by, a CRT television, and a Fami-Com console that plugs into it.

@@ -165,6 +165,7 @@ export class Menu {
         ${items([['resume', 'put it down', true]])}</div>
         <div class="look glass catalog"><div class="scroll">
           <section><div class="lbl">for the shop</div>${c.items.filter((i) => i.kind === 'shop').map(row).join('')}</section>
+          <section><div class="lbl">for the property</div>${c.items.filter((i) => i.kind === 'property').map(row).join('')}</section>
           <section><div class="lbl">for home</div>${c.items.filter((i) => i.kind === 'home').map(row).join('')}</section>
           <section><div class="lbl">for the fami-com</div>${c.items.filter((i) => i.kind === 'games').map(row).join('')}</section>
         </div></div>`;

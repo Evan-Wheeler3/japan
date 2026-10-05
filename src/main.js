@@ -114,14 +114,22 @@ async function boot() {
   const doors = [];
   const frontDoor = new Door(door, { hinge: { x: L.door.hinge, z: L.door.z }, plusDir: [0, -1], max: 1.6, block: [12.75, 14.0, -3.375, -3.125], bell: true, slide: 1.12 });
   doors.push(frontDoor);
-  const addDoor = (kind, hx, hz, base, plusDir, block, slide = null) => {
+  const addDoor = (kind, hx, hz, base, plusDir, block, slide = null, slideDist = 0.95, y = L.floor) => {
     const mesh = Props.swingDoor(kind).mesh(litMat, emitMat);
-    mesh.position.set(hx, L.floor, hz); mesh.rotation.y = base; scene.add(mesh);
-    const d = new Door(mesh, { hinge: { x: hx, z: hz }, base, plusDir, max: 1.45, block, ...(slide ? { slide: 0.95, slideDir: slide } : {}) }); doors.push(d); return d;
+    mesh.position.set(hx, y, hz); mesh.rotation.y = base; scene.add(mesh);
+    const d = new Door(mesh, { hinge: { x: hx, z: hz }, base, plusDir, max: 1.45, block, ...(slide ? { slide: slideDist, slideDir: slide } : {}) }); doors.push(d); return d;
   };
   const kitchenDoor = addDoor('kitchen', 14.0, 10.0625, 0, [0, -1], [14.0, 15.125, 9.875, 10.25]);
   const restDoorA = addDoor('restroom', 1.8125, 11.0, -Math.PI / 2, [1, 0], [1.75, 2.0, 11.0, 12.0], [0, 1]);   // slide along into the wall
   const restDoorB = addDoor('restroom', 1.8125, 13.75, -Math.PI / 2, [1, 0], [1.75, 2.0, 13.75, 14.75], [0, 1]);
+  // three doors that open up as the place grows: the hall's back door, the walk-in freezer, the old kura
+  const backDoor = addDoor('exit', 0.375, 15.6875, 0, [0, 1], [0.375, 1.625, 15.625, 16.0]);
+  const freezerDoor = addDoor('freezer', 15.6875, 11.0, -Math.PI / 2, [1, 0], [15.625, 16.125, 11.0, 12.25]);
+  const kuraDoor = addDoor('kura', 23.25, 2.9375, 0, [0, -1], [23.25, 24.75, 2.875, 3.25], [-1, 0], 1.45, 0.5);
+  backDoor.locked = freezerDoor.locked = kuraDoor.locked = true;
+  backDoor.lockedText = ['Back door (snowed shut)', "a wall of snow on the other side. (the catalog: dig out the back door)"];
+  freezerDoor.lockedText = ['Walk-in freezer (switched off)', "the old walk-in's been off for years. (the catalog: get it running)"];
+  kuraDoor.lockedText = ['The old kura (boarded up)', "the storehouse is full of junk and cobwebs. (the catalog: restore it)"];
   world.blockers = doors;
 
   // shoji panels in the partition: paper with a kumiko lattice, drawn once to a canvas
@@ -225,9 +233,13 @@ async function boot() {
     [kitchenDoor, 'kitchen door'],
     [restDoorA, 'restroom door'],
     [restDoorB, 'restroom door'],
+    [backDoor, 'back door'],
+    [freezerDoor, 'freezer door'],
+    [kuraDoor, 'kura door'],
   ].entries()) {
     d.onAutoClose = () => audio.doorSound(false, d.slide);
-    interactions.add(() => d.box(), () => (d.open ? 'Close the ' : 'Open the ') + name, () => {
+    interactions.add(() => d.box(), () => (d.locked ? d.lockedText[0] : (d.open ? 'Close the ' : 'Open the ') + name), () => {
+      if (d.locked) { audio.rattle(); toast(d.lockedText[1]); return; }
       if (d.open && d.playerInDoorway(player.pos)) { toast('step out of the doorway first'); return; }
       if (coop && coop.door(di)) return;
       const r = d.toggle(player.pos);
@@ -268,8 +280,6 @@ async function boot() {
     audio.vend(); toast(`${cans[Math.floor(Math.random() * cans.length)]} · +25% speed for 2 minutes`);
   });
   interactions.add([12.3, 1.12, -3.0, 0.28, 0.16, 0.16], () => 'Pet the cat', () => { audio.purr(); toast('she stretches one paw. purrrr.'); });
-  interactions.add([1.0, 1.2, 15.65, 0.65, 1.0, 0.15], () => 'Back door', () => { audio.rattle(); toast("it's snowed shut. the front door it is."); });
-  interactions.add([15.68, 1.25, 11.6, 0.12, 1.0, 0.62], () => 'Walk-in cooler', () => { audio.rattle(); toast("brr. it's colder outside anyway."); });
 
   // ---------------------------------------------------------------- customers + seats
   const isInside = (x, z) => x > L.inside.x0 && x < L.inside.x1 && z > L.inside.z0 && z < L.inside.z1;
@@ -394,8 +404,18 @@ async function boot() {
   };
   menu.devYen = !!save.devYen;
   addEventListener('keydown', (e) => { if (e.code === 'Backquote' && !arcadeOpen) setDevYen(!save.devYen); });
+  // the drift against the back door, until you dig it out
+  const snowPile = Props.snowPile().mesh(litMat, emitMat); snowPile.position.set(1.0, 0.125, 16.55); scene.add(snowPile);
+  const applyProperty = () => {
+    const has = (id) => service.owned.includes(id);
+    backDoor.locked = !has('backdoor'); freezerDoor.locked = !has('freezer'); kuraDoor.locked = !has('kura');
+    snowPile.visible = backDoor.locked;
+    crowd.nav.setBlocked([0.25, 1.75, 15.4, 16.6], backDoor.locked);   // guests can't come through a door that's shut
+    const back = [1.0, 17.0], i = crowd.spawns.findIndex((s) => s[1] > 16.5);
+    if (!backDoor.locked && i < 0) crowd.spawns.push(back); else if (backDoor.locked && i >= 0) crowd.spawns.splice(i, 1);
+  };
   const applyAll = () => {
-    applyUpgrades(service, service.owned); home.sync(service.owned);
+    applyUpgrades(service, service.owned); home.sync(service.owned); applyProperty();
     arcade.owned = ownedGames(service.owned);
     if (home.tvOn && arcade.mode === 'tv' && service.owned.includes('famicom')) arcade.setPower(true, true);
     if (catalogOpen && !player.locked) menu.show('catalog', { catalog: catalogData() });

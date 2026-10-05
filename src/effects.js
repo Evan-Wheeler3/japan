@@ -287,7 +287,7 @@ export function makeBackdrop() {
   // The terrain stays buried under the whole voxel lot (the shop sits on it) and only starts to rise once
   // it's clear of the lot's edges; vertices every 5 m so it can't slope up through a wall between them. Near the
   // cliff edge it eases back down to the cliff top, so the slopes either side run down to the sea, not off a ledge.
-  const LOT = { x0: -16, x1: 36, z1: 16 };
+  const LOT = { x0: -16, x1: 36, z1: 18 }; // the voxel lot (it reaches 2 m behind the shop)
   const back = new THREE.PlaneGeometry(900, 500, 180, 100);
   back.rotateX(-Math.PI / 2);
   const p = back.attributes.position, hgt = [];

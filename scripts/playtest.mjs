@@ -65,6 +65,15 @@ try {
   await page.keyboard.press('Backquote');
   check(st.dev && st.spent === 0 && st.owned && !(await page.evaluate(() => window.__yoake.save.devYen)), 'the dev switch buys for free and toggles back off');
   check(st.drink === 250, 'the drinks fridge puts ¥250 on every bill');
+  // ---- the property: the back door, the walk-in freezer and the kura open up from the catalog
+  st = await page.evaluate(() => {
+    const d = window.__yoake, locked = () => d.doors.slice(-3).map((x) => x.locked);
+    const before = locked();
+    d.save.devYen = true; for (const id of ['backdoor', 'freezer', 'kura']) d.menu.h.onBuy(id); d.save.devYen = false;
+    return { before, after: locked(), ice: d.service.menuKinds.has('icecream'), drink: d.service.drinkBill, extra: d.service.extraGuests, back: d.crowd.spawns.some((sp) => sp[1] > 16.5) };
+  });
+  check(st.before.every(Boolean) && st.after.every((l) => !l) && st.ice && st.drink === 650 && st.extra === 1 && st.back,
+    'digging out the back door, fixing the freezer and restoring the kura open their doors, add ice cream, house sake and more guests');
 
   // ---- the shrine: walk out past the old border, bow, and the kami leave ¥100 once a day
   const bowAt = () => page.evaluate(() => {
@@ -169,7 +178,7 @@ try {
       for (const k of want) {
         if (need(k) <= 0) continue;
         if (k === 'tea') { if (s.stock.mugs > 0) { act('mug'); act('urn'); return; } continue; }
-        if (k === 'sushi' || k === 'onigiri') { if (s.stock.plates > 0) { act('plate'); act(k); return; } continue; }
+        if (k === 'sushi' || k === 'onigiri' || k === 'icecream') { if (s.stock.plates > 0) { act('plate'); act(k); return; } continue; }
         const idx = s.stations.map((x, i) => i).filter((i) => s.stations[i].kind === k);
         const ready = idx.find((i) => s.stations[i].state === 'ready');
         if (ready !== undefined && s.stock.plates > 0) { act('plate'); act('station', ready); return; }

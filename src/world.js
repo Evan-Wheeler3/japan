@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Grid, C, rng, hash3, hash01, meshVoxels, glyphPixels, textWidth } from './voxel.js';
 
 export const VS = 0.125, OX = -16, OY = -0.25, OZ = -16;
-export const SX = 416, SY = 132, SZ = 256;
+export const SX = 416, SY = 132, SZ = 272; // to z 18: a strip of yard behind the shop
 
 // Key layout numbers (meters) shared by other modules
 export const L = {
@@ -15,7 +15,7 @@ export const L = {
   inside: { x0: 0.25, x1: 15.75, z0: -3.125, z1: 15.75 },
   door: { x0: 12.75, x1: 14.0, z: -3.25, hinge: 12.8125, h: 2.625 },
   cliff: -11.25,          // the lot ends here; below is the sea
-  bounds: { x0: -11.25, x1: 33.0, z0: -10.4, z1: 15.5 },
+  bounds: { x0: -11.25, x1: 33.0, z0: -10.4, z1: 17.3 },
   roofDry: [[-0.75, 16.75, -4.0, 16.5], [20.5, 27.5, 2.5, 9.5], [-9.25, -6.75, 1.0, 3.0]], // no snow falls under these
 };
 
@@ -102,7 +102,7 @@ export function buildWorld(W) {
 
   // ------------------------------------------------------------ ground: snow over earth, a flagstone path along the front
   const top = Y(0.125) - 1;
-  B(-16, -0.25, L.cliff, 36, 0.125, 16, (x, y, z) => (y < top ? P.earth : snowAt(x, z)));
+  B(-16, -0.25, L.cliff, 36, 0.125, 18, (x, y, z) => (y < top ? P.earth : snowAt(x, z)));
   const isPath = (x, z) => {
     const px = mx(x), pz = mz(z);
     if (pz > -5.125 && pz < -3.375) return true;                  // along the front of the shop
@@ -127,6 +127,9 @@ export function buildWorld(W) {
     if (px > 18.4 && px < 20.0 && pz > -3.5 && pz < -1.8) continue; // the vending machine stands here
     if (px > 15.9 && px < 18.0 && pz > -1.5 && pz < 8.5) continue;  // dug out around the apartment stairs
     if (px > 15.7 && px < 18.3 && pz > -3.6 && pz < -0.3) continue; // and a shovelled way to them from the front path
+    if (px > -0.6 && px < 2.6 && pz > 15.9) continue;                 // outside the back door
+    if (px > 15.9 && px < 18.5 && pz > 10.1 && pz < 13.4) continue; // the freezer annex
+    if (px > 22.4 && px < 25.6 && pz > 0.8 && pz < 3.0) continue;    // before the kura's door
     let h = Math.floor((vnoise(x, z, 14, 5) * 0.7 + vnoise(x, z, 5, 6) * 0.3 - 0.42) * 7);
     const nearWall = (px > -1.0 && px < 17.0 && pz > -4.25 && pz < 16) || (px > 20.25 && px < 27.75 && pz > 2.25 && pz < 9.75);
     if (nearWall) h += 2;
@@ -380,8 +383,10 @@ export function buildWorld(W) {
     B(2.0, 0.25, 13.0, 4.875, 3.0, 13.125, (x, y, z) => wallFinish('rest', x, y));
     B(4.875, 0.25, 10.25, 5.0, 3.0, 15.75, (x, y, z) => wallFinish('rest', z, y));
     B(5.0, 0.25, 10.25, 5.125, 3.0, 15.75, (x, y, z) => wallFinish('kitchen', z, y));
-    // hallway end: back exit door with push bar
-    B(0.375, 0.25, 15.625, 1.625, 2.25, 15.75, (x, y) => (y === Y(1.1) ? P.chrome : (x === X(0.375) || x === X(1.625) - 1 || y === Y(2.25) - 1) ? P.steelD : C('#7a7e84', 0, 0.04)));
+    // hallway end: the back door (a door panel in main.js; snowed shut until you dig it out), a step outside
+    B(0.375, 0.25, 15.625, 1.625, 2.25, 16.0, 0);
+    B(0.25, 0.25, 15.625, 0.375, 2.375, 16.0, P.steelD); B(1.625, 0.25, 15.625, 1.75, 2.375, 16.0, P.steelD); B(0.25, 2.25, 15.625, 1.75, 2.375, 16.0, P.steelD);
+    B(0.25, 0.125, 16.0, 1.75, 0.25, 16.5, P.stoneL);
     // square washi ceiling lamps in the restrooms and the hall
     const washi = (x0, z0, s) => B(x0, 2.875, z0, x0 + s, 3.0, z0 + s, (x, y, z) => (x === X(x0) || z === Z(z0) || x === X(x0 + s) - 1 || z === Z(z0 + s) - 1 ? P.timberD : C('#ffe2b0', 1.6, 0.04)));
     for (const lz of [11.375, 14.125]) washi(3.125, lz, 0.75);
@@ -402,14 +407,9 @@ export function buildWorld(W) {
       B(5.25, 0.75, a, 5.75, 0.875, b, 0);
       B(5.25, 0.625, a, 5.75, 0.75, b, C('#7a9aa8', 0, 0.06));
     }
-    // walk-in cooler door on the east wall
-    B(15.625, 0.25, 11.0, 15.75, 2.25, 12.25, (x, y, z) => {
-      const ly = y - Y(0.25), lz = z - Z(11.0);
-      if (lz === 0 || lz === 9 || ly === 15) return P.steelD;
-      if (lz === 1 && ly > 6 && ly < 9) return P.chrome;
-      if (ly > 9 && ly < 13 && lz > 3 && lz < 7) return C('#b8d8f0', 0.7, 0.05);
-      return C('#b8bec4', 0, 0.04);
-    });
+    // the walk-in freezer's doorway on the east wall (the door is a panel in main.js, shut until you get it running)
+    B(15.75, 0.25, 11.0, 16.125, 2.25, 12.25, 0);
+    B(15.625, 0.25, 10.875, 15.75, 2.375, 11.0, P.steelD); B(15.625, 0.25, 12.25, 15.75, 2.375, 12.375, P.steelD); B(15.625, 2.25, 10.875, 15.75, 2.375, 12.375, P.steelD);
     // dry storage rack
     {
       const goods = ['#c83a2a', '#e8e4d8', '#8a6a44', '#e8c040', '#3a6a3a', '#e8e8e8'].map((h) => C(h, 0, 0.1));
@@ -652,8 +652,18 @@ export function buildWorld(W) {
     B(x0, 0.5, z0, x0 + 0.25, 4.0, z1, (x, y, z) => wall(z, y));
     B(x1 - 0.25, 0.5, z0, x1, 4.0, z1, (x, y, z) => wall(z, y));
     // heavy door and a small shuttered window facing the path
-    B(23.25, 0.5, z0 - 0.125, 24.75, 2.625, z0 + 0.0, (x, y) => (((x + y) % 6 === 0) ? P.steelD : P.timberD));
+    // inside: wide floorboards, a timber wainscot and plaster on the walls, a board ceiling under the roof
+    B(x0 + 0.25, 0.375, z0 + 0.25, x1 - 0.25, 0.5, z1 - 0.25, (x, y, z) => ((z >> 1) % 5 === 0 ? P.timberD : P.wood[(x >> 3) & 1]));
+    for (let y = Y(0.5); y < Y(4.0); y++) {
+      const c = (u) => (myOf(y) < 1.375 ? (u % 6 === 0 ? P.timberD : P.wood[0]) : myOf(y) < 1.5 ? P.timberD : P.plaster[(u >> 3) & 1]);
+      for (let x = X(x0 + 0.25); x < X(x1 - 0.25); x++) { if (G.get(x, y, Z(z0) + 1)) G.set(x, y, Z(z0) + 1, c(x)); G.set(x, y, Z(z1) - 2, c(x)); }
+      for (let z = Z(z0 + 0.25); z < Z(z1 - 0.25); z++) { G.set(X(x0) + 1, y, z, c(z)); G.set(X(x1) - 2, y, z, c(z)); }
+    }
+    B(x0 + 0.25, 3.75, z0 + 0.25, x1 - 0.25, 3.875, z1 - 0.25, (x) => ((x & 3) === 0 ? P.timberD : P.sugi[(x >> 3) % 3]));
+    // (the door itself is a sliding panel in main.js, shut until you restore the place)
+    B(23.25, 0.5, z0, 24.75, 2.625, z0 + 0.25, 0);
     B(23.0, 2.625, z0 - 0.25, 25.0, 2.875, z0, P.tile[0]);
+    B(22.875, 0.125, z0 - 0.75, 25.125, 0.25, z0 - 0.125, (x, y, z) => ((x + z) & 1 ? P.stone : P.stoneD)); // a stone step
     B(23.5, 3.0, z0 - 0.125, 24.5, 3.5, z0, P.black);
     // roof
     const eave = Y(4.0), za = Z(z0 - 0.5), zb = Z(z1 + 0.5);
@@ -697,18 +707,18 @@ export function buildWorld(W) {
     for (const z of [2.375, 3.0, 3.625]) for (let i = 0; i < 4; i++) B(tx - 0.0625, 2.125 - i * 0.125, z + (i & 1) * 0.0625 - 0.0625, tx + 0.0625, 2.25 - i * 0.125, z + (i & 1) * 0.0625 + 0.0625, P.paper);
   }
 
-  // a low bamboo fence where the lot ends to the west and behind the shrine
+  // a low bamboo fence where the lot ends, to the west and along the back
   {
-    const fx = -11.75, fz = 15.5;
+    const fx = -11.75, fz = 17.6, fe = 33.5;
     const pole = (x, y, z) => ((x + z) % 12 === 0 ? P.bambooNode : P.bamboo[(x + z) & 1]);
     for (let z = L.cliff + 0.75; z < fz; z += 1.25) B(fx - 0.0625, 0.125, z, fx + 0.0625, 1.25, z + 0.125, P.bambooNode);
-    for (let x = fx; x < -0.5; x += 1.25) B(x, 0.125, fz - 0.0625, x + 0.125, 1.25, fz + 0.0625, P.bambooNode);
+    for (let x = fx; x < fe; x += 1.25) B(x, 0.125, fz - 0.0625, x + 0.125, 1.25, fz + 0.0625, P.bambooNode);
     for (const y of [0.5, 0.875, 1.125]) {
       B(fx - 0.0625, y, L.cliff + 0.75, fx + 0.0625, y + 0.0625, fz + 0.0625, pole);
-      B(fx - 0.0625, y, fz - 0.0625, -0.5, y + 0.0625, fz + 0.0625, pole);
+      B(fx - 0.0625, y, fz - 0.0625, fe, y + 0.0625, fz + 0.0625, pole);
     }
     snowCap(fx - 0.2, fx + 0.2, L.cliff + 0.75, fz + 0.1, 1.0, 1.5, 0.7);
-    snowCap(fx - 0.1, -0.5, fz - 0.2, fz + 0.2, 1.0, 1.5, 0.7);
+    snowCap(fx - 0.1, fe, fz - 0.2, fz + 0.2, 1.0, 1.5, 0.7);
   }
 
   // stone lanterns (toro) along the path
@@ -727,12 +737,12 @@ export function buildWorld(W) {
   meta.lights.push({ pos: [10.0, 1.1, -5.75], color: 0xffa050, intensity: 1.6, distance: 4, name: 'toroB' });
   meta.lights.push({ pos: [-1.6, 1.1, 0.5], color: 0xffa050, intensity: 1.4, distance: 4, name: 'toroC' });
 
-  // firewood stacked under the eave against the east wall, behind the stair
-  for (let z = Z(9.0); z < Z(12.5); z++) for (let y = Y(0.125); y < Y(1.25); y++) for (let x = X(16.0); x < X(16.625); x++) {
+  // firewood stacked under the eave against the east wall, behind the freezer annex
+  for (let z = Z(13.5); z < Z(15.75); z++) for (let y = Y(0.125); y < Y(1.25); y++) for (let x = X(16.0); x < X(16.625); x++) {
     const end = x === X(16.625) - 1, ring = Math.hypot(((z & 3) - 1.5), ((y & 3) - 1.5)) < 1.2;
     G.set(x, y, z, end ? (ring ? P.logEnd : P.log) : P.wood[(y >> 2) & 1]);
   }
-  snowCap(16.0, 16.75, 9.0, 12.5, 0.5, 1.75, 0.9);
+  snowCap(16.0, 16.75, 13.5, 15.75, 0.5, 1.75, 0.9);
 
   // a wooden rail where the lot ends at the cliff
   {
@@ -756,6 +766,21 @@ export function buildWorld(W) {
       if (!v || snowy.has(v)) G.set(x, y, z, P.floorSeam);
     }
   }
+
+  // ---- the walk-in freezer: a small insulated annex against the kitchen's east wall, frost inside
+  {
+    const panel = (x, y, z) => (((z >> 2) + (y >> 3)) & 1 ? P.steel : C('#b8bec4', 0, 0.04));
+    B(16.0, 0.125, 10.375, 18.375, 2.75, 13.125, panel);
+    B(16.0, 0.25, 10.5, 18.25, 2.625, 13.0, 0);                                              // hollow
+    B(16.0, 0.125, 10.5, 18.25, 0.25, 13.0, (x, y, z) => ((x + z) & 1 ? C('#c8ccd0', 0, 0.03) : C('#b8bcc0', 0, 0.03))); // floor
+    B(16.0, 2.5, 10.5, 18.25, 2.625, 13.0, P.ice);                                            // frosted ceiling
+    B(18.125, 0.25, 10.5, 18.25, 2.5, 13.0, (x, y, z) => (hash01(y, z, 3) > 0.7 ? P.ice : C('#d8e4ec', 0, 0.03))); // frost on the back wall
+    for (const [z0, z1] of [[10.5, 10.625], [12.875, 13.0]]) B(16.0, 0.25, z0, 18.25, 2.5, z1, (x, y) => (hash01(x, y, 5) > 0.7 ? P.ice : C('#d8e4ec', 0, 0.03)));
+    snowCap(15.9, 18.5, 10.3, 13.2, 2.5, 3.5, 1);
+    meta.lights.push({ pos: [17.2, 2.2, 11.75], color: 0xcfe8ff, intensity: 2.6, distance: 4, name: 'freezer' });
+  }
+  // ---- inside the kura: a stone floor, a timber ceiling under the roof, lantern light
+  meta.lights.push({ pos: [24.0, 3.0, 6.0], color: 0xffb070, intensity: 3.5, distance: 7, name: 'kura' });
 
   // glass is solid: you can see through the panes but not walk through them
   for (const g of meta.glass) for (let y = g.y0; y < g.y1; y += VS / 2) for (let u = g.axis === 'z' ? g.x0 : g.z0; u < (g.axis === 'z' ? g.x1 : g.z1); u += VS / 2) {

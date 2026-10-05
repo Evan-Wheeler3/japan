@@ -91,7 +91,9 @@ export class Door {
     return [(minX + maxX) / 2, 1.3, (minZ + maxZ) / 2, (maxX - minX) / 2, 1.05, (maxZ - minZ) / 2];
   }
   get open() { return this.target !== 0; }
+  // a locked door (one you haven't opened up yet) stays shut
   toggle(p) {
+    if (this.locked) return null;
     if (this.target !== 0) { this.target = 0; return 'close'; }
     this.wasNear = false; this.openFor = 0;
     if (this.slide) { this.target = this.max; return 'open'; }

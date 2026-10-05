@@ -32,6 +32,9 @@ export const CATALOG = [
   { id: 'dishes2', kind: 'shop', needs: 'dishes', name: 'A full set of tableware', price: 4000, text: 'Another four cups and plates: fourteen of each.' },
   { id: 'heaters2', kind: 'shop', needs: 'heaters', name: 'Hot towels at every seat', price: 7000, text: 'Guests wait half again as long before giving up.' },
   { id: 'fridge2', kind: 'shop', needs: 'fridge', name: 'A sake warmer', price: 6000, text: 'Warm sake on snowy nights: another ¥350 on every bill.' },
+  { id: 'backdoor', kind: 'property', name: 'Dig out the back door', price: 2000, text: "Shovel the drift off the hall's back door. Guests coming down from the shrine path come in the back way: one more guest in every rush." },
+  { id: 'freezer', kind: 'property', name: 'Get the walk-in freezer running', price: 4500, text: 'The old walk-in off the kitchen, fixed up and humming. Matcha ice cream goes on the menu (¥450), scooped from the chest freezer inside.' },
+  { id: 'kura', kind: 'property', needs: 'backdoor', name: 'Restore the old kura', price: 10000, text: 'Clear out the storehouse and keep your own sake there. A cup of house sake goes on every bill: ¥400 more.' },
   { id: 'lanterns', kind: 'home', name: 'A string of paper lanterns', price: 600, text: 'Little lanterns along the engawa, over the bay windows.' },
   { id: 'plants', kind: 'home', name: 'Houseplants', price: 700, text: 'A monstera and a fern, for the corners.' },
   { id: 'bonsai', kind: 'home', name: 'Bonsai pine', price: 900, text: 'On a stand by the window. Older than the shop.' },
@@ -54,10 +57,11 @@ export const itemById = (id) => CATALOG.find((c) => c.id === id);
 // what the shop upgrades do, applied to the service (and the belt) every time ownership changes
 export function applyUpgrades(service, owned) {
   const has = (id) => owned.includes(id);
-  service.menuKinds = new Set(['tea', 'sushi', 'yakitori', 'gyoza', ...['onigiri', 'tempura', 'ramen'].filter(has)]);
+  service.menuKinds = new Set(['tea', 'sushi', 'yakitori', 'gyoza', ...['onigiri', 'tempura', 'ramen'].filter(has), ...(has('freezer') ? ['icecream'] : [])]);
   service.stockMax = 6 + (has('dishes') ? 4 : 0) + (has('dishes2') ? 4 : 0);
   service.patienceBonus = has('heaters2') ? 1.5 : has('heaters') ? 1.25 : 1;
-  service.drinkBill = (has('fridge') ? 250 : 0) + (has('fridge2') ? 350 : 0);
+  service.drinkBill = (has('fridge') ? 250 : 0) + (has('fridge2') ? 350 : 0) + (has('kura') ? 400 : 0);
+  service.extraGuests = has('backdoor') ? 1 : 0;
   service.belt.speed = has('beltMotor2') ? 0.84 : has('beltMotor') ? 0.63 : 0.42;
   const grill = has('binchotan2') ? 0.5 : has('binchotan') ? 0.7 : 1;
   for (const st of service.stations) st.cook = st.baseCook * (st.kind === 'yakitori' || st.kind === 'gyoza' ? grill : 1);
