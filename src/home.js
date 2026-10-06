@@ -83,7 +83,10 @@ export const itemById = (id) => CATALOG.find((c) => c.id === id);
 export function applyUpgrades(service, owned) {
   const has = (id) => owned.includes(id);
   service.menuKinds = new Set(['tea', 'sushi', 'yakitori', 'gyoza', ...['onigiri', 'tempura', 'ramen'].filter(has), ...(has('freezer') ? ['icecream'] : [])]);
+  const prevMax = service.stockMax;
   service.stockMax = 6 + (has('dishes') ? 4 : 0) + (has('dishes2') ? 4 : 0);
+  // new cups and plates go straight onto the shelves (not just from tomorrow night)
+  if (prevMax && service.stockMax > prevMax && service.stock) { service.stock.mugs += service.stockMax - prevMax; service.stock.plates += service.stockMax - prevMax; }
   service.patienceBonus = has('heaters2') ? 1.5 : has('heaters') ? 1.25 : 1;
   service.drinkBill = (has('fridge') ? 250 : 0) + (has('fridge2') ? 350 : 0) + (has('kura') ? 400 : 0);
   service.extraGuests = has('backdoor') ? 1 : 0;

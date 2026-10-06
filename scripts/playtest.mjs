@@ -284,7 +284,7 @@ try {
   st = await page.evaluate(() => {
     const d = window.__yoake, s = d.service;
     d.save.devYen = true; s.cashBox = 1e9;
-    for (const id of ['staff_waiter', 'staff_cook', 'dishes', 'backdoor']) s.request('buy', id);
+    for (const id of ['staff_waiter', 'staff_cook', 'dishes', 'dishes2', 'backdoor']) s.request('buy', id); // (a five-star crowd needs the full set of tableware)
     d.save.devYen = false;
     s.request('openShop');
     d.player.pos.set(9, 3.75, 4); // upstairs, out of the way

@@ -128,10 +128,14 @@ export class Staff {
       }
     };
     const canWash = sinkN && !s.washing; // (not while you're at the sink yourself)
-    // in order: clean ones out to the shelves when they're running short; washing when the shelves are short; the
-    // trash when the bin's full; tables to clear; and the rest of the washing
-    if (think && rackN && (rackN >= 4 || !canWash)) return this.shelve(p);
-    if (low && canWash) return wash();
+    // the shelves running short: whatever's clean goes straight out, then the sink, then the tables
+    if (low) {
+      if (think && rackN && (rackN >= 4 || !canWash)) return this.shelve(p); // (a stack at a time, not one by one)
+      if (canWash) return wash();
+      if (think && this.dirtySeat(p)) return this.bus(p, { mugs: 0, plates: 0 });
+      return;
+    }
+    // otherwise: the trash when the bin's full, tables to clear, the washing, and the clean ones out a stack at a time
     if (think) {
       const r = s.trash && s.trash.full() && s.trash.route();
       if (r) {
@@ -144,6 +148,7 @@ export class Staff {
         });
       }
       if (this.dirtySeat(p)) return this.bus(p, { mugs: 0, plates: 0 });
+      if (rackN >= 4 || (rackN && !canWash)) return this.shelve(p);
     }
     if (canWash) wash();
   }
@@ -189,6 +194,8 @@ export class Staff {
     const s = this.service, p = this.people.staff_sushi;
     if ((this.t.sushi += dt) < 3.5) return;
     this.t.sushi = 0;
+    // anything riding round that nobody wants any more comes off as it passes back through the kitchen
+    for (const b of [...s.belt.plates]) if (b.seg === 'kitchen' && !this.anyoneWants(b.type)) { s.belt.remove(b); if (b.type === 'tea') s.sink.mugs++; else s.sink.plates++; }
     // green tea for the belt's guests rides the belt too
     if (s.menuKinds.has('tea') && s.stock.mugs > 0 && this.wanted('tea').belt > 0 && s.belt.isFree(0.25)) { s.stock.mugs--; s.belt.add('tea', 0.25); p.busy = 1.0; this.did.sushi++; return; }
     for (const kind of PLATED) {
@@ -252,6 +259,8 @@ export class Staff {
     if (!this.free(p)) return;
     const stand = (st) => [st.x, st.z - 0.75];
     // something's ready: plate it and walk it to the pass
+    // a batch nobody's waiting on any more: into the bin (it'd only burn)
+    for (const st of s.stations) if (st.state === 'ready' && COOKED.includes(st.kind) && !this.claimed.has(st) && this.surplus(st.kind)) { st.state = 'idle'; st.left = 0; }
     const ready = s.stations.find((st) => st.state === 'ready' && COOKED.includes(st.kind) && !this.claimed.has(st));
     if (ready && s.stock.plates > 0) {
       this.claimed.add(ready); p.task = 'plate';
@@ -287,8 +296,19 @@ export class Staff {
       });
       return;
     }
-    // nothing to do: back to the middle of the line
+    // nothing to do: clear the pass of anything going cold, and back to the middle of the line
+    this.clearStale();
     if (Math.hypot(p.pos.x - p.post.x, p.pos.z - p.post.z) > 0.3) this.home(p);
+  }
+  // more of a dish ready (or on its way) than anyone is waiting for: the guests' orders, less what's already plated,
+  // in hand, on a counter or on the belt
+  surplus(kind) {
+    const s = this.service;
+    let want = 0;
+    for (const q of s.crowd.people) if (q.svc && q.svc.phase === 'food' && q.seat) want += q.svc.items.filter((i) => !i.done && i.kind === kind).length;
+    const out = Object.values(s.handsBy).flat().filter((h) => h.type === kind).length + s.counterItems.filter((c) => c.item.type === kind).length
+      + s.belt.plates.filter((b) => b.type === kind).length + Object.values(this.people).reduce((a, q) => a + (q.dish === kind ? 1 : 0) + q.tray.filter((t) => t.kind === kind).length, 0);
+    return out >= want;
   }
 
   // ---------------------------------------------------------------- Yui: dishes out to the tables, orders, tea
