@@ -41,8 +41,8 @@ export function placeTokyo(batch) {
   batch.add(P.gomiCage(), 1.0, S, N - 0.45, 0, true, 'gomi_front');
   batch.add(P.gomiCage(), 16.95, S, 17.2, 0, true, 'gomi_back');
   // ================= the yard: the neighbours' air conditioners, the brewery's empty crates, somebody's bike
-  for (const x of [18.45, 19.4]) batch.add(P.acUnit(), x, S, 13.62, 2);
-  batch.add(P.beerCrates(), 16.6, S, 13.72, 2);
+  for (const x of [17.6, 18.7]) batch.add(P.acUnit(), x, 3.25, 11.0, 2);            // up on next door's roof, by the fire escape's way across
+  batch.add(P.beerCrates(), 18.9, S, 13.72, 2);                                    // tucked under the fire escape
   batch.add(P.bicycle(), 19.35, S, 17.42, 0);
   // ================= the shed: barrels along the back wall, racks, a lantern (opened up from the catalog)
   const Sh = TK.shed, F = Sh.floor;

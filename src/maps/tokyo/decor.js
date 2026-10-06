@@ -296,6 +296,20 @@ function tower() {
 // ---------------------------------------------------------------- the handrails on the shop's stairs: smooth wooden
 // rails (voxels can only make a staircase of a slope), one on each side of the flight, on brackets, a newel post at
 // the foot. The flight rises toward -z from its foot at z 15.0, a quarter metre up for every three eighths along.
+// the fire escape's railing: steel tube up the outside of the stair and round the landing
+function fireRails() {
+  const grp = new THREE.Group(), steel = new THREE.MeshLambertMaterial({ color: 0x5a5e64 });
+  const bar = (a, b, t) => {
+    const A = new THREE.Vector3(...a), Bv = new THREE.Vector3(...b), m = new THREE.Mesh(new THREE.BoxGeometry(t, t, A.distanceTo(Bv)), steel);
+    m.position.copy(A).add(Bv).multiplyScalar(0.5); m.lookAt(Bv); grp.add(m);
+  };
+  const F = TK.fire, z = F.z[1] - 0.06, H = 0.95, xb = F.top[0] - F.step * F.steps, yb = 0.25;
+  for (const h of [H, H * 0.5]) bar([xb, yb + h, z], [F.top[0], 3.25 + h, z], h === H ? 0.06 : 0.035);
+  for (const h of [H, H * 0.5]) { bar([F.top[0], 3.25 + h, z], [F.top[1], 3.25 + h, z], 0.05); bar([F.top[1], 3.25 + h, z], [F.top[1], 3.25 + h, F.z[0]], 0.05); }
+  for (let i = 0; i <= F.steps; i += 3) { const x = xb + F.step * i, y = yb + F.step * i; bar([x, y, z], [x, y + H, z], 0.04); }
+  for (const [x, zz] of [[F.top[1], z], [F.top[1], F.z[0]], [F.top[0], z]]) bar([x, 3.25, zz], [x, 3.25 + H, zz], 0.05);
+  return grp;
+}
 function stairRails() {
   const grp = new THREE.Group();
   const wood = new THREE.MeshLambertMaterial({ color: 0x4a2c16 }), dark = new THREE.MeshLambertMaterial({ color: 0x24160c });
@@ -355,7 +369,7 @@ function trainCar(len, lead) {
 export function decorateTokyo(scene, { meta }) {
   const signs = meta.signs.map((s) => { const g = makeSign(s); scene.add(g); return g; });
   scene.add(wires(meta));
-  scene.add(stairRails());
+  scene.add(stairRails()); scene.add(fireRails());
   const city = new THREE.Group(); const around = cityAround(); city.add(around); city.add(skyline(windowTexture())); city.add(tower());
   signs.push(...around.userData.signs);
   scene.add(city);

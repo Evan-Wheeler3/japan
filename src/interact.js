@@ -75,20 +75,20 @@ export class Interactions {
 // A hinged door that swings away from whoever opens it. Positive angle swings toward plusDir.
 // With `slide` set, it's a sliding door instead: it runs `slide` metres along `slideDir` (default -x) into its pocket.
 export class Door {
-  constructor(mesh, { hinge, base = 0, plusDir, max = 1.55, block, bell = false, slide = 0, slideDir = [-1, 0] }) {
-    Object.assign(this, { mesh, hinge, base, plusDir, max, block, bell, slide, slideDir });
+  constructor(mesh, { hinge, base = 0, plusDir, max = 1.55, block, bell = false, slide = 0, slideDir = [-1, 0], y0 = 0 }) {
+    Object.assign(this, { mesh, hinge, base, plusDir, max, block, bell, slide, slideDir, y0 }); // y0: the floor it's on (0 downstairs)
     this.a = 0; this.target = 0; this.wasNear = false; this.openFor = 0; this.onAutoClose = null;
     this.width = Math.max(block[1] - block[0], block[3] - block[2]);
     this.center = { x: (block[0] + block[1]) / 2, z: (block[2] + block[3]) / 2 };
   }
   // clickable volume: the doorway plus wherever the panel has swung to, so it works from both sides
   box() {
-    if (this.slide) { const [x0, x1, z0, z1] = this.block; return [(x0 + x1) / 2, 1.3, (z0 + z1) / 2, (x1 - x0) / 2 + 0.1, 1.05, (z1 - z0) / 2 + 0.18]; }
+    if (this.slide) { const [x0, x1, z0, z1] = this.block; return [(x0 + x1) / 2, this.y0 + 1.3, (z0 + z1) / 2, (x1 - x0) / 2 + 0.1, 1.05, (z1 - z0) / 2 + 0.18]; }
     const ang = this.base + this.a, ex = this.hinge.x + Math.cos(ang) * this.width, ez = this.hinge.z - Math.sin(ang) * this.width;
     const [x0, x1, z0, z1] = this.block, pad = 0.18;
     const minX = Math.min(x0, this.hinge.x, ex) - pad, maxX = Math.max(x1, this.hinge.x, ex) + pad;
     const minZ = Math.min(z0, this.hinge.z, ez) - pad, maxZ = Math.max(z1, this.hinge.z, ez) + pad;
-    return [(minX + maxX) / 2, 1.3, (minZ + maxZ) / 2, (maxX - minX) / 2, 1.05, (maxZ - minZ) / 2];
+    return [(minX + maxX) / 2, this.y0 + 1.3, (minZ + maxZ) / 2, (maxX - minX) / 2, 1.05, (maxZ - minZ) / 2];
   }
   get open() { return this.target !== 0; }
   // a locked door (one you haven't opened up yet) stays shut
@@ -127,7 +127,7 @@ export class Door {
   }
   // closed doors are solid
   blocks(x, y, z) {
-    if (Math.abs(this.a) > 0.5 || y > 2.3) return false;
+    if (Math.abs(this.a) > 0.5 || y > this.y0 + 2.3 || y < this.y0 - 0.5) return false;
     const [x0, x1, z0, z1] = this.block;
     return x > x0 && x < x1 && z > z0 && z < z1;
   }

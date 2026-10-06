@@ -28,7 +28,9 @@ room looking onto the street, the genkan and register by the door, the kitchen, 
 A narrow flight of stairs runs up one side of the restroom hall, a rail either side, and the whole floor upstairs
 is your flat: a hall along the back, the living room with the kotatsu and the long front windows, the bedroom, the
 back room with the little kitchen, a spare tatami room full of boxes and closets, a bathroom with a hinoki tub, and a
-storeroom with the futons and the cleaning things. The kitchen's back door opens onto a plain concrete service yard,
+storeroom with the futons and the cleaning things. A steel door in the storeroom's side wall is the fire escape: out
+onto the flat roof of next door's back wing, across it, through a gap in its parapet onto a grated landing, and down
+an open steel stair into the yard (it stays locked until there's a reason to go down it). The kitchen's back door opens onto a plain concrete service yard,
 boxed in by the back of the building next door (its kitchen door, a frosted window, the downpipes), the izakaya's
 side wall and a block wall at the back: air-conditioner units, the brewery's empty crates, somebody's bike, the gomi
 station in the corner, and the old shed in the far corner.
@@ -49,8 +51,14 @@ things). The night parade is always played on the mountain.
 
 ## How a night goes
 
-You wake upstairs in the evening. The shop stays closed until you go down and turn the sign by the front
-door to **OPEN**, so take your time: sit at the kotatsu, read the catalog, look out at the bay.
+The title screen looks across the street at the shop, and when you start, the menu simply fades and you're standing
+there in the snow where its camera was (press start, or just start walking with WASD). The shop stays closed until
+you cross over and turn the sign by the front door to **OPEN**, so take your time. After the first night you wake
+upstairs in the flat instead: sit at the kotatsu, read the catalog, look out of the window.
+
+**The first night** walks you through it: a line along the top of the screen says what to do next, and a marker
+bobs over where to go (it shows through walls): walk to the door, turn the sign, take an order, make it, serve it,
+ring them up, wash up. Each step ticks itself off when you've done it.
 
 The shop is laid out like a kaiten-zushi. A U-shaped counter runs across the main room with the belt on its top:
 booths butt up against the front of it, stools line both ends, and its east leg runs back to the kitchen pass,
@@ -71,12 +79,13 @@ make what they asked for:
 | Dish | How |
 |---|---|
 | Green tea | take a clean cup from the shelf over the back bar, pour at a tea urn |
-| Salmon nigiri | take a clean plate, use the sushi case on the plating station under the kitchen pass |
+| Salmon nigiri *(milestone)* | take a clean plate, use the sushi case on the plating station under the kitchen pass |
 | Yakitori | lay skewers on a charcoal grill in the kitchen, plate them when they're ready (don't let them burn) |
 | Gyoza | fry a batch on the teppan in the kitchen, plate them when they're ready |
-| Onigiri *(catalog)* | take a clean plate, press them at the rice cookers under the kitchen pass |
-| Tempura *(catalog)* | drop a batch in the fryers in the kitchen, plate it when it's ready |
-| Miso ramen *(catalog)* | start a bowl on the stove in the kitchen; it takes a while |
+| Onigiri *(milestone)* | take a clean plate, press them at the rice cookers under the kitchen pass |
+| Tempura *(milestone)* | drop a batch in the fryers in the kitchen, plate it when it's ready |
+| Miso ramen *(milestone)* | start a bowl on the stove in the kitchen; it takes a while |
+| Mochi ice cream *(milestone)* | take a clean plate to the chest freezer in the walk-in |
 
 Serve it by hand, or set it on the **sushi belt**, anywhere along it: it starts on the plating station in the
 kitchen, right by the sushi case, rides straight out through the pass and goes round the counter's rounded
@@ -100,6 +109,45 @@ better-rated shop draws bigger crowds: a 5★ shop gets 30% more guests a rush, 
 **The goal: a five-star shop that runs itself.** Get the shop's rating to five stars and hire all five of the
 help. The catalog keeps track.
 
+## Milestones
+
+The shop grows with its record: guests served, nights open and its rating. New recipes and the shop's kit aren't
+bought; they come when the record gets there, and the night's card at sunrise says what's new. The catalog's first
+tab lists them all with how far along each one is.
+
+| At | What |
+|---|---|
+| 6 guests | **Salmon nigiri** (a recipe) |
+| 15 guests | more cups and plates (four more of each) |
+| 25 guests | **Onigiri** (a recipe) |
+| 3 nights | a drinks fridge (¥250 more on every bill) |
+| 40 guests | **dig out the back door** (a job) |
+| 55 guests | kerosene heaters (guests wait 25% longer) |
+| 70 guests | **Tempura** (a recipe) |
+| 85 guests | a stronger belt motor |
+| 100 guests | **mochi ice cream**: pick the walk-in freezer's lock (a job) |
+| 120 guests | a full set of tableware (fourteen of each) |
+| 140 guests | **Miso ramen** (a recipe) |
+| 170 guests and 4★ | hot towels at every seat (guests wait half again as long) |
+| 200 guests | an industrial belt motor |
+| 230 guests, after the back door | **the old kura**: pick its padlock (a job): house sake on every bill |
+| 260 guests, after the kura | a sake warmer (another ¥350 a bill) |
+
+Kit just arrives. The rest are little full-screen games; "later" puts one off, and it waits on your list:
+
+- **A recipe** is learned by making it: drag the ingredients from the tray onto the dish, in the right order, with
+  the chef's notes beside it (rice, wasabi, then the salmon; for ramen, the tare, then the broth, the noodles and the
+  toppings). Each one drops onto the dish and the dish builds up; a wrong one bounces back to the tray, and the odd
+  one that doesn't belong in it at all is crossed out. After a few wrong turns the next one glows. "Learn it" is on
+  the night's card, and in the catalog.
+- **A lock** is picked pin by pin: move along the pins, press and drag up to lift one. The one that's binding is stiff
+  and trembles; lift it to the shear line and let go, and it sets with a click. Push it too far and they all drop.
+  The kura's padlock has six pins and less give. Go to the locked door and it offers to pick it.
+- **The back door** is snowed shut from outside. Go up to the flat and out of the storeroom's fire escape (it opens
+  once the job's yours), across the roof next door, down the stair into the yard, and click the drift: press into
+  the snow, drag the shovel through it and flick each load away until the door's clear. Then there's one more guest
+  in every rush, and the trash goes out the back.
+
 At 6 AM the last guests leave and the sun comes up. Then go up to bed: you sleep through the short
 winter day and wake for the next night. Your night, your yen, your perks and everything you've bought are
 saved in this browser ("start a new game" in settings wipes it).
@@ -113,17 +161,10 @@ into a wood-floored room, a bedroom with a futon behind the fusuma, and a kitche
 The rest of the upstairs is the shop's storeroom.
 
 The **catalog** on the kotatsu is a little picture book: a tab for each section, two things to a page, turn the
-pages with back and next. Things you own are stamped. A good night clears ¥15,000-30,000, and the help has to be
-paid, so it takes a good many nights to have it all. It sells, for the yen in your cash box:
+pages with back and next. Things you own are stamped. The first tab is the milestones (above); then the kitchen's
+station upgrades, and what it sells, for the yen in your cash box. A good night clears ¥15,000-30,000, and the help
+has to be paid, so it takes a good many nights to have it all.
 
-- **for the shop:** onigiri, tempura and miso ramen for the menu; a stronger belt motor; binchotan charcoal
-  (faster yakitori and gyoza); more cups and plates; kerosene heaters (guests wait longer); a drinks fridge (a
-  bottle on every bill, ¥250). Each of those five upgrades has a second level once you own the first (the
-  fridge's is a sake warmer, another ¥350 a bill).
-- **for the property:** dig out the hall's back door (guests come in from the shrine path too: one more in every
-  rush), get the walk-in freezer off the kitchen running (matcha ice cream on the menu, scooped from the chest
-  freezer inside), and, once the back door's open, restore the old kura across the yard as your sake cellar (house
-  sake on every bill).
 - **help wanted** (paid out of the till at sunrise). They walk the shop and do the work the way you would:
   - **Taro, dishwasher** (¥1,200 a night): runs the sink, and buses tables too. As guests leave he clears their
     dishes (a few tables to a tub), washes them, carries the clean ones back out to the shelves, and takes the trash
@@ -149,10 +190,12 @@ paid, so it takes a good many nights to have it all. It sells, for the yen in yo
 **Before you open** (while the sign still says CLOSED):
 
 - **Upgrade the kitchen.** Walk up to a station with empty hands and it offers its next upgrade, paid from the
-  cash box. Each station has two levels. The tea urns, sushi case and rice cookers first make two at once (into
-  your other hand), then earn more per dish (gyokuro tea +¥100, otoro +¥150, koshihikari onigiri +¥100). The
-  yakitori grills, gyoza teppan, fryers and ramen stove first cook 25% faster, then make two plates a batch. The
-  catalog lists them all under "kitchen stations". Once the shop opens, the stations go back to cooking.
+  cash box. Every level is either **speed** (it cooks a fifth faster) or **value** (each dish it makes puts more on
+  the bill). The quick stations are all value, three levels each: the tea urns (gyokuro leaves +¥50, Kyoto teaware
+  +¥80, Uji first flush +¥120), the sushi case, the rice cookers and the chest freezer. The yakitori grills, the
+  gyoza teppan, the fryers and the ramen stove go speed, value, speed, value (bamboo fans, aged tare, binchotan,
+  jidori chicken on the grill). A station's upgrades open up once its dish is on the menu. The catalog lists them
+  all under "kitchen stations". Once the shop opens, the stations go back to cooking.
 
 **Rearranging:** anything you bought that stands on the apartment floor can be moved. Look at it and press
 **F** (or click it, if it has nothing else to do) to pick it up; it follows your gaze across the floor. **R** or
@@ -302,7 +345,9 @@ On a phone there are strike, use, dish, pot, jump, 1/2 and reload buttons.
 | `src/trash.js` | The kitchen bin, the bags and the gomi stations |
 | `src/survival/` | The night parade: `mode.js` (rounds, points, seals, buys, the power, blessings, the box, the HUD), `nav.js` (a two-level walking grid and flow field over the whole lot), `horde.js` and `yokai.js` (the gaki and oni, their rigs and dismemberment), `weapons.js` (first-person weapons and thrown dishes), `grenade.js` (the fire-pots), `gore.js`, `props.js`, `sfx.js` |
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen round the island, the plates riding it |
-| `src/home.js` | The save file, the catalog, what each upgrade does, and the things you can buy for the apartment |
+| `src/home.js` | The save file, the catalog, the milestones, what each upgrade does, and the things you can buy for the apartment |
+| `src/minigames.js` | The full-screen milestone games: a recipe's ingredients in order, picking a lock, shovelling the drift |
+| `src/tutorial.js` | The first night's walk-through: one step at a time, and a marker over where to go |
 | `src/arcade.js` | The Fami-Com: a 256×224 canvas that is the CRT's picture, and its four games |
 | `src/shift.js` | The clock (10 PM → 6 AM), rushes, the dawn, the stats card, perks |
 | `src/main.js` | Boot, the lamp pool (the nearest lamps get real lights), the sunrise at the end of the night, the loop |
@@ -312,8 +357,10 @@ On a phone there are strike, use, dish, pot, jump, 1/2 and reload buttons.
 
 ## Testing and hosting
 
-`npm install && npm run playtest` runs a bot through the whole loop in a headless browser: wake upstairs, buy
-from the catalog (including upgrade levels and the Fami-Com), play Sushi Catch, open, work a full night (every dish, the belt, washing up), sleep, wake for night 2, reload
+`npm install && npm run playtest` runs a bot through the whole loop in a headless browser: start in the street and
+walk to the shop with the tutorial up, buy from the catalog (the Fami-Com and its games), reach milestones, shovel out
+the back door and pick two locks, play Sushi Catch, buy station upgrades, open, work a full night (every dish, the
+belt, washing up), learn nigiri off the night's card by dragging the ingredients onto the dish, sleep, wake for night 2, reload
 and check the save, hire all five and let them run night 2 with nobody playing, then hold the front room in the night parade with a katana, break a seal, sit through an oni
 night and fall. Set `CHROME_PATH` if Playwright can't find a Chromium.
 

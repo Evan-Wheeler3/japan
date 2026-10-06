@@ -353,13 +353,13 @@ export class Crowd {
           }
           // open doors on the way (people only passing by don't come in)
           if (!q.passer) for (const door of this.doors) {
-            if (!door.open && Math.hypot(door.center.x - q.pos.x, door.center.z - q.pos.z) < 1.3) {
+            if (!door.open && Math.abs((door.y0 || 0) - q.pos.y) < 1.5 && Math.hypot(door.center.x - q.pos.x, door.center.z - q.pos.z) < 1.3) {
               door.toggle(q.pos);
               this.audio.doorSound(true);
               if (door.bell) this.audio.doorBell(Math.max(0.15, 1 - Math.hypot(this.player.pos.x - q.pos.x, this.player.pos.z - q.pos.z) / 18));
             }
           }
-          const doorShut = !q.passer && this.doors.some((door) => Math.abs(door.a) < 0.6 && Math.hypot(door.center.x - q.pos.x, door.center.z - q.pos.z) < 0.9);
+          const doorShut = !q.passer && this.doors.some((door) => Math.abs(door.a) < 0.6 && Math.abs((door.y0 || 0) - q.pos.y) < 1.5 && Math.hypot(door.center.x - q.pos.x, door.center.z - q.pos.z) < 0.9);
           if (!blockedByYou && !doorShut) {
             speed = 1.15 * (q.pace || 1);
             const step = Math.min(d, speed * dt);

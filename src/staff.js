@@ -55,7 +55,7 @@ export class Staff {
     if (!p.path) return 0;
     const [tx, tz] = p.path[0], dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz), v = SPEED * dt;
     for (const door of this.service.crowd.doors || []) {
-      if (!door.locked && !door.open && Math.hypot(door.center.x - p.pos.x, door.center.z - p.pos.z) < 1.1) door.toggle(p.pos);
+      if (!door.locked && !door.open && Math.abs((door.y0 || 0) - p.pos.y) < 1.5 && Math.hypot(door.center.x - p.pos.x, door.center.z - p.pos.z) < 1.1) door.toggle(p.pos);
     }
     if (d <= v) {
       p.pos.x = tx; p.pos.z = tz; p.path.shift();

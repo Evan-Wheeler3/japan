@@ -11,10 +11,10 @@ export const MENU = {
   sushi: { name: 'Salmon nigiri', price: 600 },
   yakitori: { name: 'Yakitori', price: 800 },
   gyoza: { name: 'Gyoza', price: 700 },
-  onigiri: { name: 'Onigiri', price: 350 },    // these three are bought from the catalog
+  onigiri: { name: 'Onigiri', price: 350 },    // these (and the nigiri) come with milestones
   tempura: { name: 'Tempura', price: 900 },
   ramen: { name: 'Miso ramen', price: 1100 },
-  icecream: { name: 'Matcha ice cream', price: 450 }, // once the walk-in freezer is running
+  icecream: { name: 'Mochi ice cream', price: 450 }, // once the walk-in freezer's open
 };
 // how often each dish is ordered, when it's on the menu
 const FOOD_WEIGHT = { yakitori: 0.3, sushi: 0.22, gyoza: 0.2, onigiri: 0.16, tempura: 0.16, ramen: 0.18, icecream: 0.14 };
@@ -73,8 +73,8 @@ function plateModel(food) {
   }
   if (food === 'icecream') {
     m.cyl(5, 5, 2.6, 1, 3, C('#d8e8f0', 0, 0.03), 1.8); m.cyl(5, 5, 2.0, 1, 2, C('#d8e8f0', 0, 0.03));   // a little glass dish
-    m.cyl(5, 5, 1.9, 3, 5, (x, y) => (y === 4 ? C('#9ac860', 0, 0.05) : C('#7ab040', 0, 0.06))); m.set(5, 5, 5, C('#7ab040', 0, 0.06));
-    m.set(7, 1, 7, C('#e8d8b0', 0, 0.04)); m.set(7, 1, 8, C('#e8d8b0', 0, 0.04));                         // a wafer
+    // three soft balls of mochi ice cream: sakura pink, plain white, matcha green, dusted with starch
+    for (const [x, z, col] of [[3.5, 4, '#f2b8c4'], [6.5, 4, '#f4f0e8'], [5, 6.6, '#9ac860']]) m.cyl(x, z, 1.6, 3, 5, (vx, vy) => (vy === 4 ? C('#fbf8f2', 0, 0.03) : C(col, 0, 0.04)));
   }
   if (food === 'dirty') { m.set(4, 1, 4, C('#8a5a2a', 0, 0.1)); m.set(6, 1, 5, C('#6a3a1a', 0, 0.1)); m.set(5, 1, 6, C('#a8703a', 0, 0.1)); m.set(3, 1, 6, C('#c8b070', 0, 0.1)); }
   return m;
@@ -129,7 +129,7 @@ function drawIcon(g, ic) {
     }
   } else if (ic === 'icecream') {
     g.fillStyle = '#d8e8f0'; g.strokeStyle = '#3a2a20'; g.lineWidth = 4; g.beginPath(); g.moveTo(-24, 6); g.lineTo(24, 6); g.lineTo(14, 26); g.lineTo(-14, 26); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = '#8ac050'; for (const [x, y, r] of [[-10, -2, 13], [10, -2, 13], [0, -16, 13]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke(); }
+    for (const [x, y, r, c] of [[-10, -2, 13, '#f2b8c4'], [10, -2, 13, '#9ac860'], [0, -16, 13, '#f4f0e8']]) { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke(); }
   } else if (ic === 'ramen') {
     g.fillStyle = '#8a2a20'; g.strokeStyle = '#2a1a10'; g.lineWidth = 4;
     g.beginPath(); g.moveTo(-30, -4); g.lineTo(30, -4); g.quadraticCurveTo(26, 26, 0, 26); g.quadraticCurveTo(-26, 26, -30, -4); g.fill(); g.stroke();
@@ -527,6 +527,7 @@ export class Service {
         make('tea', 'mug'); this.sfx('pour');
       },
       sushi: () => {
+        if (!this.menuKinds.has('sushi')) return;
         if (!this.has('plate')) return T('grab a clean plate first');
         make('sushi', 'plate'); this.sfx('clickSound');
       },
@@ -624,9 +625,9 @@ export class Service {
     // tea urns
     I.add(BX.urns, ...up('tea', () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn')), null, shape('urns'));
     // the sushi case on the plating station, right by the belt
-    I.add(BX.sushi, ...up('sushi', () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi')), null, shape('sushi'));
+    I.add(BX.sushi, ...up('sushi', () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi')), () => this.menuKinds.has('sushi'), shape('sushi'));
     // the chest freezer in the walk-in: matcha ice cream, once it's running
-    I.add(BX.icecream, () => (this.has('plate') ? 'Scoop a matcha ice cream' : 'Chest freezer (grab a clean plate for ice cream)'), R('icecream'), () => this.menuKinds.has('icecream'));
+    I.add(BX.icecream, ...up('icecream', () => (this.has('plate') ? 'Plate up some mochi ice cream' : 'Chest freezer (grab a clean plate for mochi ice cream)'), R('icecream')), () => this.menuKinds.has('icecream'));
     // the rice cookers: onigiri, once they're on the menu
     I.add(BX.rice, ...up('onigiri', () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri')), () => this.menuKinds.has('onigiri'), shape('rice'));
     // the sushi belt: put finished dishes on it (in the kitchen, in the well or anywhere along it), or take one off
@@ -684,11 +685,12 @@ export class Service {
   // ------------------------------------------------ station upgrades (bought before the sign turns, from the cash box)
   upNext(kind) {
     if (!this.between || !this.between() || this.hands.length) return null;
-    return (this.stationUps || []).find((u) => u.station === kind && !this.owned.includes(u.id)) || null;
+    const u = (this.stationUps || []).find((x) => x.station === kind && !this.owned.includes(x.id));
+    return u && (!u.needs || this.owned.includes(u.needs)) ? u : null;
   }
   upLabel(u) {
-    const lv = u.id.endsWith('2') ? 2 : 1, short = (this.cashBox ?? 0) < u.price ? ' · not enough yen yet' : '';
-    return `Upgrade ${lv}/2: ${u.name.toLowerCase()} (${u.short}) · ${yen(u.price)}${short}`;
+    const short = (this.cashBox ?? 0) < u.price ? ' · not enough yen yet' : '';
+    return `Upgrade ${u.level}/${u.levels} · ${u.track === 's' ? 'speed' : 'value'}: ${u.name.toLowerCase()} (${u.short}) · ${yen(u.price)}${short}`;
   }
   upBuy(u) {
     if ((this.cashBox ?? 0) < u.price) { this.toast(`${u.name.toLowerCase()} costs ${yen(u.price)}. maybe after another night.`); this.audio.rattle(); return; }
@@ -879,7 +881,7 @@ export class Service {
   // a dish reaches its guest, by hand or by belt
   serveItem(q, item) {
     const s = q.svc;
-    item.done = true;
+    item.done = true; this.itemsServed = (this.itemsServed || 0) + 1;
     this.place(q.seat, item.kind);
     if (s.items.every((i) => i.done)) { s.phase = 'eat'; s.t = 25 + Math.random() * 20; this.sayAll(`${s.name}: itadakimasu!`); }
   }

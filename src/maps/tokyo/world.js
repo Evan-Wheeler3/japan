@@ -21,6 +21,9 @@ export const TK = {
   ends: { x0: -15.25, x1: 35.5 },              // the road-works barriers that close the street off at each end
   lane: [-11.5, -8.5],                         // ...all but this, the one-way lane the traffic squeezes through
   cross: { x: 9.5, w: 3.0 },                   // the zebra crossing out front
+  // the fire escape: a door out of the flat's storeroom onto the roof of next door's back wing, across it to a landing
+  // over the yard, and a steel stair down (steps a quarter metre up and along) to the yard by the back door
+  fire: { door: [12.0, 13.0], top: [19.5, 20.5], z: [13.25, 14.25], step: 0.25, steps: 12 },
   // strings of paper lanterns across the street: [x, height at the north, height at the south, sag]
   garlands: [[-9.0, 4.6, 4.4, 0.7], [7.0, 4.9, 4.7, 0.8], [26.75, 4.5, 4.6, 0.7]],
 };
@@ -296,7 +299,6 @@ export function buildTokyo(W) {
       return concreteFace(x, y, z);
     });
     for (const px of [17.625, 20.875]) B(px, 0.125, Yd.z0, px + 0.125, 3.25, Yd.z0 + 0.125, P.metal);            // downpipes
-    B(16.75, 2.25, Yd.z0, 17.875, 2.375, Yd.z0 + 0.25, P.metal);                                                   // the window's little hood
     B(Yd.x0, 0.125, Yd.z1, Yd.x1, 3.0, 18, (x, y) => blockWall(x, y));                          // a block wall at the back
     B(15.875, 0.125, 16.0, 16.0, 3.0, 18, (x, y, z) => blockWall(z, y));                        // and along our back corner
     snowCap(Yd.x0, Yd.x1, Yd.z1, 18, 2.75, 3.5, 1);
@@ -307,6 +309,25 @@ export function buildTokyo(W) {
     B(20.0, 0.125, 13.5, 20.625, 0.5, 14.125, P.wood[0]); B(20.125, 0.5, 13.625, 20.5, 1.375, 14.0, (x, y, z) => P.needles[(x + y + z) & 3]);
     snowCap(19.9, 20.7, 13.4, 14.2, 0.4, 1.6, 0.9);
     light('yard', [20.4, 2.5, 13.6], 0xffc890, 1.4, 4.5);
+    // the fire escape: the doorway out of the storeroom upstairs, a step down onto the wing's roof, a gap in the
+    // parapet at the far side, the landing and the stair down
+    const F = TK.fire, grate = (x, y, z) => (((x + z) & 1) ? P.metal : P.metalD), F2 = 3.75;
+    B(15.75, F2, F.door[0], 16.0, F2 + 2.125, F.door[1], 0);
+    B(15.75, F2 + 2.125, F.door[0] - 0.125, 16.0, F2 + 2.25, F.door[1] + 0.125, P.metalD);
+    for (const z of [F.door[0] - 0.125, F.door[1]]) B(15.75, F2, z, 16.0, F2 + 2.125, z + 0.125, P.metalD);
+    B(16.0, 3.5, F.door[0], 16.5, F2 + 2.125, F.door[1], 0);                              // through the parapet, the trim, the snow
+    B(16.0, 3.25, F.door[0] - 0.125, 16.5, 3.5, F.door[1] + 0.125, grate);                // a step down from the door
+    B(F.top[0], 3.25, F.z[0] - 0.25, F.top[1], 5.5, F.z[0], 0);                           // the gap in the far parapet (and its snow)
+    B(F.top[0], 3.125, F.z[0], F.top[1], 3.25, F.z[1], grate);                            // the landing (swept)
+    B(F.top[0], 3.25, F.z[0], F.top[1], 3.75, F.z[1], 0);
+    for (const x of [F.top[0], F.top[1] - 0.125]) B(x, 0.125, F.z[1] - 0.125, x + 0.125, 3.125, F.z[1], P.metalD);
+    for (let i = 1; i <= F.steps; i++) {
+      const x1 = F.top[0] - F.step * (i - 1), top = 3.25 - F.step * i;
+      B(x1 - F.step, top - 0.125, F.z[0], x1, top, F.z[1], grate);
+      B(x1 - F.step, top, F.z[0], x1, top + 0.25, F.z[1], 0);
+      if (i % 4 === 0) B(x1 - 0.125, 0.125, F.z[1] - 0.125, x1, top - 0.125, F.z[1], P.metalD);   // a leg every few steps
+    }
+    B(F.top[0] - F.step * F.steps - 0.125, 0.125, F.z[0], F.top[0] - F.step * F.steps, 0.25, F.z[1], grate); // the bottom step
     // the shed: a little kura, namako tiles below and plaster above, a stone footing, a tiled roof
     const { x0, x1, z0, z1, floor } = Sh;
     B(x0 - 0.125, 0.125, z0 - 0.125, x1 + 0.125, floor, z1, (x, y, z) => (((x >> 2) + (z >> 2) + y) & 1 ? P.stone : P.stoneD));

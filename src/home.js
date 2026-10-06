@@ -7,11 +7,15 @@ import { MAP } from './maps/index.js';
 
 // ---------------------------------------------------------------- the save file
 const KEY = 'yoake.save';
-const fresh = () => ({ v: 1, night: 1, yen: 0, owned: [] });
+const fresh = () => ({ v: 1, night: 1, yen: 0, owned: [], pending: [], served: 0 });
 export function loadSave() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.v === 1) return { ...fresh(), ...s, owned: Array.isArray(s.owned) ? s.owned : [] };
+    if (s && s.v === 1) {
+      const out = { ...fresh(), ...s, owned: Array.isArray(s.owned) ? s.owned : [], pending: Array.isArray(s.pending) ? s.pending : [] };
+      if (out.night > 1 && !out.owned.includes('sushi') && !out.pending.includes('sushi')) out.owned.push('sushi'); // (nigiri was on the menu from the start)
+      return out;
+    }
   } catch {}
   return fresh();
 }
@@ -19,24 +23,28 @@ export function writeSave(s) { try { localStorage.setItem(KEY, JSON.stringify(s)
 export function clearSave() { try { localStorage.removeItem(KEY); } catch {} }
 
 // ---------------------------------------------------------------- the catalog
+// which recipe a station's upgrades wait on
+const STATION_NEEDS = { sushi: 'sushi', onigiri: 'onigiri', tempura: 'tempura', ramen: 'ramen', icecream: 'freezer' };
 export const CATALOG = [
-  // prices are set so the shop grows over many nights: a good night clears ¥15-30,000, and the help has to be paid
-  { id: 'onigiri', kind: 'shop', name: 'Onigiri', price: 5000, text: 'Rice balls with salmon and nori, pressed at the rice cookers. Quick to make, cheap to buy.' },
-  { id: 'tempura', kind: 'shop', name: 'Tempura', price: 12000, text: 'Shrimp and vegetables in a light batter, fried at the fryers in the kitchen.' },
-  { id: 'ramen', kind: 'shop', name: 'Miso ramen', price: 20000, text: 'Bowls of ramen simmered on the stove. Slow to make; everyone wants one.' },
-  { id: 'beltMotor', kind: 'shop', name: 'A stronger belt motor', price: 9000, text: 'The sushi belt runs half again as fast.' },
-  { id: 'binchotan', kind: 'shop', name: 'Binchotan charcoal', price: 8000, text: 'White oak charcoal burns hotter: yakitori and gyoza cook 30% faster.' },
-  { id: 'dishes', kind: 'shop', name: 'More cups and plates', price: 6000, text: 'Four more of each on the shelves every night.' },
-  { id: 'heaters', kind: 'shop', name: 'Kerosene heaters', price: 12000, text: 'Two more heaters in the dining room. Warm guests wait 25% longer.' },
-  { id: 'fridge', kind: 'shop', name: 'A drinks fridge', price: 10000, text: 'Ramune, tea and beer by the east wall. Guests take a bottle with their meal: ¥250 more on every bill.' },
-  { id: 'beltMotor2', kind: 'shop', needs: 'beltMotor', name: 'An industrial belt motor', price: 20000, text: 'The belt runs at twice its old speed.' },
-  { id: 'binchotan2', kind: 'shop', needs: 'binchotan', name: "A grill master's konro", price: 18000, text: 'Yakitori and gyoza cook in half the time.' },
-  { id: 'dishes2', kind: 'shop', needs: 'dishes', name: 'A full set of tableware', price: 14000, text: 'Another four cups and plates: fourteen of each.' },
-  { id: 'heaters2', kind: 'shop', needs: 'heaters', name: 'Hot towels at every seat', price: 24000, text: 'Guests wait half again as long before giving up.' },
-  { id: 'fridge2', kind: 'shop', needs: 'fridge', name: 'A sake warmer', price: 18000, text: 'Warm sake on snowy nights: another ¥350 on every bill.' },
-  { id: 'backdoor', kind: 'property', name: 'Dig out the back door', price: 6000, text: "Shovel the drift off the hall's back door. Guests coming down from the shrine path come in the back way: one more guest in every rush. The trash goes out the back, too." },
-  { id: 'freezer', kind: 'property', name: 'Get the walk-in freezer running', price: 15000, text: 'The old walk-in off the kitchen, fixed up and humming. Matcha ice cream goes on the menu (¥450), scooped from the chest freezer inside.' },
-  { id: 'kura', kind: 'property', needs: 'backdoor', name: 'Restore the old kura', price: 35000, text: 'Clear out the storehouse and keep your own sake there. A cup of house sake goes on every bill: ¥400 more.' },
+  // Recipes, the rest of the building and the kit aren't bought: they come with milestones (guests served, nights
+  // open, the shop's rating). Kit just arrives. A recipe has to be learned (a little puzzle: the ingredients in the
+  // right order); a locked part of the building has to be got into (a lock to pick, a drift to shovel).
+  // ms: what it takes; how: 'recipe' | 'task' | 'gift'; needs: an earlier one
+  { id: 'sushi', kind: 'milestone', how: 'recipe', ms: { served: 6 }, name: 'Salmon nigiri', text: 'Hand-pressed rice, a dab of wasabi, a slice of salmon. Made at the sushi case under the kitchen pass.' },
+  { id: 'dishes', kind: 'milestone', how: 'gift', ms: { served: 15 }, name: 'More cups and plates', text: 'A supplier sends four more of each for the shelves.' },
+  { id: 'onigiri', kind: 'milestone', how: 'recipe', ms: { served: 25 }, name: 'Onigiri', text: 'Rice balls round a salmon filling, wrapped in nori, pressed at the rice cookers.' },
+  { id: 'fridge', kind: 'milestone', how: 'gift', ms: { nights: 3 }, name: 'A drinks fridge', text: 'The drinks company puts a fridge by the east wall: ramune, tea and beer. ¥250 more on every bill.' },
+  { id: 'backdoor', kind: 'milestone', how: 'task', game: 'shovel', ms: { served: 40 }, name: 'Dig out the back door', text: "The back door's snowed shut from outside. Go up through the flat and down the fire escape into the yard, and shovel the drift off it. Then there's one more guest in every rush, and the trash goes out the back." },
+  { id: 'heaters', kind: 'milestone', how: 'gift', ms: { served: 55 }, name: 'Kerosene heaters', text: 'Two more heaters for the dining room. Warm guests wait 25% longer.' },
+  { id: 'tempura', kind: 'milestone', how: 'recipe', ms: { served: 70 }, name: 'Tempura', text: 'Shrimp in a light, lacy batter, fried at the fryers in the kitchen.' },
+  { id: 'beltMotor', kind: 'milestone', how: 'gift', ms: { served: 85 }, name: 'A stronger belt motor', text: 'The sushi belt runs half again as fast.' },
+  { id: 'freezer', kind: 'milestone', how: 'task', game: 'lockpick', ms: { served: 100 }, name: 'Mochi ice cream', text: "Nobody's seen the key to the old walk-in freezer in years. Pick its lock, get it humming, and mochi ice cream goes on the menu (¥450), from the chest freezer inside." },
+  { id: 'dishes2', kind: 'milestone', how: 'gift', ms: { served: 120 }, needs: 'dishes', name: 'A full set of tableware', text: 'Another four cups and plates: fourteen of each.' },
+  { id: 'ramen', kind: 'milestone', how: 'recipe', ms: { served: 140 }, name: 'Miso ramen', text: 'Bowls of ramen built up on the stove. Slow to make; everyone wants one.' },
+  { id: 'heaters2', kind: 'milestone', how: 'gift', ms: { served: 170, rating: 4 }, needs: 'heaters', name: 'Hot towels at every seat', text: 'Guests wait half again as long before giving up.' },
+  { id: 'beltMotor2', kind: 'milestone', how: 'gift', ms: { served: 200 }, needs: 'beltMotor', name: 'An industrial belt motor', text: 'The belt runs at twice its old speed.' },
+  { id: 'kura', kind: 'milestone', how: 'task', game: 'lockpick', ms: { served: 230 }, needs: 'backdoor', name: 'The old kura', text: 'The storehouse is padlocked, and the key went with the last owner. Pick the padlock and keep your own sake in there: a cup of house sake goes on every bill, ¥400 more.' },
+  { id: 'fridge2', kind: 'milestone', how: 'gift', ms: { served: 260 }, needs: 'kura', name: 'A sake warmer', text: 'Warm sake on snowy nights: another ¥350 on every bill.' },
   // the help: hire all five and the shop runs itself
   { id: 'staff_wash', kind: 'staff', name: 'Hire a dishwasher', price: 8000, wage: 1200, text: 'Taro runs the sink, and buses tables too: as guests leave he clears their dishes, washes them and shelves them, and takes the trash out when the bin is full. ¥1,200 a night.' },
   { id: 'staff_waiter', kind: 'staff', name: 'Hire a waiter', price: 18000, wage: 2400, text: 'Yui takes orders, pours tea, and carries dishes out from the pass (or off any counter) to whoever ordered them. ¥2,400 a night.' },
@@ -57,32 +65,59 @@ export const CATALOG = [
   { id: 'game_dash', kind: 'games', needs: 'famicom', game: 'dash', name: 'Snow Dash', price: 1800, text: 'Run through the snow, jump the snowmen, duck the crows.' },
   { id: 'game_koi', kind: 'games', needs: 'famicom', game: 'koi', name: 'Koi Pond', price: 2000, text: 'A koi grows longer with every pellet. Mind the stones.' },
   { id: 'game_daruma', kind: 'games', needs: 'famicom', game: 'daruma', name: 'Daruma Break', price: 2500, text: 'Bounce a ball and knock down every daruma on the shelf.' },
-  // the kitchen's own stations: not in the catalog. Walk up to one before the sign turns to OPEN (see service.upNext)
-  ...stationUps([
-    ['tea', 'Twin urn taps', 'two cups at a time', 3500, 'Gyokuro leaves', '+¥100 a cup', 9000],
-    ['sushi', 'A second cutting board', 'two plates at a time', 5000, 'Otoro from the market', '+¥150 a plate', 12000],
-    ['onigiri', 'An onigiri mold', 'two plates at a time', 4500, 'Koshihikari rice', '+¥100 a plate', 10000, 'onigiri'],
-    ['yakitori', 'Bamboo fans for the coals', 'cooks 25% faster', 6000, 'Longer skewer racks', 'two plates a batch', 13000],
-    ['gyoza', 'A heavy lid', 'cooks 25% faster', 5500, 'A double pan', 'two plates a batch', 12000],
-    ['tempura', 'Fresh frying oil', 'cooks 25% faster', 6000, 'A wide fryer basket', 'two plates a batch', 13000, 'tempura'],
-    ['ramen', 'A pressure stockpot', 'cooks 25% faster', 7500, 'A second burner', 'two bowls a batch', 15000, 'ramen'],
-  ]),
+  // the kitchen's own stations: bought at the station itself before the sign turns to OPEN (see service.upNext).
+  // Every level makes the station faster or makes each dish worth more: speed levels cut the cooking time by a fifth,
+  // value levels put more on the bill for every dish it makes. (The quick stations, tea, sushi, onigiri and ice cream,
+  // are all value.)
+  ...stationUps({
+    tea: [['v', 'Gyokuro leaves', 50, 3000], ['v', 'Kyoto teaware', 80, 8000], ['v', 'Uji first flush', 120, 16000]],
+    sushi: [['v', 'Fresh-grated wasabi', 100, 5000], ['v', 'Otoro from the market', 150, 12000], ['v', 'Aged red-vinegar rice', 200, 24000]],
+    onigiri: [['v', 'Koshihikari rice', 60, 4000], ['v', 'Kishu umeboshi', 100, 10000], ['v', 'Ariake nori', 140, 20000]],
+    icecream: [['v', 'Hokkaido cream', 80, 6000], ['v', 'Ceremonial matcha', 120, 14000], ['v', 'Hand-pounded mochi', 160, 26000]],
+    yakitori: [['s', 'Bamboo fans for the coals', 0.2, 6000], ['v', 'Tare aged in a crock', 150, 12000], ['s', 'Binchotan charcoal', 0.2, 20000], ['v', 'Jidori chicken', 250, 32000]],
+    gyoza: [['s', 'A heavy lid', 0.2, 5500], ['v', 'Kurobuta pork filling', 150, 12000], ['s', 'A copper teppan', 0.2, 20000], ['v', 'Hand-folded wrappers', 250, 30000]],
+    tempura: [['s', 'Fresh frying oil', 0.2, 6000], ['v', 'Tiger prawns', 180, 13000], ['s', 'A deep copper pot', 0.2, 22000], ['v', 'A sesame-oil blend', 280, 34000]],
+    ramen: [['s', 'A pressure stockpot', 0.2, 7500], ['v', 'Chashu braised overnight', 200, 15000], ['s', 'A second burner', 0.2, 24000], ['v', 'Hakata tonkotsu broth', 320, 38000]],
+  }),
 ];
-function stationUps(rows) {
-  return rows.flatMap(([station, n1, s1, p1, n2, s2, p2, needs]) => [
-    { id: `up_${station}1`, kind: 'station', station, name: n1, short: s1, price: p1, needs },
-    { id: `up_${station}2`, kind: 'station', station, name: n2, short: s2, price: p2, needs: `up_${station}1` },
-  ]);
+function stationUps(table) {
+  return Object.entries(table).flatMap(([station, rows]) => rows.map(([track, name, amount, price], i) => ({
+    id: `up_${station}${i + 1}`, kind: 'station', station, track, name, amount, price, level: i + 1, levels: rows.length,
+    short: track === 's' ? `cooks ${Math.round(amount * 100)}% faster` : `+¥${amount} a dish`,
+    needs: i ? `up_${station}${i}` : STATION_NEEDS[station],
+  })));
 }
 export const STATION_UPS = CATALOG.filter((c) => c.kind === 'station');
 // the cartridges you own (Sushi Catch comes with the console)
-export const ownedGames = (owned) => (owned.includes('famicom') ? ['sushi', ...CATALOG.filter((c) => c.game && owned.includes(c.id)).map((c) => c.game)] : []);
+export const ownedGames = (owned) => (owned.includes('famicom') ? ['sushi', ...CATALOG.filter((c) => c.kind === 'games' && owned.includes(c.id)).map((c) => c.game)] : []);
 export const itemById = (id) => CATALOG.find((c) => c.id === id);
+export const MILESTONES = CATALOG.filter((c) => c.kind === 'milestone');
+// how far along a milestone is (0..1), from the shop's record: guests served, nights open, its rating
+export function milestoneProgress(m, rec) {
+  const parts = [];
+  if (m.ms.served) parts.push(Math.min(1, rec.served / m.ms.served));
+  if (m.ms.nights) parts.push(Math.min(1, (rec.nights) / m.ms.nights));
+  if (m.ms.rating) parts.push(Math.min(1, rec.rating / m.ms.rating));
+  return Math.min(...parts);
+}
+export const milestoneGoal = (m) => [m.ms.served && `${m.ms.served} guests served`, m.ms.nights && `${m.ms.nights} nights open`, m.ms.rating && `a ${m.ms.rating}★ rating`].filter(Boolean).join(' and ');
+// newly reached milestones: kit goes straight into `owned`; recipes and locked doors go on the to-do list (`pending`)
+export function reachMilestones(save, owned, rec) {
+  save.pending = save.pending || [];
+  const got = [];
+  for (const m of MILESTONES) {
+    if (owned.includes(m.id) || save.pending.includes(m.id) || (m.needs && !owned.includes(m.needs))) continue;
+    if (milestoneProgress(m, rec) < 1) continue;
+    if (m.how === 'gift') owned.push(m.id); else save.pending.push(m.id);
+    got.push(m);
+  }
+  return got;
+}
 
 // what the shop upgrades do, applied to the service (and the belt) every time ownership changes
 export function applyUpgrades(service, owned) {
   const has = (id) => owned.includes(id);
-  service.menuKinds = new Set(['tea', 'sushi', 'yakitori', 'gyoza', ...['onigiri', 'tempura', 'ramen'].filter(has), ...(has('freezer') ? ['icecream'] : [])]);
+  service.menuKinds = new Set(['tea', 'yakitori', 'gyoza', ...['sushi', 'onigiri', 'tempura', 'ramen'].filter(has), ...(has('freezer') ? ['icecream'] : [])]);
   const prevMax = service.stockMax;
   service.stockMax = 6 + (has('dishes') ? 4 : 0) + (has('dishes2') ? 4 : 0);
   // new cups and plates go straight onto the shelves (not just from tomorrow night)
@@ -91,14 +126,14 @@ export function applyUpgrades(service, owned) {
   service.drinkBill = (has('fridge') ? 250 : 0) + (has('fridge2') ? 350 : 0) + (has('kura') ? 400 : 0);
   service.extraGuests = has('backdoor') ? 1 : 0;
   service.belt.speed = has('beltMotor2') ? 0.84 : has('beltMotor') ? 0.63 : 0.42;
-  const grill = has('binchotan2') ? 0.5 : has('binchotan') ? 0.7 : 1;
-  // station upgrades: level 1 is speed (or a second dish at once), level 2 is a bigger batch (or a better price)
-  const lv = (k) => (has(`up_${k}2`) ? 2 : has(`up_${k}1`) ? 1 : 0);
-  service.twin = new Set(['tea', 'sushi', 'onigiri'].filter((k) => lv(k) >= 1));
-  service.priceBonus = { tea: lv('tea') > 1 ? 100 : 0, sushi: lv('sushi') > 1 ? 150 : 0, onigiri: lv('onigiri') > 1 ? 100 : 0 };
+  // station upgrades: speed levels cut the cooking time, value levels add to the bill for every dish
+  const ups = STATION_UPS.filter((u) => has(u.id));
+  service.twin = new Set();
+  service.priceBonus = {};
+  for (const u of ups) if (u.track === 'v') service.priceBonus[u.station] = (service.priceBonus[u.station] || 0) + u.amount;
   for (const st of service.stations) {
-    st.cook = st.baseCook * (st.kind === 'yakitori' || st.kind === 'gyoza' ? grill : 1) * (lv(st.kind) >= 1 ? 0.75 : 1);
-    st.batch = lv(st.kind) > 1 ? 2 : 1; st.burn = st.batch > 1 ? 40 : 30;
+    st.cook = st.baseCook * ups.filter((u) => u.station === st.kind && u.track === 's').reduce((k, u) => k * (1 - u.amount), 1);
+    st.batch = 1; st.burn = 30;
   }
   // staff on the payroll
   service.staff = new Set(CATALOG.filter((c) => c.kind === 'staff' && has(c.id)).map((c) => c.id));

@@ -131,6 +131,80 @@
     .purse-big { font: 500 40px Fredoka, sans-serif; color: var(--glow); display: flex; align-items: baseline; gap: 10px; }
     .purse-big span { font: 700 15px Nunito, sans-serif; color: var(--muted); }
     .look.catalog { width: min(560px, calc(100vw - 32px)); }
+
+    /* the little games: full screen over everything, a warm card, drag-and-drop tiles */
+    #mini { position: fixed; inset: 0; z-index: 60; display: none; place-items: center; background: rgba(8,5,3,.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); font-family: Fredoka, sans-serif; color: var(--cream); }
+    #mini.on { display: grid; }
+    #mini.on .mg-card { animation: mgIn .35s ease; }
+    @keyframes mgIn { from { transform: scale(.96) translateY(12px); } to { transform: none; } } /* (scale only: the card's never invisible) */
+    .mg-card { position: relative; width: min(1000px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; box-sizing: border-box; padding: 22px 26px; border-radius: 28px;
+      background: linear-gradient(160deg, rgba(64,38,24,.96), rgba(34,20,12,.97)); box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,220,170,.16); display: flex; flex-direction: column; gap: 12px; }
+    .mg-head { display: flex; justify-content: space-between; align-items: flex-start; }
+    .mg-jp { font: 400 30px "Yuji Syuku", serif; color: var(--amber); line-height: 1; }
+    .mg-title { font: 500 26px Fredoka, sans-serif; }
+    .mg-later { font: 700 22px Caveat, cursive; color: var(--muted); padding: 4px 10px; border-radius: 999px; } .mg-later:hover { color: var(--glow); }
+    .mg-how { font: 600 15px Nunito, sans-serif; color: var(--muted); }
+    .mg-recipe { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: stretch; }
+    .mg-notes { background: #f3ead6; color: #3a2a1a; border-radius: 14px; padding: 14px 16px; box-shadow: inset 0 0 40px rgba(160,120,60,.25); transform: rotate(-1.2deg); }
+    .mg-notes-t { font: 700 24px Caveat, cursive; color: #8a3a1a; }
+    .mg-notes p { margin: 8px 0; font: 700 19px/1.25 Caveat, cursive; }
+    .mg-tries { font: 600 13px Nunito, sans-serif; color: #b8402a; min-height: 16px; }
+    .mg-dish { position: relative; border-radius: 22px; background: radial-gradient(ellipse at 50% 60%, #f6eedc, #d8c4a0 80%); box-shadow: inset 0 0 0 2px rgba(90,60,30,.2), inset 0 -20px 40px rgba(90,60,30,.15); transition: box-shadow .15s, transform .1s; }
+    .mg-dish canvas { display: block; width: 100%; height: auto; }
+    .mg-dish.over { box-shadow: inset 0 0 0 4px #f0b45a, 0 0 30px rgba(240,180,90,.55); }
+    .mg-dish.shake { animation: mgShake .36s ease; }
+    @keyframes mgShake { 20% { transform: translateX(-10px) rotate(-1deg); } 40% { transform: translateX(9px) rotate(1deg); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+    .mg-step { position: absolute; left: 14px; top: 10px; font: 700 20px Caveat, cursive; color: #8a6a4a; }
+    .mg-tray { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding-top: 4px; }
+    .mg-tile { width: 108px; padding: 6px 4px 8px; border-radius: 16px; background: #f3ead6; color: #3a2a1a; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: grab; user-select: none; touch-action: none;
+      box-shadow: 0 4px 0 #c8b08a, 0 8px 18px rgba(0,0,0,.35); transition: transform .15s, opacity .2s, filter .2s; }
+    .mg-tile:hover { transform: translateY(-4px) rotate(-1.5deg); }
+    .mg-tile canvas { width: 80px; height: 80px; pointer-events: none; }
+    .mg-tile span { font: 600 13px Nunito, sans-serif; text-align: center; pointer-events: none; }
+    .mg-tile.lifted { opacity: .25; }
+    .mg-tile.used { opacity: .3; filter: grayscale(1); cursor: default; transform: scale(.92); }
+    .mg-tile.out { opacity: .35; filter: grayscale(1); cursor: not-allowed; position: relative; }
+    .mg-tile.out::after { content: '✕'; position: absolute; top: 4px; right: 8px; color: #c8302a; font: 700 22px Fredoka, sans-serif; }
+    .mg-tile.hint { animation: mgHint 1s ease-in-out infinite; }
+    @keyframes mgHint { 50% { box-shadow: 0 4px 0 #c8b08a, 0 0 0 4px #f0b45a, 0 0 26px rgba(240,180,90,.8); } }
+    .mg-ghost { position: fixed; z-index: 70; pointer-events: none; cursor: grabbing; transform: scale(1.12); box-shadow: 0 6px 0 #c8b08a, 0 24px 40px rgba(0,0,0,.55); opacity: 1 !important; filter: none !important; }
+    .mg-spark { position: absolute; left: 50%; top: 45%; width: 8px; height: 8px; border-radius: 50%; background: #ffe2a0; box-shadow: 0 0 10px #f0b45a; pointer-events: none; animation: mgSpark .7s ease-out forwards; }
+    @keyframes mgSpark { from { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.2); opacity: 0; } }
+    .mg-lock canvas, .mg-snow canvas { display: block; width: 100%; height: auto; border-radius: 18px; cursor: crosshair; touch-action: none; }
+    .mg-bar { height: 12px; border-radius: 999px; background: rgba(255,236,210,.14); margin-top: 10px; overflow: hidden; }
+    .mg-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #9cc8e8, #eef3fb); transition: width .2s; }
+    .mg-done { position: absolute; inset: 0; border-radius: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(20,12,6,.82); animation: mgIn .4s ease; text-align: center; padding: 20px; }
+    .mg-stamp { width: 150px; height: 150px; border-radius: 50%; border: 6px solid #c8302a; color: #c8302a; display: grid; place-items: center; font: 400 50px "Yuji Syuku", serif; transform: rotate(-12deg); background: rgba(243,234,214,.95);
+      animation: mgStamp .5s cubic-bezier(.2,1.6,.4,1); }
+    @keyframes mgStamp { from { transform: rotate(-30deg) scale(2.4); opacity: 0; } to { transform: rotate(-12deg) scale(1); opacity: 1; } }
+    .mg-done-t { font: 500 22px Fredoka, sans-serif; max-width: 560px; }
+    .mg-conf { position: absolute; left: 50%; top: 60%; width: 10px; height: 14px; border-radius: 2px; pointer-events: none; animation: mgConf 1.6s cubic-bezier(.2,.7,.4,1) forwards; z-index: 2; }
+    @keyframes mgConf { to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; } }
+    @media (max-width: 720px) { .mg-recipe { grid-template-columns: 1fr; } .mg-tile { width: 88px; } .mg-tile canvas { width: 62px; height: 62px; } }
+    /* a short screen (a phone on its side): the notes, the dish and the tray side by side, everything smaller */
+    @media (max-height: 560px) {
+      .mg-card { width: calc(100vw - 12px); max-height: calc(100vh - 12px); padding: 8px 14px 10px; border-radius: 18px; }
+      .mg-jp { font-size: 18px; } .mg-title { font-size: 17px; } .mg-later { font-size: 18px; padding: 0 8px; } .mg-how { font-size: 11.5px; line-height: 1.25; }
+      .mg-stage { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; margin-top: 4px; }
+      .mg-stage > .mg-lock, .mg-stage > .mg-snow { grid-column: 1 / -1; }
+      .mg-recipe { grid-template-columns: minmax(100px, 30%) 1fr; gap: 8px; }
+      .mg-notes { padding: 5px 8px; max-height: calc(100vh - 100px); overflow: auto; }
+      .mg-notes-t { font-size: 17px; } .mg-notes p { margin: 3px 0; font-size: 14px; }
+      .mg-dish canvas { width: auto; max-width: 100%; max-height: calc(100vh - 100px); margin: 0 auto; }
+      .mg-step { left: 8px; top: 4px; font-size: 15px; }
+      .mg-tray { display: grid; grid-template-columns: repeat(3, auto); gap: 5px; align-content: start; padding: 0; max-height: calc(100vh - 100px); overflow: auto; }
+      .mg-tile { width: 60px; padding: 3px 2px 4px; border-radius: 10px; } .mg-tile canvas { width: 40px; height: 40px; } .mg-tile span { font-size: 10px; }
+      .mg-lock canvas, .mg-snow canvas { width: auto; max-width: 100%; max-height: calc(100vh - 110px); margin: 0 auto; }
+      .mg-bar { margin-top: 4px; height: 8px; }
+      .mg-stamp { width: 90px; height: 90px; font-size: 30px; border-width: 4px; } .mg-done-t { font-size: 16px; } .mg-done { gap: 8px; }
+    }
+    /* the first night's walk-through, top centre */
+    #tut { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 12; display: none; align-items: center; gap: 12px; max-width: min(640px, calc(100vw - 32px));
+      padding: 12px 20px; border-radius: 22px; background: rgba(48,28,18,.82); box-shadow: inset 0 0 0 1px rgba(255,220,170,.2), 0 10px 30px rgba(0,0,0,.45); font: 600 16px/1.35 Nunito, sans-serif; color: var(--cream); }
+    body.playing #tut.on { display: flex; }
+    #tut b { flex-shrink: 0; font: 500 15px Fredoka, sans-serif; color: #3a2216; background: var(--amber); border-radius: 999px; padding: 2px 10px; }
+    #tut.tick { animation: tutTick .5s ease; }
+    @keyframes tutTick { 30% { transform: translateX(-50%) scale(1.06); box-shadow: inset 0 0 0 2px var(--amber), 0 0 30px rgba(240,180,90,.6); } }
     /* the catalog as a picture book: tabs along the top, cream pages, two things to a page */
     .look.catalog.book-wrap { padding: 0; gap: 0; background: none; box-shadow: none; width: min(860px, calc(100vw - 600px)); min-width: min(440px, calc(100vw - 32px)); }
     .book-wrap .tabs { display: flex; gap: 4px; padding: 0 22px; flex-wrap: wrap; }
@@ -164,6 +238,10 @@
     .book .buyb:hover:not([disabled]) { transform: translateY(-1px); }
     .book .buyb[disabled] { background: #b8a888; box-shadow: 0 3px 0 #8a7a5c; cursor: default; }
     .book .price { font: 600 14px Nunito, sans-serif; color: #8a6a4a; }
+    .book .price.todo { color: #b8402a; font-weight: 700; }
+    .book .item .foot:has(.msbar) { flex-direction: column; align-items: stretch; gap: 4px; }
+    .book .msbar { height: 8px; border-radius: 999px; background: rgba(90,60,30,.15); overflow: hidden; }
+    .book .msbar i { display: block; height: 100%; background: linear-gradient(90deg, #d8a048, #b8402a); border-radius: 999px; }
     .book .item.later { opacity: .6; }
     .book .item.owned .ic { filter: saturate(.6); }
     .book .hanko { position: absolute; left: 20px; top: 20px; width: 64px; height: 64px; background: rgba(255,250,238,.35); border-radius: 50%; border: 3px solid #c8302a; color: #c8302a; display: flex; align-items: center; justify-content: center;
@@ -472,6 +550,7 @@
   <div id="zm"><div class="zm-hurt"></div><div class="zm-flash"></div><div class="zm-round"></div><div class="zm-perks"></div><div class="zm-timers"></div>
     <div class="zm-right"><div class="zm-throw"></div><div class="zm-weapon"></div><div class="zm-points"></div><div class="zm-pluses"></div></div>
     <div class="zm-msg"></div><div class="zm-sub"></div></div>
+  <div id="tut"></div>
   <div id="zm-over"></div>
   <div id="fade"><div class="cap"></div></div>
   <div id="scope"><div class="hint">move the mouse to pan · walk to step back</div></div>

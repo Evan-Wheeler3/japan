@@ -89,13 +89,14 @@ export const MOUNTAIN = {
       { key: 'restA', name: 'restroom door', kind: 'restroom', hinge: [1.8125, 11.0], base: -R, plusDir: [1, 0], block: [1.75, 2.0, 11.0, 12.0], slideDir: [0, 1] },
       { key: 'restB', name: 'restroom door', kind: 'restroom', hinge: [1.8125, 13.75], base: -R, plusDir: [1, 0], block: [1.75, 2.0, 13.75, 14.75], slideDir: [0, 1] },
       { key: 'back', name: 'back door', kind: 'exit', hinge: [0.375, 15.6875], base: 0, plusDir: [0, 1], block: [0.375, 1.625, 15.625, 16.0],
-        needs: 'backdoor', locked: ['Back door (snowed shut)', 'a wall of snow on the other side. (the catalog: dig out the back door)'] },
+        needs: 'backdoor', locked: ['Back door (snowed shut)', "a wall of snow on the other side. (it'll be dug out when the shop's grown a bit: see the catalog's milestones)"] },
       { key: 'freezer', name: 'freezer door', kind: 'freezer', hinge: [15.6875, 11.0], base: -R, plusDir: [1, 0], block: [15.625, 16.125, 11.0, 12.25],
-        needs: 'freezer', locked: ['Walk-in freezer (switched off)', "the old walk-in's been off for years. (the catalog: get it running)"] },
+        needs: 'freezer', locked: ['Walk-in freezer (locked)', "nobody's seen its key in years. (see the catalog's milestones)"] },
       { key: 'kura', name: 'kura door', kind: 'kura', hinge: [23.25, 2.9375], base: 0, plusDir: [0, -1], block: [23.25, 24.75, 2.875, 3.25], slideDir: [-1, 0], slideDist: 1.45, y: 0.5,
-        needs: 'kura', locked: ['The old kura (boarded up)', 'the storehouse is full of junk and cobwebs. (the catalog: restore it)'] },
+        needs: 'kura', locked: ['The old kura (boarded up)', "it's padlocked, and nobody has the key. (see the catalog's milestones)"] },
     ],
     snowPile: [1.0, 0.125, 16.55],          // heaped against the back door until it's dug out
+    backHint: 'snowed shut from outside: go out the front, round the side of the shop, and dig it out',
     clock: { pos: [14.56, 2.85, 10.0], yaw: 0 },
     sign: { pos: [14.9, 1.55, -3.07], box: [14.9, 1.7, -3.05, 0.32, 0.2, 0.14] },
     radio: [4.3, 1.2, 9.75],
@@ -138,6 +139,10 @@ export const MOUNTAIN = {
     noGo: [[7.85, 10.3, 2.5, 4.7], [13.05, 14.15, 2.3, 4.3], [13.9, 15.8, 5.6, 8.5], [5.75, 7.65, 4.7, 5.5],
       [6.7, 9.3, 1.45, 1.95], [11.8, 14.2, 1.45, 1.95], [10.85, 11.4, 2.85, 3.95], [7.7, 11.0, 5.35, 5.85], [10.9, 13.9, 7.4, 8.5]],
     room: { x0: 5.8, x1: 15.7, z0: 0.3, z1: 8.45 },
+  },
+  // the catalog in this map's words: no fire escape up here, the back's reached round the outside
+  catalog: {
+    backdoor: { text: "The back door's snowed shut from outside. Go out the front, round the side of the shop, and shovel the drift off it. Then guests come down from the shrine path the back way (one more in every rush), and the trash goes out the back." },
   },
   // spots the playtest walks to
   test: {

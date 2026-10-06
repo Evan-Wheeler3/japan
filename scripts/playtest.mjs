@@ -1,7 +1,9 @@
 // End-to-end playtest: a bot plays the whole loop in a headless browser and checks it holds together.
-//   wake upstairs → buy from the catalog (dishes, upgrade levels, the TV, the Fami-Com and its games)
-//   → play the Fami-Com → open the shop → work a full night (by hand and by belt,
-//   cooking every dish, washing up) → sunrise and the night's card → go to bed → wake for night 2
+//   start in the street where the title camera was, walk to the shop (the tutorial follows along) → up to the flat
+//   → buy from the catalog (the TV, the Fami-Com and its games) → milestones: the drinks fridge arrives, the back door
+//   is shovelled out, two locks picked → play the Fami-Com → station upgrades → open the shop → work a full night
+//   (by hand and by belt, cooking every dish, washing up) → sunrise and the night's card → learn nigiri on it by
+//   dragging the ingredients onto the dish → go to bed → wake for night 2
 //   → reload and check the save carried over → the night parade: hold the front room with a katana, break a seal,
 //   an oni night, and the card when you fall.
 // Usage: npm install && npm run playtest     (CHROME_PATH=/path/to/chrome to pick a browser)
@@ -42,10 +44,30 @@ try {
   await page.evaluate(() => { localStorage.clear(); });
   await page.reload(); await ready();
 
-  // ---- evening: wake upstairs, the shop closed
+  // ---- evening: the menu goes and you're standing in the street where its camera was, the shop closed
   await page.click('#screen [data-act="solo"]');
-  let st = await page.evaluate(() => { const d = window.__yoake; return { y: d.player.pos.y, waiting: d.shift.waiting, n: d.shift.n }; });
-  check(st.y > 3.5 && st.waiting && st.n === 1, 'night 1 starts upstairs with the shop closed');
+  let st = await page.evaluate(() => { const d = window.__yoake, T = d.map.shop.title; return { y: d.player.pos.y, at: Math.hypot(d.player.pos.x - T.x, d.player.pos.z - T.z), waiting: d.shift.waiting, n: d.shift.n, tut: d.tutorial.on && document.getElementById('tut').classList.contains('on') }; });
+  check(st.y < 1 && st.at < 0.01 && st.waiting && st.n === 1 && st.tut, 'night 1 starts in the street, right where the title camera was, shop closed, the tutorial up');
+  // a walker for the bot: real input and collision, no teleporting
+  await page.evaluate(() => {
+    window.walkTo = (wx, wz) => {
+      const pl = window.__yoake.player; let best = 1e9, still = 0, t = 0;
+      for (;;) {
+        const dx = wx - pl.pos.x, dz = wz - pl.pos.z, dist = Math.hypot(dx, dz);
+        if (dist < 0.15) break;
+        pl.locked = true; pl.keys = { KeyW: true }; pl.yaw = Math.atan2(-dx, -dz); pl.update(1 / 30); t += 1 / 30;
+        if (dist < best - 0.01) { best = dist; still = 0; } else still += 1 / 30;
+        if (still > 1.5 || t > 60) break;
+      }
+      pl.keys = {}; pl.locked = false;
+      return [pl.pos.x, pl.pos.y, pl.pos.z].map((v) => +v.toFixed(2));
+    };
+  });
+  // across the street to the door: the tutorial ticks off its first step and points at the sign
+  // (headless, nothing has the pointer, so the game's own loop is paused: the bot ticks the tutorial itself)
+  st = await page.evaluate(() => { const d = window.__yoake, S = d.map.shop.sign.pos; const at = window.walkTo(S[0], S[2] - 1.0); d.tutorial.update(0.05); return { at, step: d.tutorial.i }; });
+  check(st.step === 1, `walked across the street to the shop's door on foot (${st.at.join(', ')}): the tutorial moves on to the sign`);
+  await page.evaluate(() => { const d = window.__yoake, W = d.map.shop.wake; d.player.pos.set(W.x, 3.75, W.z); d.player.vel.set(0, 0, 0); });
   // ---- on foot (no teleporting): down the stairs to the shop and back up, with real input and collision
   st = await page.evaluate(() => {
     const d = window.__yoake, pl = d.player, routes = d.map.test.walk || [], log = [];
@@ -66,35 +88,73 @@ try {
   });
   check(st.ok, `walking down the stairs into the shop and back up to the flat works on foot (${JSON.stringify(st)})`);
 
-  // ---- the catalog: new dishes, an upgrade and things for home
+  // ---- the catalog: things for home (recipes and the shop's kit aren't for sale: they come with milestones)
   st = await page.evaluate(() => {
     const d = window.__yoake;
     d.save.yen = 150000;
-    d.menu.h.onBuy('beltMotor2'); // needs the first motor: refused
+    for (const id of ['onigiri', 'beltMotor', 'freezer', 'up_tea2']) d.menu.h.onBuy(id); // milestones, and a level two before level one: refused
     const early = d.service.owned.length;
-    for (const id of ['onigiri', 'tempura', 'ramen', 'beltMotor', 'beltMotor2', 'irori', 'telescope', 'catbed', 'crt', 'famicom', 'game_dash', 'game_koi', 'game_daruma']) d.menu.h.onBuy(id);
-    return { early, owned: d.service.owned, menu: [...d.service.menuKinds], speed: d.service.belt.speed, placed: [...d.home.placed], games: d.arcade.owned, yen: d.save.yen };
+    for (const id of ['irori', 'telescope', 'catbed', 'crt', 'famicom', 'game_dash', 'game_koi', 'game_daruma']) d.menu.h.onBuy(id);
+    return { early, owned: d.service.owned, placed: [...d.home.placed], games: d.arcade.owned, yen: d.save.yen };
   });
-  check(st.early === 0, 'a level-two upgrade waits for level one');
-
-  check(st.owned.length === 13 && st.menu.includes('ramen') && st.speed > 0.8 && st.placed.includes('irori') && st.games.length === 4, `bought ${st.owned.join(', ')} (¥${st.yen} left)`);
+  check(st.early === 0, "recipes and kit can't be bought, and a level-two upgrade waits for level one");
+  check(st.owned.length === 8 && st.placed.includes('irori') && st.games.length === 4, `bought ${st.owned.join(', ')} (¥${st.yen} left)`);
+  // ---- milestones: what the shop's record reaches. Kit arrives on its own; recipes and jobs go on the to-do list
+  st = await page.evaluate(async () => {
+    const M = await import('/src/home.js');
+    const save = { pending: [] }, owned = [];
+    const got = M.reachMilestones(save, owned, { served: 45, nights: 3, rating: 3 }).map((m) => m.id);
+    const again = M.reachMilestones(save, owned, { served: 45, nights: 3, rating: 3 }).length;
+    const ladder = M.STATION_UPS.every((u) => u.track === 's' || u.track === 'v');
+    return { got, owned, pending: save.pending, again, ladder };
+  });
+  check(st.got.join() === 'sushi,dishes,onigiri,fridge,backdoor' && st.owned.join() === 'dishes,fridge' && st.pending.join() === 'sushi,onigiri,backdoor' && st.again === 0 && st.ladder,
+    `45 guests and 3 nights reach ${st.got.join(', ')}: the kit arrives, the recipes and the back door wait to be done`);
 
   // ---- dev: the ` key toggles a cash box that never runs out
   await page.keyboard.press('Backquote');
-  st = await page.evaluate(() => { const d = window.__yoake, before = d.save.yen; d.menu.h.onBuy('bonsai'); d.menu.h.onBuy('fridge'); return { dev: d.save.devYen, spent: before - d.save.yen, owned: d.service.owned.includes('bonsai'), drink: d.service.drinkBill }; });
+  st = await page.evaluate(() => { const d = window.__yoake, before = d.save.yen; d.menu.h.onBuy('bonsai'); return { dev: d.save.devYen, spent: before - d.save.yen, owned: d.service.owned.includes('bonsai') }; });
   await page.keyboard.press('Backquote');
   check(st.dev && st.spent === 0 && st.owned && !(await page.evaluate(() => window.__yoake.save.devYen)), 'the dev switch buys for free and toggles back off');
-  check(st.drink === 250, 'the drinks fridge puts ¥250 on every bill');
-  // ---- the property: the back door, the walk-in freezer and the kura open up from the catalog
+  st = await page.evaluate(() => { const d = window.__yoake; d.ms.complete('fridge'); return { drink: d.service.drinkBill }; });
+  check(st.drink === 250, 'the drinks fridge (a milestone) puts ¥250 on every bill');
+  // ---- the property, by milestone: shovel the drift off the back door (the fire escape opens for it), then pick
+  // the freezer's lock and the kura's padlock. Each is a little full-screen game; the bot plays them to the end.
+  const finishMini = async () => {
+    await page.waitForFunction(() => document.getElementById('mini').classList.contains('on') && window.__yoake.mini.debugWin, null, { timeout: 30000 });
+    await page.evaluate(() => window.__yoake.mini.debugWin());
+    await page.waitForSelector('#mini .mg-done [data-act="ok"]', { timeout: 30000 });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => document.querySelector('#mini .mg-done [data-act="ok"]').click());
+    await page.waitForFunction(() => !document.getElementById('mini').classList.contains('on'), null, { timeout: 10000 });
+  };
+  const actOn = (re) => page.evaluate((src) => {
+    const d = window.__yoake, re = new RegExp(src);
+    const it = d.interactions.items.find((x) => { try { return (!x.enabled || x.enabled()) && re.test(x.label()); } catch { return false; } });
+    if (!it) return false; d.mini.debugWin = null; it.act(); return true;
+  }, re.source);
   st = await page.evaluate(() => {
-    const d = window.__yoake, locked = () => d.doors.filter((x) => x.spec.needs).map((x) => x.locked);
-    const before = locked();
-    d.save.devYen = true; for (const id of ['backdoor', 'freezer', 'kura']) d.menu.h.onBuy(id); d.save.devYen = false;
-    const B = d.map.shop.crowd.back;
-    return { before, after: locked(), ice: d.service.menuKinds.has('icecream'), drink: d.service.drinkBill, extra: d.service.extraGuests, back: !B || !B.spawn || d.crowd.spawns.some((sp) => sp[0] === B.spawn[0] && sp[1] === B.spawn[1]) };
+    const d = window.__yoake, locked = () => d.doors.filter((x) => x.spec.needs).map((x) => x.locked), fire = d.doors.find((x) => x.spec.opensWith);
+    const r = { before: locked(), fireBefore: !fire || fire.locked };
+    d.save.pending = ['backdoor', 'freezer']; d.ms.apply();
+    r.fireAfter = !fire || !fire.locked;
+    return r;
   });
-  check(st.before.every(Boolean) && st.after.every((l) => !l) && st.ice && st.drink === 650 && st.extra === 1 && st.back,
-    'digging out the back door, fixing the freezer and restoring the kura open their doors, add ice cream, house sake and more guests');
+  check(st.before.every(Boolean) && st.fireBefore && st.fireAfter, 'the property starts locked up; the back door job opens the fire escape down to the yard');
+  check(await actOn(/^Shovel the drift/), 'the drift on the back door can be shovelled');
+  await finishMini();
+  check(await actOn(/^Pick the lock .*mochi ice cream/), "the walk-in freezer's lock can be picked");
+  await finishMini();
+  st = await page.evaluate(() => { const d = window.__yoake; d.save.pending.push('kura'); d.ms.apply(); return true; });
+  check(await actOn(/^Pick the lock .*(kura|shed)/), "the kura's padlock can be picked");
+  await finishMini();
+  st = await page.evaluate(() => {
+    const d = window.__yoake, B = d.map.shop.crowd.back;
+    return { after: d.doors.filter((x) => x.spec.needs).map((x) => x.locked), pending: d.save.pending, ice: d.service.menuKinds.has('icecream'), drink: d.service.drinkBill, extra: d.service.extraGuests,
+      back: !B || !B.spawn || d.crowd.spawns.some((sp) => sp[0] === B.spawn[0] && sp[1] === B.spawn[1]), saved: JSON.parse(localStorage.getItem('yoake.save')).owned };
+  });
+  check(st.after.every((l) => !l) && !st.pending.length && st.ice && st.drink === 650 && st.extra === 1 && st.back && ['backdoor', 'freezer', 'kura'].every((id) => st.saved.includes(id)),
+    'shovelling and two picked locks open the back door, the freezer and the kura: mochi ice cream, house sake and more guests');
 
   // ---- the shrine: walk out past the old border, bow, and the kami leave ¥100 once a day
   const bowAt = () => page.evaluate(() => {
@@ -168,25 +228,18 @@ try {
   st = await page.evaluate(() => {
     const d = window.__yoake, s = d.service;
     d.save.devYen = true; s.cashBox = 1e9;
-    const label = s.upLabel(s.upNext('tea'));
+    const label = s.upLabel(s.upNext('tea')), yLabel = s.upLabel(s.upNext('yakitori'));
     for (const k of ['tea', 'tea', 'yakitori', 'yakitori']) s.upBuy(s.upNext(k));
     for (const id of ['staff_wash', 'staff_sushi', 'staff_hall']) s.request('buy', id);
     d.save.devYen = false;
-    // the twin taps fill a second cup into your free hand
-    s.handCap = 2; s.request('mug'); s.request('urn'); const teas = s.hands.filter((h) => h.type === 'tea').length;
-    s.request('drop'); s.request('drop'); s.handCap = 1;
-    // a big batch of yakitori plates twice
-    const yak = s.stations[0], gy = s.stations[2];
-    yak.state = 'cooking'; yak.t = yak.cook; s.update(0.01);
-    const left = yak.left;
-    s.request('plate'); s.request('station', 0); s.request('drop');
-    const still = yak.state;
-    s.request('plate'); s.request('station', 0); s.request('drop');
-    return { label, teas, left, still, after: yak.state, fast: Math.abs(yak.cook / yak.baseCook - 0.75 * gy.cook / gy.baseCook) < 1e-9, bonus: s.priceBonus.tea,
-      staff: [...s.staff].length, wages: s.wages, nextTea: s.upNext('tea') };
+    d.ms.complete('beltMotor'); // (a milestone at 85 guests: the bot sends everything it can down the belt)
+    const yak = s.stations.find((x) => x.kind === 'yakitori'), gy = s.stations.find((x) => x.kind === 'gyoza');
+    return { label, yLabel, fast: Math.abs(yak.cook / yak.baseCook - 0.8 * gy.cook / gy.baseCook) < 1e-9, tea: s.priceBonus.tea, yak: s.priceBonus.yakitori, batch: yak.batch,
+      staff: [...s.staff].length, wages: s.wages, nextTea: s.upLabel(s.upNext('tea')), sushi: !s.upNext('sushi') };
   });
-  check(/^Upgrade 1\/2: twin urn taps/.test(st.label) && st.teas === 2 && st.bonus === 100 && !st.nextTea, `station upgrades between nights: "${st.label}", two cups at once, gyokuro +¥100`);
-  check(st.fast && st.left === 2 && st.still === 'ready' && st.after === 'idle', 'upgraded grills cook 25% faster and a batch plates twice');
+  check(/^Upgrade 1\/3 · value: gyokuro leaves \(\+¥50 a dish\)/.test(st.label) && /^Upgrade 1\/4 · speed: bamboo fans/.test(st.yLabel) && st.tea === 130 && /^Upgrade 3\/3 · value/.test(st.nextTea),
+    `station upgrades between nights are speed or value: "${st.label}", tea now +¥${st.tea} a cup`);
+  check(st.fast && st.yak === 150 && st.batch === 1 && st.sushi, 'the grill cooks a fifth faster and its yakitori earns ¥150 more (no sushi upgrades until the recipe)');
   check(st.staff === 3 && st.wages === 4800, 'hired a dishwasher, a sushi chef and a cashier (¥4,800 a night)');
 
   // ---- open the shop and work the night
@@ -221,8 +274,10 @@ try {
         if (q) { act('cust', q.id); stats.served++; stats.kinds[k] = (stats.kinds[k] || 0) + 1; } else act('drop');
         return;
       }
-      const want = people.filter((p) => p.svc.phase === 'food').flatMap((p) => p.svc.items.filter((i) => !i.done).map((i) => i.kind));
-      const need = (k) => want.filter((w) => w === k).length - onBelt(k);
+      const hungry = people.filter((p) => p.svc.phase === 'food'), want = hungry.flatMap((p) => p.svc.items.filter((i) => !i.done).map((i) => i.kind));
+      // what's on the belt only covers the guests along it; the booths it doesn't reach need theirs made and carried
+      const count = (k, belt) => hungry.filter((p) => (s.seatBeltS(p.seat) !== null) === belt).reduce((n, p) => n + p.svc.items.filter((i) => !i.done && i.kind === k).length, 0);
+      const need = (k) => count(k, false) + Math.max(0, count(k, true) - onBelt(k));
       for (const k of want) {
         if (need(k) <= 0) continue;
         if (k === 'tea') { if (s.stock.mugs > 0) { act('mug'); act('urn'); return; } continue; }
@@ -238,18 +293,18 @@ try {
       if (si >= 0) act('bus', si);
     };
   });
-  check(await page.evaluate(() => !window.__yoake.shift.waiting && !window.__yoake.service.upNext('sushi')), 'turning the sign opens the shop (and closes the upgrade counter)');
+  check(await page.evaluate(() => !window.__yoake.shift.waiting && !window.__yoake.service.upNext('tea')), 'turning the sign opens the shop (and closes the upgrade counter)');
 
   let result = null;
   for (let i = 0; i < 5000 && !result; i++) {
     result = await page.evaluate(() => {
       const d = window.__yoake;
-      for (let k = 0; k < 6; k++) { d.crowd.update(0.1); d.service.update(0.1); d.shift.update(0.1); for (const dr of d.doors) dr.update(0.1, [d.player.pos, ...d.crowd.positions()]); }
+      for (let k = 0; k < 6; k++) { d.crowd.update(0.1); d.service.update(0.1); d.shift.update(0.1); d.tutorial.update(0.1); for (const dr of d.doors) dr.update(0.1, [d.player.pos, ...d.crowd.positions()]); }
       window.botStep();
       if (!document.body.classList.contains('summary')) return null;
       const s = d.service;
       return { served: s.served, walkouts: s.walkouts, beltServed: s.beltServed || 0, washed: s.washed, money: s.money, stats: window.stats, save: { ...d.save },
-        crew: s.crew.did, card: document.querySelector('#summary').textContent };
+        crew: s.crew.did, card: document.querySelector('#summary').textContent, tut: d.tutorial.i, learn: !!document.querySelector('#summary [data-learn="sushi"]') };
     });
   }
   if (!result) throw new Error('the night never ended');
@@ -262,9 +317,33 @@ try {
   check(Object.values(result.crew).some((n) => n > 0) && result.card.includes('¥4,800 in staff wages'), `the staff pitched in (${JSON.stringify(result.crew)}) and were paid at sunrise`);
   check(result.save.night === 2 && result.save.yen > 0, `the save moved on to night 2 with ¥${result.save.yen}`);
   check(typeof result.save.rating === 'number' && /the shop's rating/.test(result.card) && /the goal/.test(result.card), `the night was rated and the shop's rating saved (★${result.save.rating})`);
+  check(result.tut >= 3 && result.save.tutorialDone, `the tutorial followed the night along (to step ${result.tut + 1}) and won't come back`);
+  check(result.save.served >= 6 && result.save.pending.includes('sushi') && result.learn, `${result.save.served} guests served: the nigiri milestone is on the card, ready to learn`);
+
+  // ---- learn nigiri: the card's button opens the recipe game; drag the ingredients onto the dish in order
+  await page.waitForTimeout(6000);
+  await page.click('#summary [data-learn="sushi"]');
+  await page.waitForFunction(() => document.getElementById('mini').classList.contains('on') && document.querySelector('#mini .mg-tile'), null, { timeout: 30000 });
+  await page.waitForTimeout(500);
+  const steps = await page.evaluate(async () => (await import('/src/minigames.js')).RECIPES.sushi.steps);
+  const drag = async (k) => {
+    const a = await page.locator(`#mini .mg-tile[data-k="${k}"]`).boundingBox(), b = await page.locator('#mini .mg-dish').boundingBox();
+    const ax = a.x + a.width / 2, ay = a.y + a.height / 2, bx = b.x + b.width / 2, by = b.y + b.height / 2;
+    await page.mouse.move(ax, ay); await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(ax + (bx - ax) * i / 8, ay + (by - ay) * i / 8);
+    await page.mouse.up(); await page.waitForTimeout(400);
+  };
+  await drag(steps[1]); // the wrong one first: it bounces back
+  st = await page.evaluate(() => ({ tries: document.querySelector('#mini .mg-tries').textContent, used: document.querySelectorAll('#mini .mg-tile.used').length }));
+  check(/1 wrong turn/.test(st.tries) && st.used === 0, `dropping the ${steps[1]} on first sends it back to the tray`);
+  for (const k of steps) await drag(k);
+  await page.waitForSelector('#mini .mg-done [data-act="ok"]', { timeout: 30000 });
+  await page.waitForTimeout(300);
+  await page.click('#mini .mg-done [data-act="ok"]');
+  st = await page.evaluate(() => { const d = window.__yoake; return { menu: d.service.menuKinds.has('sushi'), saved: JSON.parse(localStorage.getItem('yoake.save')).owned.includes('sushi'), pending: d.save.pending, open: document.getElementById('mini').classList.contains('on') }; });
+  check(st.menu && st.saved && !st.pending.includes('sushi') && !st.open, `${steps.join(', ')}: nigiri learned by hand, on the menu from tomorrow`);
 
   // ---- sunrise, then bed
-  await page.waitForTimeout(6000);
   await page.click('#summary [data-act="again"]');
   await page.waitForTimeout(5000);
   st = await page.evaluate(() => { const d = window.__yoake; return { n: d.shift.n, waiting: d.shift.waiting, y: d.player.pos.y, summary: document.body.classList.contains('summary') }; });
@@ -275,8 +354,9 @@ try {
   st = await page.evaluate(() => ({ label: document.querySelector('#screen [data-act="solo"]').textContent, save: JSON.parse(localStorage.getItem('yoake.save')) }));
   check(/night 2/.test(st.label) && st.save.owned.includes('irori'), `after a reload the title offers "${st.label.trim()}" and the purchases are kept`);
   await page.click('#screen [data-act="solo"]');
-  st = await page.evaluate(() => { const d = window.__yoake; return { n: d.shift.n, hands: d.service.handCap, placed: [...d.home.placed], menu: [...d.service.menuKinds] }; });
-  check(st.n === 2 && st.hands === 2 && st.placed.includes('irori') && st.placed.includes('famicom') && st.menu.includes('tempura'), "night 2 starts with last night's perk and everything you bought");
+  st = await page.evaluate(() => { const d = window.__yoake, T = d.map.shop.title; return { n: d.shift.n, hands: d.service.handCap, placed: [...d.home.placed], menu: [...d.service.menuKinds], street: Math.hypot(d.player.pos.x - T.x, d.player.pos.z - T.z) < 0.01, tut: d.tutorial.on }; });
+  check(st.n === 2 && st.hands === 2 && st.placed.includes('irori') && st.placed.includes('famicom') && st.menu.includes('sushi') && st.menu.includes('icecream') && st.street && !st.tut,
+    "night 2 starts in the street (no tutorial this time) with last night's perk, the nigiri and everything you got");
   st = await page.evaluate(() => { const d = window.__yoake, p = d.home.pieces.get('bonsai'); return { at: [p.x, p.z, p.rot].join(), want: d.map.test.bonsaiTo.join() }; });
   check(st.at === st.want, 'the bonsai is still where you put it');
 
@@ -284,8 +364,9 @@ try {
   st = await page.evaluate(() => {
     const d = window.__yoake, s = d.service;
     d.save.devYen = true; s.cashBox = 1e9;
-    for (const id of ['staff_waiter', 'staff_cook', 'dishes', 'dishes2', 'backdoor']) s.request('buy', id); // (a five-star crowd needs the full set of tableware)
+    for (const id of ['staff_waiter', 'staff_cook']) s.request('buy', id);
     d.save.devYen = false;
+    for (const id of ['dishes', 'dishes2']) d.ms.complete(id); // (a five-star crowd needs the full set of tableware)
     s.request('openShop');
     d.player.pos.set(9, 3.75, 4); // upstairs, out of the way
     return { staff: [...s.staff].length, wages: s.wages };

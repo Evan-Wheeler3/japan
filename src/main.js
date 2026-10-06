@@ -9,7 +9,9 @@ import { Interactions, Door } from './interact.js';
 import { Crowd } from './npc.js';
 import { Service } from './service.js';
 import { Shift, clockText, START_HOUR, UNLOCKS, starRow } from './shift.js';
-import { loadSave, writeSave, clearSave, CATALOG, STATION_UPS, itemById, applyUpgrades, ownedGames, Home } from './home.js';
+import { loadSave, writeSave, clearSave, CATALOG, STATION_UPS, itemById, applyUpgrades, ownedGames, Home, MILESTONES, reachMilestones, milestoneProgress, milestoneGoal } from './home.js';
+import { MiniGames } from './minigames.js';
+import { Tutorial } from './tutorial.js';
 import { Staff } from './staff.js';
 import { Arcade } from './arcade.js';
 import { Menu } from './menu.js';
@@ -131,10 +133,10 @@ async function boot() {
       doorGlass.position.set(9.5 / 16, 22.5 / 16, 0); mesh.add(doorGlass);
     } else mesh = Props.swingDoor(spec.kind).mesh(litMat, emitMat);
     mesh.position.set(spec.hinge[0], spec.y ?? L.floor, spec.hinge[1]); mesh.rotation.y = spec.base || 0; scene.add(mesh);
-    const d = new Door(mesh, { hinge: { x: spec.hinge[0], z: spec.hinge[1] }, base: spec.base || 0, plusDir: spec.plusDir, max: spec.max || 1.45, block: spec.block, bell: !!spec.bell,
+    const d = new Door(mesh, { hinge: { x: spec.hinge[0], z: spec.hinge[1] }, base: spec.base || 0, plusDir: spec.plusDir, max: spec.max || 1.45, block: spec.block, bell: !!spec.bell, y0: spec.y > 1 ? spec.y : 0,
       ...(spec.slide ? { slide: spec.slide } : spec.slideDir ? { slide: spec.slideDist || 0.95, slideDir: spec.slideDir } : {}) });
     d.spec = spec; d.name = spec.name;
-    if (spec.needs) { d.locked = true; d.lockedText = spec.locked; }
+    if (spec.needs || spec.opensWith) { d.locked = true; d.lockedText = spec.locked; }
     doors.push(d); D[spec.key] = d;
   }
   const frontDoor = D.front;
@@ -149,8 +151,8 @@ async function boot() {
       let score = 0;
       for (let t = 0.15; t <= 1.0; t += 0.1) {
         const px = d.hinge.x + dx * d.width * t, pz = d.hinge.z + dz * d.width * t;
-        if (world.solid(px, 1.0, pz)) score -= 10;                                   // it would swing into something
-        for (const o of [0.18, 0.3]) for (const k of [1, -1]) if (world.solid(px + nx * o * k, 1.0, pz + nz * o * k)) score += o < 0.2 ? 2 : 1;
+        if (world.solid(px, d.y0 + 1.0, pz)) score -= 10;                                   // it would swing into something
+        for (const o of [0.18, 0.3]) for (const k of [1, -1]) if (world.solid(px + nx * o * k, d.y0 + 1.0, pz + nz * o * k)) score += o < 0.2 ? 2 : 1;
       }
       if (score > bestScore) { bestScore = score; best = s; }
     }
@@ -187,6 +189,7 @@ async function boot() {
   const player = new Player(camera, world, renderer.domElement);
   { const T = MAP.shop.title; player.pos.set(T.x, L.floor, T.z); player.yaw = T.yaw; player.pitch = T.pitch; } // the view behind the menu
   const audio = new Ambience();
+  const mini = new MiniGames(audio); let miniOpen = false; // the little full-screen games (minigames.js)
   audio.city = !!(MAP.view.sky && MAP.view.sky.city); // the street hums with traffic where the mountain has the sea
   player.onStep = () => audio.step(indoor);
   const { composer, bloom, grade, outline } = makeComposer(renderer, scene, camera);
@@ -210,7 +213,7 @@ async function boot() {
     if (!arrived) {
       arrived = true;
       audio.clickSound();
-      if (!coop || coop.isHost) beginNight(save.night);
+      if (!coop || coop.isHost) beginNight(save.night, true);
       else wakeUp();
     }
     lock();
@@ -226,19 +229,22 @@ async function boot() {
     player.locked = locked;
     if (touchUI && !locked) touchUI.reset();
     if (locked) document.body.classList.remove('summary');
-    overlay.classList.toggle('hidden', locked || !!(parade && parade.dead));
+    overlay.classList.toggle('hidden', locked || miniOpen || !!(parade && parade.dead));
     document.body.classList.toggle('playing', locked);
     if (!locked) interactions.clear();
-    if (!locked && arcadeOpen) {} // the Fami-Com fills the screen
+    if (!locked && (arcadeOpen || miniOpen)) {} // the Fami-Com (or a little game) fills the screen
     else if (!locked && catalogOpen) menu.show('catalog', { catalog: catalogData() });
     else if (!locked && parade && parade.dead) {} // the night's over: its card is up
     else if (!locked && arrived && !document.body.classList.contains('summary'))
       menu.show('pause', { clock: parade ? parade.pauseText() : clockText(shift.minutes).toLowerCase(), coop: !!coop, isHost: !!(coop && coop.isHost), pausePanel: null });
     // full pause once you've come in (solo only: in co-op the shop keeps going for everyone else)
     paused = arrived && !locked && !coop && !dev && !sunrise && !arcadeOpen;
-    if (audio.ctx) { if (paused && !arcadeOpen) audio.ctx.suspend(); else audio.ctx.resume(); }
+    if (audio.ctx) { if (paused && !arcadeOpen && !miniOpen) audio.ctx.suspend(); else audio.ctx.resume(); }
     if (locked && !introShown) { introShown = true; setTimeout(() => $('intro').classList.add('gone'), 9000); }
   }
+  addEventListener('keydown', (e) => {
+    if (!arrived && !parade && menu.screen === 'main' && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown'].includes(e.code)) { menu.h.onSolo(); player.keys[e.code] = true; return; }
+  });
   addEventListener('keydown', (e) => {
     if (e.code === 'KeyM' && audio.ctx) { audio.musicOn = !audio.musicOn; toast(audio.musicOn ? 'radio on' : 'radio off'); }
   });
@@ -262,7 +268,16 @@ async function boot() {
   for (const [di, d] of doors.entries()) {
     const name = d.name;
     d.onAutoClose = () => audio.doorSound(false, d.slide);
-    interactions.add(() => d.box(), () => (d.locked ? d.lockedText[0] : (d.open ? 'Close the ' : 'Open the ') + name), () => {
+    const task = () => d.locked && d.spec.needs && pending(d.spec.needs) && itemById(d.spec.needs);
+    interactions.add(() => d.box(), () => {
+      const t = task();
+      if (t && t.game === 'lockpick') return `Pick the lock (the key's long gone) · ${t.name.toLowerCase()}`;
+      if (t && t.game === 'shovel') return `${d.lockedText[0]} · dig it out from outside`;
+      return d.locked ? d.lockedText[0] : (d.open ? 'Close the ' : 'Open the ') + name;
+    }, () => {
+      const t = task();
+      if (t && t.game === 'lockpick') { playMini('lockpick', t.id).then((ok) => { if (ok) completeMilestone(t.id); }); return; }
+      if (t && t.game === 'shovel') { audio.rattle(); toast(MAP.shop.backHint || 'snowed shut from outside: go round and dig it out'); return; }
       if (d.locked) { audio.rattle(); toast(d.lockedText[1]); return; }
       if (d.open && d.playerInDoorway(player.pos)) { toast('step out of the doorway first'); return; }
       if (coop && coop.door(di)) return;
@@ -348,6 +363,21 @@ async function boot() {
   const save = loadSave();
   service.owned = [...save.owned];
   service.rating = save.rating ?? 3;
+  // the shop's record, for milestones; what's waiting to be done; doing it
+  const record = () => ({ served: save.served || 0, nights: (save.night || 1) - 1, rating: save.rating ?? 0 });
+  const pending = (id) => (save.pending || []).includes(id);
+  const completeMilestone = (id) => {
+    save.pending = (save.pending || []).filter((x) => x !== id);
+    if (!service.owned.includes(id)) service.owned.push(id);
+    save.owned = [...service.owned]; writeSave(save); applyAll();
+    toast(`${itemById(id).name.toLowerCase()}: done`);
+  };
+  // a little full-screen game: the mouse is let go while it's up, and the game picks up again after
+  const playMini = (kind, id) => {
+    miniOpen = true; unlock(); setPlaying(false);
+    return mini.play(kind, id, id && itemById(id) && itemById(id).name).then((ok) => { miniOpen = false; if (!catalogOpen && !document.body.classList.contains('summary')) lock(); else setPlaying(false); return ok; });
+  };
+  const learnRecipe = (id, then) => playMini('recipe', id).then((ok) => { if (ok) { completeMilestone(id); if (then) then(); } });
   const homeSteam = [];
   // the Fami-Com and the TV it plugs into
   const arcade = new Arcade();
@@ -438,9 +468,13 @@ async function boot() {
   // the drift against the back door, until you dig it out
   // what's piled against the back door until it's cleared (snow on the mountain)
   const snowPile = (MAP.shop.backPile ? MAP.shop.backPile() : Props.snowPile()).mesh(litMat, emitMat); snowPile.position.set(...MAP.shop.snowPile); snowPile.rotation.y = MAP.shop.snowPileYaw || 0; scene.add(snowPile);
+  interactions.add([MAP.shop.snowPile[0], 0.55, MAP.shop.snowPile[2], 0.9, 0.5, 0.9], () => 'Shovel the drift off the back door', () => {
+    playMini('shovel').then((ok) => { if (ok) completeMilestone('backdoor'); });
+  }, () => snowPile.visible && pending('backdoor'));
   const applyProperty = () => {
     const has = (id) => service.owned.includes(id);
     for (const d of doors) if (d.spec.needs) d.locked = !has(d.spec.needs);
+    for (const d of doors) if (d.spec.opensWith) d.locked = !has(d.spec.opensWith) && !pending(d.spec.opensWith); // (the fire escape)
     const back = D.back, B = MAP.shop.crowd.back;
     snowPile.visible = !!back && back.locked;
     if (back && B) {
@@ -517,11 +551,21 @@ async function boot() {
     $('intro').innerHTML = 'evening. go down and turn the sign by the front door to <b>OPEN</b> · the catalog is on the kotatsu';
     setTimeout(() => $('intro').classList.add('gone'), 12000);
   };
-  const beginNight = (n) => {
+  // a night: from the title you're already standing in the street where the menu's view was (the menu just goes);
+  // after a night's sleep you wake upstairs
+  const beginNight = (n, street = false) => {
     for (let i = 0; i < n - 1; i++) if (UNLOCKS[i]) UNLOCKS[i].apply(service); // perks from the nights before
     shift.start(n);
     applyAll();
-    wakeUp();
+    if (!street) wakeUp();
+    else {
+      player.pitch = 0; player.vel.set(0, 0, 0);
+      $('intro').classList.remove('gone');
+      $('intro').innerHTML = 'evening. cross to the shop and turn the sign by the front door to <b>OPEN</b>';
+      setTimeout(() => $('intro').classList.add('gone'), 9000);
+    }
+    // the first night walks you through it
+    if (n === 1 && !save.tutorialDone && (!coop || coop.isHost)) { $('intro').classList.add('gone'); tutorial.start(); }
   };
   // after the night's card: sleep, and wake to the next evening
   const sleepUntil = (n) => {
@@ -547,11 +591,14 @@ async function boot() {
     note: coop && !coop.isHost ? 'orders go on the shop\'s cash box' : '',
     items: CATALOG.map((c) => ({ ...c, owned: service.owned.includes(c.id), blocked: !!c.needs && !service.owned.includes(c.needs), needsName: c.needs ? itemById(c.needs).name : '' })),
     goal: goalState(),
+    milestones: MILESTONES.map((m) => ({ id: m.id, name: m.name, how: m.how, game: m.game, text: m.text, goal: milestoneGoal(m), needsName: m.needs ? itemById(m.needs).name : '',
+      state: service.owned.includes(m.id) ? 'done' : pending(m.id) ? 'pending' : 'locked', progress: milestoneProgress(m, record()) })),
+    record: record(),
   });
   // buying runs on the host (or solo): it comes out of the shared cash box and everyone gets the delivery
   const buyItem = (id) => {
     const it = itemById(id);
-    if (!it || service.owned.includes(id) || (it.needs && !service.owned.includes(it.needs)) || cashBox() < it.price) return;
+    if (!it || it.kind === 'milestone' || !(it.price > 0) || service.owned.includes(id) || (it.needs && !service.owned.includes(it.needs)) || cashBox() < it.price) return;
     if (!save.devYen) save.yen -= it.price;
     service.owned.push(id); save.owned = [...service.owned]; writeSave(save);
     applyAll(); audio.kaching();
@@ -625,28 +672,36 @@ async function boot() {
       ${extra ? `<div class="small">${extra}</div>` : ''}
       ${r.goal ? `<div class="unlock goal"><div class="ic">★</div><div><b>five stars, and it runs itself</b><span>Yoake is the best little shop on the street, and the help have it all in hand. People are talking: there's an empty shopfront further down the street…</span></div></div>`
         : r.goalLine ? `<div class="small goal">${r.goalLine}</div>` : ''}
+      ${(r.milestones || []).map((m) => `<div class="unlock ms"><div class="ic">${m.how === 'recipe' ? '料' : m.how === 'task' ? '鍵' : '✦'}</div><div><b>${m.how === 'recipe' ? 'a new recipe: ' : m.how === 'gift' ? 'arrived: ' : ''}${m.name.toLowerCase()}</b><span>${m.how === 'recipe' ? "Learn it and it's on the menu tonight." : m.text}</span></div>${m.how === 'recipe' && (!coop || coop.isHost) ? `<button class="pill-btn learn" data-learn="${m.id}">learn it</button>` : ''}</div>`).join('')}
       ${r.unlock ? `<div class="unlock"><div class="ic">✦</div><div><b>new: ${r.unlock.name.toLowerCase()}</b><span>${r.unlock.text}</span></div></div>` : ''}
       ${!coop || coop.isHost ? `<div class="small">${money(save.yen)} in the cash box · the catalog is on the kotatsu upstairs</div>` : ''}
       <div class="actions">${canStart ? '<button class="pill-btn" data-act="again">go up to bed</button>' : '<button class="pill-btn" disabled>waiting for the host…</button>'}
         <button class="text-btn" data-act="home">${coop && coop.isHost ? 'close the shop' : 'back to the title'}</button></div>`;
     const again = $('summary').querySelector('[data-act="again"]');
     if (again) again.onclick = () => { lock(); sleepUntil(r.n + 1); };
+    for (const b of $('summary').querySelectorAll('[data-learn]')) b.onclick = () => learnRecipe(b.dataset.learn, () => { b.textContent = 'learned ✓'; b.disabled = true; });
     $('summary').querySelector('[data-act="home"]').onclick = quit;
     document.body.classList.add('summary');
     audio.kaching();
     unlock();
   };
   const shift = new Shift({ service, crowd, audio, toast, ui: { schedule: $('schedule') }, onEnd: (r) => {
-    save.night = r.n + 1; save.yen = Math.max(0, save.yen + r.earned); save.owned = [...service.owned];
+    save.night = r.n + 1; save.yen = Math.max(0, save.yen + r.earned);
     // the shop's rating: a rolling average of its nights (the newest counts for 40%)
     r.prev = save.rating; save.rating = r.shop = save.rating === undefined ? r.rating : Math.round((save.rating * 0.6 + r.rating * 0.4) * 100) / 100;
     service.rating = save.rating;
+    // milestones: kit arrives, recipes are there to learn, and parts of the building want getting into
+    save.served = (save.served || 0) + r.fed;
+    r.milestones = reachMilestones(save, service.owned, record()).map((m) => ({ id: m.id, name: m.name, how: m.how, game: m.game, text: m.text }));
+    save.owned = [...service.owned]; applyAll();
+    if (!save.tutorialDone) save.tutorialDone = true;
     const g = goalState();
     if (g.done && !save.goal) { save.goal = r.n; r.goal = true; } else if (!save.goal) r.goalLine = g.line;
     writeSave(save);
     if (coop) net.send({ t: 'summary', r: { ...r, unlock: r.unlock && { name: r.unlock.name, text: r.unlock.text } } });
     showSummary(r, true);
   } });
+  const tutorial = new Tutorial({ scene, service, shift, crowd, player, audio, el: $('tut') }); // the first night's walk-through
   shift.players = () => (coop && net ? Math.max(1, net.players.length) : 1);
   shift.onStart = (n) => { if (coop && coop.isHost) net.send({ t: 'shiftStart', n }); };
   // between nights (the sign still says CLOSED) you can upgrade the kitchen's stations
@@ -721,6 +776,7 @@ async function boot() {
       buyItem(id);
       menu.show('catalog', { catalog: catalogData() });
     },
+    onLearn: (id) => { if (coop && !coop.isHost) return; learnRecipe(id, () => { if (catalogOpen) menu.show('catalog', { catalog: catalogData() }); }); },
     onNewGame: () => { clearSave(); location.reload(); },
     onDevYen: () => { setDevYen(!save.devYen); menu.show(menu.screen); },
   };
@@ -851,7 +907,7 @@ async function boot() {
     // (a hidden co-op host is run by the background ticker instead, so don't double up)
     const bgHost = document.hidden && coop && coop.isHost;
     if (parade) parade.update(dt);
-    else if ((arrived || dev || (coop && !coop.isHost)) && !bgHost) { crowd.update(dt); service.update(dt); shift.update(dt); }
+    else if ((arrived || dev || (coop && !coop.isHost)) && !bgHost) { crowd.update(dt); service.update(dt); shift.update(dt); tutorial.update(dt); }
     if (coop) coop.update(dt);
     const agents = parade ? [player.pos, ...parade.horde.list.filter((k) => k.alive).map((k) => k.pos)] : [player.pos, ...crowd.positions(), ...crowd.others, ...service.crew.positions()];
     for (const d of doors) d.update(dt, coop && !coop.isHost ? null : agents); // guests: the host decides when doors close
@@ -941,7 +997,7 @@ async function boot() {
   }
   requestAnimationFrame(tick);
   window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home, arcade,
-    catalogData, get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, deco, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
+    catalogData, mini, tutorial, ms: { record, pending, complete: completeMilestone, learn: learnRecipe, play: playMini, apply: applyAll }, get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, deco, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
 }
 
 boot().catch((e) => { console.error(e); status('something spilled: ' + e.message); });

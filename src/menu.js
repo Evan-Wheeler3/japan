@@ -4,14 +4,13 @@
 import * as THREE from 'three';
 import { Person, LOOK_OPTIONS, randomLook } from './npc.js';
 import { ICON_SRC } from './service.js';
-const STATION_NAMES = { tea: 'Tea urns', sushi: 'Sushi case', onigiri: 'Rice cookers', yakitori: 'Yakitori grills', gyoza: 'Gyoza teppan', tempura: 'Fryers', ramen: 'Ramen stove' };
+const STATION_NAMES = { tea: 'Tea urns', sushi: 'Sushi case', onigiri: 'Rice cookers', yakitori: 'Yakitori grills', gyoza: 'Gyoza teppan', tempura: 'Fryers', ramen: 'Ramen stove', icecream: 'Chest freezer' };
 
 // the catalog is a little picture book: a tab for each section, two things to a page, a spread at a time
 const BOOK_TABS = [
-  ['shop', 'the shop', 'new dishes, and better kit for the dining room'],
+  ['milestones', 'milestones', 'not for sale: new recipes, the rest of the building and new kit come as the shop grows'],
   ['staff', 'help wanted', 'hire all five and the shop runs itself · wages are paid at sunrise'],
-  ['property', 'the property', 'the rest of the building, opened up'],
-  ['station', 'the kitchen', 'buy these at the station itself, before you turn the sign'],
+  ['station', 'the kitchen', 'faster stations and dearer dishes · buy these at the station itself, before you turn the sign'],
   ['home', 'for home', 'things for the flat upstairs'],
   ['games', 'fami-com', 'cartridges for the console'],
 ];
@@ -21,7 +20,8 @@ const BOOK_ICON = {
   lanterns: '🏮', plants: '🪴', bonsai: '🌲', print: '🌊', catbed: '🐈', fishtank: '🐠', record: '📻', telescope: '🔭', irori: '🫖', crt: '📺', famicom: '🎮',
   game_dash: '⛷️', game_koi: '🐟', game_daruma: '🎎',
 };
-const DISH_ICON = new Set(['onigiri', 'tempura', 'ramen']);
+const DISH_ICON = new Set(['sushi', 'onigiri', 'tempura', 'ramen']);
+const MS_ICON = { freezer: 'icecream', backdoor: '🚪', kura: '🏯' };
 const starRow = (r) => { const h = Math.round(r * 2) / 2; return [1, 2, 3, 4, 5].map((i) => `<i class="${h >= i ? 'on' : h >= i - 0.5 ? 'half' : ''}">★</i>`).join(''); };
 
 const KEY = 'yoake.profile';
@@ -177,8 +177,8 @@ export class Menu {
       </div>${keys}`;
     } else if (s === 'catalog') {
       const c = this.catalog || { yen: 0, items: [] };
-      const tab = this.bookTab || 'shop', T = BOOK_TABS.find((t) => t[0] === tab) || BOOK_TABS[0];
-      const list = c.items.filter((i) => i.kind === tab);
+      const tab = this.bookTab || 'milestones', T = BOOK_TABS.find((t) => t[0] === tab) || BOOK_TABS[0];
+      const list = tab === 'milestones' ? (c.milestones || []) : c.items.filter((i) => i.kind === tab);
       const wide = typeof matchMedia === 'function' && matchMedia('(min-width: 1080px)').matches, per = wide ? 2 : 1;
       const pages = Math.max(1, Math.ceil(list.length / 2)), views = Math.ceil(pages / per);
       const view = this.bookPage = Math.max(0, Math.min(views - 1, this.bookPage || 0));
@@ -187,10 +187,20 @@ export class Menu {
         const k = it.kind === 'station' ? it.station : it.id;
         return k && (it.kind === 'station' || DISH_ICON.has(k)) ? `<img src="${ICON_SRC(k)}" alt="">` : `<span>${BOOK_ICON[it.id] || '✦'}</span>`;
       };
+      // a milestone: what it is, what it takes (and how far along), what to do once it's reached
+      const msCard = (m) => {
+        const ic = MS_ICON[m.id] || m.id, img = ic === 'icecream' || DISH_ICON.has(ic) ? `<img src="${ICON_SRC(ic)}" alt="">` : `<span>${BOOK_ICON[m.id] || MS_ICON[m.id] || '✦'}</span>`;
+        const foot = m.state === 'done' ? '' : m.state === 'pending'
+          ? (m.how === 'recipe' ? `<button class="buyb" data-act="learn:${m.id}">learn it</button>` : `<span class="price todo">${m.game === 'shovel' ? 'go and dig it out' : 'go and pick the lock'}</span>`)
+          : `<div class="msbar"><i style="width:${Math.round(m.progress * 100)}%"></i></div><span class="price">${esc(m.goal)}${m.needsName ? ` · after ${esc(m.needsName.toLowerCase())}` : ''}</span>`;
+        return `<div class="item${m.state === 'done' ? ' owned' : ''}${m.state === 'locked' ? ' later' : ''}"><div class="ic">${img}</div>
+          <div class="txt"><b>${m.how === 'recipe' ? 'recipe · ' : m.how === 'task' ? '' : 'kit · '}${esc(m.name)}</b><p>${esc(m.text)}</p><div class="foot">${foot}</div></div>${m.state === 'done' ? '<div class="hanko">yours</div>' : ''}</div>`;
+      };
       const card = (it) => {
+        if (tab === 'milestones') return msCard(it);
         const station = it.kind === 'station';
         const name = station ? `${STATION_NAMES[it.station]}: ${it.name.toLowerCase()}` : it.name;
-        const text = station ? `${it.short}. ${it.id.endsWith('2') ? 'The second upgrade.' : 'The first upgrade.'}` : it.text;
+        const text = station ? `${it.track === 's' ? 'Speed' : 'Value'}, level ${it.level} of ${it.levels}: ${it.short}.` : it.text;
         const btn = it.owned ? '' : station ? `<span class="price">${yen(it.price)} · at the station</span>`
           : it.blocked ? `<span class="price">needs ${esc(it.needsName.toLowerCase())}</span>`
           : `<button class="buyb" data-act="buy:${it.id}" ${it.price > c.yen ? 'disabled' : ''}>${yen(it.price)}${it.wage ? `<small> + ${yen(it.wage)}/night</small>` : ''}</button>`;
@@ -272,6 +282,7 @@ export class Menu {
     else if (a === 'quit') this.h.onQuit();
     else if (a === 'devYen') this.h.onDevYen();
     else if (a.startsWith('buy:')) this.h.onBuy(a.slice(4));
+    else if (a.startsWith('learn:')) this.h.onLearn && this.h.onLearn(a.slice(6));
     else if (a.startsWith('tab:')) { this.bookTab = a.slice(4); this.bookPage = 0; this.bookTurn = 'next'; this.render(); }
     else if (a.startsWith('page:')) { const d = +a.slice(5); this.bookPage = (this.bookPage || 0) + d; this.bookTurn = d > 0 ? 'next' : 'prev'; this.render(); }
     else if (a === 'newGame') { if (this.confirmNew) this.h.onNewGame(); else this.show('settings', { confirmNew: true }); }
