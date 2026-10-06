@@ -2,7 +2,8 @@
 // the same rules (whoever runs the shop, solo or the co-op host, runs them; everyone sees them at it):
 //   Taro, dishwasher and busboy: clears tables as guests leave, carries the tub back to the sink, washes, takes the
 //     clean ones back out to the shelves, and takes the trash out when the bin's full.
-//   Kenji, sushi chef: nigiri and onigiri; down the belt for the belt's guests, onto the pass for everyone else.
+//   Kenji, sushi chef: nigiri, onigiri and (once the freezer's running) matcha ice cream; down the belt for the
+//     belt's guests, onto the pass for everyone else.
 //   Ren, cook: fires the grills, the teppan, the fryer and the ramen pot for what's been ordered, and plates it
 //     onto the pass.
 //   Yui, waiter: takes orders, pours tea, and carries dishes from the pass (or off any counter) out to the tables,
@@ -21,7 +22,7 @@ const LOOKS = {
   staff_hall: { name: 'Hana', look: { skin: '#f1c9a5', hair: '#1a1412', coat: '#24324e', pants: '#24324e', shoes: '#4a2a18', hairStyle: 4, hat: -1, glasses: false, long: true, umbrella: '#141416', scarf: '#a82a2a' } },
 };
 const COOKED = ['yakitori', 'gyoza', 'tempura', 'ramen'];
-const PLATED = ['sushi', 'onigiri'];
+const PLATED = ['sushi', 'onigiri', 'icecream'];
 const SPEED = 2.0;
 const TRAY = 3; // a waiter carries up to three things on a tray
 
@@ -221,8 +222,19 @@ export class Staff {
     if (spare > 0) belt = Math.max(0, belt - spare);
     return { belt, hand, total: belt + hand };
   }
-  passSlot() { return (MAP.shop.pass || []).find(([x, , z]) => !this.service.counterItems.some((c) => Math.hypot(c.x - x, c.z - z) < 0.2)); }
+  passSlot() { return (MAP.shop.pass || []).find(([x, , z]) => !this.service.counterItems.some((c) => Math.hypot(c.x - x, c.z - z) < 0.15)); }
+  // is anyone sat waiting on this dish at all?
+  anyoneWants(kind) { return this.service.crowd.people.some((q) => q.svc && q.seat && q.svc.phase === 'food' && q.svc.items.some((i) => !i.done && i.kind === kind)); }
+  // a dish going cold on the pass that nobody's waiting on any more: into the sink with it, to make room
+  clearStale() {
+    const s = this.service;
+    const c = s.counterItems.find((it) => !this.claimed.has(it) && (MAP.shop.pass || []).some(([x, , z]) => Math.hypot(it.x - x, it.z - z) < 0.15) && !this.anyoneWants(it.item.type));
+    if (!c) return false;
+    s.removeCounterItem(c); if (c.item.type === 'tea') s.sink.mugs++; else s.sink.plates++;
+    return true;
+  }
   toPass(kind) {
+    if (!this.passSlot()) this.clearStale();
     const slot = this.passSlot(); if (!slot) return false;
     this.service.addCounterItem(this.service.nextItemId++, { type: kind }, slot[0], slot[1], slot[2], 0);
     return true;
@@ -232,7 +244,11 @@ export class Staff {
   cook() {
     const s = this.service, p = this.people.staff_cook;
     // a plate in hand and nowhere to put it: wait at the pass for a gap
-    if (p.task === 'waitPass') { if (this.toPass(p.dish)) { p.dish = null; this.hold(p, null); this.did.cooked++; this.home(p); } return; }
+    if (p.task === 'waitPass') {
+      if (!this.anyoneWants(p.dish)) { s.sink.plates++; p.dish = null; this.hold(p, null); this.home(p); return; } // nobody's waiting on it now
+      if (this.toPass(p.dish)) { p.dish = null; this.hold(p, null); this.did.cooked++; this.home(p); }
+      return;
+    }
     if (!this.free(p)) return;
     const stand = (st) => [st.x, st.z - 0.75];
     // something's ready: plate it and walk it to the pass

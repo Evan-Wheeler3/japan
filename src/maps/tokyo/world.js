@@ -19,6 +19,8 @@ export const TK = {
   shed: { x0: 21.0, x1: 23.75, z0: 13.5, z1: 17.75, floor: 0.375 },
   shrine: { x: -5.5, z: 2.3 },
   ends: { x0: -15.25, x1: 35.5 },              // the road-works barriers that close the street off at each end
+  lane: [-11.5, -8.5],                         // ...all but this, the one-way lane the traffic squeezes through
+  cross: { x: 9.5, w: 3.0 },                   // the zebra crossing out front
   // strings of paper lanterns across the street: [x, height at the north, height at the south, sag]
   garlands: [[-9.0, 4.6, 4.4, 0.7], [7.0, 4.9, 4.7, 0.8], [26.75, 4.5, 4.6, 0.7]],
 };
@@ -79,9 +81,11 @@ export function buildTokyo(W) {
     const px = mx(x), pz = mz(z);
     if (pz > TK.road[0] && pz < TK.road[1]) {
       const wob = Math.sin(px * 0.21) * 0.12 + Math.sin(px * 0.07 + 1) * 0.15;
-      for (const c of [-7.3, -9.4]) { const d = Math.abs(pz - (c + wob)); if (d < 0.18) return d < 0.1 ? P.wet : P.slush; } // tyre tracks
+      const CR = TK.cross;
+      if (Math.abs(px - CR.x) < CR.w / 2 && pz > TK.road[0] + 0.3 && pz < TK.road[1] - 0.3 && (Math.floor((pz - TK.road[0] - 0.3) / 0.45) & 1) === 0) return P.line; // the zebra
+      if (Math.abs(px - (CR.x - CR.w / 2 - 1.0)) < 0.15 && pz < TK.lane[1] + 0.1) return P.line;                          // the stop line
+      for (const c of [-9.25, -10.75]) { const d = Math.abs(pz - (c + wob * 0.5)); if (d < 0.18) return d < 0.1 ? P.wet : P.slush; } // tyre tracks
       if (Math.abs(pz - (TK.road[1] - 0.2)) < 0.06 || Math.abs(pz - (TK.road[0] + 0.2)) < 0.06) return P.line;              // the edge lines
-      if (Math.abs(px - 6.0) < 2.0 && Math.abs(pz + 8.4) < 0.06 && ((x >> 2) & 1)) return P.line;                       // 止まれ-ish marks
       const mh = Math.hypot(px - 6.4, pz + 8.35); if (mh < 0.38) return mh > 0.3 ? P.metalD : P.manhole;
       const n = vnoise(x, z, 9, 7);
       return n > 0.8 ? P.slush : n < 0.28 ? P.asphalt[(x + z) & 1] : snowAt(x, z);
@@ -399,17 +403,24 @@ export function buildTokyo(W) {
     B(px - 0.1875, 2.0, pz - 0.1875, px + 0.1875, 2.75, pz + 0.1875, (x, y) => (y % 3 === 0 ? P.frame : C('#2a6a3a', 0.3, 0.04)));
   }
   meta.poles = poles.map(([x, z]) => [x, 7.8, z]);
-  // road works: striped barriers across the street at both ends, blinking lamps on top (the blinking is decor's)
+  // road works: striped barriers across the street at both ends, blinking lamps on top (the blinking is decor's), but
+  // for the one lane left open, cones either side of it
+  const open = (z) => z + 1.5 > TK.lane[0] + 0.01 && z < TK.lane[1] - 0.01;
   for (const bx of [TK.ends.x0, TK.ends.x1]) {
+    for (const cz of TK.lane) { // a traffic cone
+      for (let y = 0; y < 6; y++) { const r = 0.16 - y * 0.022; B(bx - r, 0.125 + y * 0.125, cz - r, bx + r, 0.25 + y * 0.125, cz + r, y === 2 || y === 4 ? P.stripeK : P.amber); }
+      B(bx - 0.19, 0.125, cz - 0.19, bx + 0.19, 0.1875, cz + 0.19, P.metalD);
+    }
     for (let z = S + 0.25; z < N - 0.25; z += 1.5) {
+      if (open(z)) continue;
       B(bx - 0.0625, 0.125, z + 0.125, bx + 0.0625, 1.0, z + 0.25, P.metalD); B(bx - 0.0625, 0.125, z + 1.25, bx + 0.0625, 1.0, z + 1.375, P.metalD);
       B(bx - 0.0625, 0.5, z, bx + 0.0625, 1.0, z + 1.5, (x, y, vz) => (((vz + y) >> 1) & 1 ? P.stripeY : P.stripeK));
       B(bx - 0.0625, 1.0, z + 0.6875, bx + 0.0625, 1.125, z + 0.8125, P.amber);
     }
-    B(bx - 0.375, 0.125, -9.0, bx + 0.375, 0.75, -7.75, (x, y) => (y % 2 ? P.stripeY : P.stripeK)); // a sandbagged sign stand
-    sign({ text: '工事中', sub: 'ご迷惑をおかけします', color: '#1a1a1a', bg: '#f0e8d8', glow: 0.55, w: 1.1, h: 1.4, pos: [bx, 1.55, -8.4], faces: [bx < 0 ? Math.PI / 2 : -Math.PI / 2] });
+    B(bx - 0.375, 0.125, -7.5, bx + 0.375, 0.75, -6.25, (x, y) => (y % 2 ? P.stripeY : P.stripeK)); // a sandbagged sign stand
+    sign({ text: '工事中', sub: 'ご迷惑をおかけします', color: '#1a1a1a', bg: '#f0e8d8', glow: 0.55, w: 1.1, h: 1.4, pos: [bx, 1.55, -6.9], faces: [bx < 0 ? Math.PI / 2 : -Math.PI / 2] });
   }
-  meta.barriers = [TK.ends.x0, TK.ends.x1].flatMap((bx) => { const out = []; for (let z = S + 0.25; z < N - 0.25; z += 1.5) out.push([bx, 1.06, z + 0.75]); return out; });
+  meta.barriers = [TK.ends.x0, TK.ends.x1].flatMap((bx) => { const out = []; for (let z = S + 0.25; z < N - 0.25; z += 1.5) if (!open(z)) out.push([bx, 1.06, z + 0.75]); return out; });
 
   // ---- the lights at our door, and the shop's sign
   light('door', [13.4, 2.1, -4.0], 0xff9050, 5, 6);

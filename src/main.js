@@ -313,6 +313,7 @@ async function boot() {
   // ---------------------------------------------------------------- customers + seats
   const isInside = (x, z) => x > L.inside.x0 && x < L.inside.x1 && z > L.inside.z0 && z < L.inside.z1;
   const crowd = new Crowd({ scene, world, seats: batch.seats, doors, litMat, emitMat, audio, player, inside: isInside });
+  if (deco && deco.setAgents) deco.setAgents(() => [player.pos, ...crowd.positions()]); // the street's traffic slows for people
   scene.add(camera); // so things held in your hands render
   const service = new Service({ scene, camera, crowd, audio, interactions, toast, litMat, emitMat, player, batch,
     ui: { orders: $('orders') } });

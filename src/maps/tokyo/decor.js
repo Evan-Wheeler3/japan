@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { hash01 } from '../../voxel.js';
 import { TK } from './world.js';
+import { Traffic } from './traffic.js';
 
 export const TOWER = { x: -150, z: -520, h: 333 };
 
@@ -369,11 +370,17 @@ export function decorateTokyo(scene, { meta }) {
   // its light spills down off the girder onto the street as it passes over
   const spill = new THREE.PointLight(0xfff0d8, 0, 22, 1.6); spill.position.set(V.x1 + 0.8, V.deck + 1.0, (TK.north + TK.south) / 2); scene.add(spill);
   let next = 8, dir = 1, clack = 0, dong = 0, speed = 15;
+  // taxis and scooters along the one open lane, and the crossing out front (traffic.js)
+  const traffic = new Traffic(scene);
   const span = (CARS - 1) * CAR + CAR / 2;
   return {
     // (for testing: run a train over the street now)
+    traffic,
+    // who's about in the street (the cars slow for them): set once the crowd is up
+    setAgents(fn) { traffic.agents = fn; },
     sendTrain(z = 60, d = -1) { dir = d; train.visible = true; train.rotation.y = d < 0 ? 0 : Math.PI; train.position.z = z; next = 0; },
     update(dt, time, dawn, camera, audio) {
+      traffic.update(dt, camera, audio);
       // neon flickers now and then, and fades as it gets light
       for (const g of signs) { const m = g.userData.mat, k = g.userData.glow / 1.6; const f = k < 1 ? 1 : Math.random() < 0.003 ? 0.4 : 1; m.color.setScalar((1.6 - dawn * 0.8) * k * f); }
       const on = Math.floor(time / 0.45) & 1;

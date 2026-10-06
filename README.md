@@ -37,8 +37,11 @@ Outside: an izakaya and a standing bar either side, a tiny Inari shrine down a p
 machines under a canopy, a tobacconist, a coin laundry; across the road a konbini, a ramen shop, a drugstore, an old
 kissaten, a karaoke tower and a yakiniku place. Signs are stacked up the buildings' corners, lanterns are strung
 across the street, and the wires sag from pole to pole. Every so often a train rumbles over the viaduct at the west
-end. Both ends of the street are closed for road works tonight; the city carries on beyond the barriers. People pass
-by all night, and some of them come in.
+end. The road works at both ends close all but one lane, so the street's one way tonight: taxis, the odd white kei
+van and delivery scooters squeeze past the barriers and through, lights on in the snow. They slow for anyone in the
+road (and honk if you stand there), and stop at the zebra crossing outside the shop when its lights change; while
+it's green for walkers it plays the kakkō, the two-note cuckoo chirp. People pass by all night, and some of them come
+in.
 
 The game used to be set on a snowy cliff above the sea, looking across the bay at Mt Fuji. That map is still there:
 add `?map=mountain` to the URL to run the shop up there (the flat is the same, and so is the arrangement of your
@@ -270,7 +273,7 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
 | File | What it is |
 |---|---|
 | `src/voxel.js` | Palette, voxel grid, face-culled mesher with baked AO, `Model` (props) and `PropBatch` (merged static props), 5×7 pixel font |
-| `src/maps/` | The maps: `index.js` holds the current one (`MAP`), `tokyo.js` and `mountain.js` give every position the game needs (counters, stations, the belt, doors, seats, where guests walk in, furniture spots); Tokyo's shop is the mountain's, so most of it is shared. `tokyo/world.js` builds the street round the shop in voxels, `tokyo/props.js` furnishes it, `tokyo/decor.js` adds the signs, wires, the city beyond the street's ends, Tokyo Tower and the trains |
+| `src/maps/` | The maps: `index.js` holds the current one (`MAP`), `tokyo.js` and `mountain.js` give every position the game needs (counters, stations, the belt, doors, seats, where guests walk in, furniture spots); Tokyo's shop is the mountain's, so most of it is shared. `tokyo/world.js` builds the street round the shop in voxels, `tokyo/props.js` furnishes it, `tokyo/decor.js` adds the signs, wires, the city beyond the street's ends, Tokyo Tower and the trains, `tokyo/traffic.js` the cars, scooters and the crossing |
 | `src/world.js` | The 1/8 m voxel world: `buildShop` builds the shop for either map (in its city dress on Tokyo); `buildWorld` the mountain: the snowy lot, the shop (kaiten island, front booth room, genkan, kitchen), the flat upstairs and its outdoor stair, the roof, the storehouse, the shrine, pines. `L` holds the shared layout numbers |
 | `src/props.js` | Finer-scale prop models: furniture, lanterns, the sushi case, kitchen gear, signs, the cat, the vending machine, and where they're placed |
 | `src/effects.js` | Night-to-dawn sky, snowfall, frosted glass, steam, the cliff, the sea, the hills and Mt Fuji, post FX |

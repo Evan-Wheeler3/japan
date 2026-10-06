@@ -65,7 +65,7 @@ export const MOUNTAIN = {
     },
     // the pass: dishes the cooks have plated wait here for whoever carries them out [x, top, z]; where the cook stands
     // to set one down (kitchen side), where a waiter stands to pick one up (dining side); where tea gets poured
-    pass: [[13.0, 1.125, 10.1], [13.45, 1.125, 10.1]],
+    pass: [[12.92, 1.125, 10.05], [13.26, 1.125, 10.05], [13.6, 1.125, 10.05]],
     passCook: [13.0, 11.6], passGrab: [13.2, 9.35], urnStand: [6.3, 8.75],
     // the kitchen bin [x, floor, z] (how deep it is, where to stand at it) and the gomi stations a full bag goes out to:
     // the back one when the back door's open, the front one otherwise

@@ -43,7 +43,7 @@ export const TOKYO = {
       nav: [TK.ends.x0 + 0.2, S + 0.2, TK.ends.x1 - 0.2, 17.6],
       spawns: [[TK.ends.x0 + 0.5, -4.4], [TK.ends.x1 - 0.5, -4.4], [TK.ends.x0 + 0.5, -12.05], [TK.ends.x1 - 0.5, -12.05]],
       back: null,
-      passersby: { every: [2.0, 5.0], max: 10, ends: [TK.ends.x0 + 0.5, TK.ends.x1 - 0.5], lanes: [[-4.75, -4.45], [-10.4, -6.4], [-12.2, -11.95]] },
+      passersby: { every: [2.0, 5.0], max: 10, ends: [TK.ends.x0 + 0.5, TK.ends.x1 - 0.5], lanes: [[-4.75, -4.45], [-7.9, -6.2], [-12.2, -11.95]] }, // (out of the traffic's lane)
     },
     doors: [
       ...M.doors.filter((d) => ['front', 'kitchen', 'freezer'].includes(d.key)),
