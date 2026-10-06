@@ -15,8 +15,8 @@ export const TK = {
   street: { z0: -13.25, z1: -3.375 },
   F2: 3.75,
   viaduct: { x0: -16, x1: -12.5, deck: 6.0, top: 6.75 },
-  yard: { x0: 16, x1: 24, z0: 10, z1: 17.75 },
-  shed: { x0: 19.5, x1: 23.75, z0: 13.0, z1: 17.75, floor: 0.375 },
+  yard: { x0: 16, x1: 24, z0: 13.25, z1: 17.75 },
+  shed: { x0: 21.0, x1: 23.75, z0: 13.5, z1: 17.75, floor: 0.375 },
   shrine: { x: -5.5, z: 2.3 },
   ends: { x0: -15.25, x1: 35.5 },              // the road-works barriers that close the street off at each end
   // strings of paper lanterns across the street: [x, height at the north, height at the south, sag]
@@ -277,27 +277,32 @@ export function buildTokyo(W) {
   // the shop's front eaves stop at its own walls (the neighbours' faces come right to the corner)
   for (const [a, b] of [[-0.75, 0], [16, 16.75]]) B(a, 2.5, -4.5, b, 3.875, N, 0);
 
-  // ============================================================ the yard behind E1: the walk-in, a path of stepping
-  // stones from the back door to the old shed at the back
+  // ============================================================ the yard: a plain concrete service yard behind the
+  // kitchen, boxed in by the back of E1 (a one-storey wing, its kitchen door and vents onto the yard), the izakaya's
+  // side wall, and a block wall at the back. Stepping stones from our back door to the old shed in the far corner; the
+  // gomi station, the air conditioners, the crates and a bike are props.
   {
     const Yd = TK.yard, Sh = TK.shed;
     const blockWall = (x, y) => ((y + (x >> 2)) % 3 === 0 ? P.concreteD : P.concrete[(x + y) % 3]);
+    block(16, 24, 10, Yd.z0, 3.25, (x, y, z, px, py, pz) => {
+      if (pz < Yd.z0 - 0.25) return concreteFace(x, y, z);
+      if (px > 20.0 && px < 20.75 && py < 2.25) return py > 2.125 || px < 20.0625 || px > 20.6875 ? P.frame : P.metal;  // E1's kitchen door
+      if (px > 16.75 && px < 17.75 && py > 1.25 && py < 2.0) return (x & 3) === 0 ? P.frame : P.winDim;                // a frosted window
+      if (px > 21.25 && px < 21.75 && py > 2.375 && py < 2.875) return (y & 1) ? P.concreteD : P.metal;                 // a vent
+      return concreteFace(x, y, z);
+    });
+    for (const px of [17.625, 20.875]) B(px, 0.125, Yd.z0, px + 0.125, 3.25, Yd.z0 + 0.125, P.metal);            // downpipes
+    B(16.75, 2.25, Yd.z0, 17.875, 2.375, Yd.z0 + 0.25, P.metal);                                                   // the window's little hood
     B(Yd.x0, 0.125, Yd.z1, Yd.x1, 3.0, 18, (x, y) => blockWall(x, y));                          // a block wall at the back
     B(15.875, 0.125, 16.0, 16.0, 3.0, 18, (x, y, z) => blockWall(z, y));                        // and along our back corner
     snowCap(Yd.x0, Yd.x1, Yd.z1, 18, 2.75, 3.5, 1);
-    for (const [cx, cz] of [[16.95, 15.0], [17.7, 15.3], [18.45, 15.05], [19.15, 15.25]]) { // stepping stones, swept
+    for (const [cx, cz] of [[16.95, 15.0], [17.75, 15.25], [18.55, 15.0], [19.35, 15.25], [20.15, 15.05]]) { // stepping stones, swept
       for (let z = Z(cz - 0.3); z < Z(cz + 0.3); z++) for (let x = X(cx - 0.3); x < X(cx + 0.3); x++) if (Math.hypot(mx(x) - cx, mz(z) - cz) < 0.3) G.set(x, top, z, P.flag[(x + z) & 3]);
     }
-    // a stone lantern in the corner, a tub of something evergreen
-    const tx = 23.3, tz = 11.0;
-    B(tx - 0.25, 0.125, tz - 0.25, tx + 0.25, 0.25, tz + 0.25, P.stoneD); B(tx - 0.125, 0.25, tz - 0.125, tx + 0.125, 0.75, tz + 0.125, P.stone);
-    B(tx - 0.25, 0.75, tz - 0.25, tx + 0.25, 0.875, tz + 0.25, P.stone);
-    B(tx - 0.1875, 0.875, tz - 0.1875, tx + 0.1875, 1.25, tz + 0.1875, (vx, vy, vz) => ((Math.abs(mx(vx) - tx) < 0.07 || Math.abs(mz(vz) - tz) < 0.07) && my(vy) > 0.95 && my(vy) < 1.15 ? P.lantern : P.stone));
-    B(tx - 0.375, 1.25, tz - 0.375, tx + 0.375, 1.375, tz + 0.375, P.stoneD);
-    snowCap(tx - 0.5, tx + 0.5, tz - 0.5, tz + 0.5, 1.2, 2.0, 0.9);
-    light('yard', [tx, 1.1, tz], 0xffa050, 1.6, 4.5);
-    B(19.5, 0.125, 10.75, 20.25, 0.625, 11.5, P.wood[0]); B(19.625, 0.625, 10.875, 20.125, 1.75, 11.375, (x, y, z) => P.needles[(x + y + z) & 3]);
-    snowCap(19.4, 20.4, 10.7, 11.6, 0.5, 2.0, 0.9);
+    // a tub of something evergreen by E1's door, and a bare lamp over it
+    B(20.0, 0.125, 13.5, 20.625, 0.5, 14.125, P.wood[0]); B(20.125, 0.5, 13.625, 20.5, 1.375, 14.0, (x, y, z) => P.needles[(x + y + z) & 3]);
+    snowCap(19.9, 20.7, 13.4, 14.2, 0.4, 1.6, 0.9);
+    light('yard', [20.4, 2.5, 13.6], 0xffc890, 1.4, 4.5);
     // the shed: a little kura, namako tiles below and plaster above, a stone footing, a tiled roof
     const { x0, x1, z0, z1, floor } = Sh;
     B(x0 - 0.125, 0.125, z0 - 0.125, x1 + 0.125, floor, z1, (x, y, z) => (((x >> 2) + (z >> 2) + y) & 1 ? P.stone : P.stoneD));

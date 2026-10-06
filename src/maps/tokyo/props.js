@@ -37,10 +37,17 @@ export function placeTokyo(batch) {
   batch.add(P.postbox(), -0.45, S, N - 0.3);
   batch.add(P.umbrellaStand(), -2.2, S, N - 0.35);
 
-  // ================= the yard and the shed: barrels along the back wall, racks, a lantern (opened up from the catalog)
+  // ================= the gomi stations: one out front on the pavement, one in the corner of the yard
+  batch.add(P.gomiCage(), 1.0, S, N - 0.45, 0, true, 'gomi_front');
+  batch.add(P.gomiCage(), 16.95, S, 17.2, 0, true, 'gomi_back');
+  // ================= the yard: the neighbours' air conditioners, the brewery's empty crates, somebody's bike
+  for (const x of [18.45, 19.4]) batch.add(P.acUnit(), x, S, 13.62, 2);
+  batch.add(P.beerCrates(), 16.6, S, 13.72, 2);
+  batch.add(P.bicycle(), 19.35, S, 17.42, 0);
+  // ================= the shed: barrels along the back wall, racks, a lantern (opened up from the catalog)
   const Sh = TK.shed, F = Sh.floor;
-  for (let i = 0; i < 5; i++) batch.add(P.sakeTaru(), Sh.x0 + 0.65 + i * 0.7, F, Sh.z1 - 0.55, 0);
-  for (let i = 0; i < 4; i++) batch.add(P.sakeTaru(), Sh.x0 + 1.0 + i * 0.7, F + 0.75, Sh.z1 - 0.55, 0, false);
+  for (let i = 0; i < 3; i++) batch.add(P.sakeTaru(), Sh.x0 + 0.75 + i * 0.7, F, Sh.z1 - 0.55, 0);
+  for (let i = 0; i < 2; i++) batch.add(P.sakeTaru(), Sh.x0 + 1.1 + i * 0.7, F + 0.75, Sh.z1 - 0.55, 0, false);
   batch.add(P.sakeRack(), Sh.x1 - 0.5, F, 15.0, 1);
   batch.add(P.chochin(6, 'red'), (Sh.x0 + Sh.x1) / 2, 2.6, 15.2, 0, false);
 }

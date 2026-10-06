@@ -716,18 +716,20 @@ export const hangingPans = memo(() => {
   }
   return m;
 });
+// what's out on the kitchen's prep table (3.25 m long): a cutting board of vegetables, the hangiri of sushi rice, a
+// bowl of gyoza filling, a tray of folded gyoza, a stack of plates, a crate of negi
 export const prepStuff = memo(() => {
-  const m = new Model(150, 8, 24, 1 / 32);
+  const m = new Model(100, 8, 24, 1 / 32);
   const board2 = C('#c8a070', 0, 0.06);
-  m.box(4, 0, 4, 22, 1, 16, board2);
-  for (const [x, z, c] of [[7, 7, '#f08a4a'], [9, 8, '#f08a4a'], [12, 6, '#f4f0e6'], [15, 10, '#4a9a3a'], [17, 9, '#e8f0d0'], [19, 7, '#b0182a']]) m.box(x, 1, z, x + 2, 3, z + 2, C(c, 0, 0.08));
-  m.cyl(36, 11, 7, 0, 4, (x, y) => (y === 3 ? C('#fbf8ee', 0, 0.03) : C('#a8784a', 0, 0.05)));   // hangiri tub of sushi rice
-  m.cyl(52, 9, 4, 0, 4, K.chrome); m.cyl(52, 9, 3, 3, 4, C('#d8c8a0', 0, 0.06));             // bowl of gyoza filling
-  m.box(64, 0, 3, 96, 1, 20, K.chrome);                                                       // tray of folded gyoza
-  for (let x = 66; x < 94; x += 4) for (let z = 5; z < 18; z += 4) m.box(x, 1, z, x + 3, 3, z + 2, C('#f0e6d0', 0, 0.05));
-  for (let i = 0; i < 6; i++) m.cyl(112, 10, 4.4, i, i + 1, K.white);                         // plates
-  m.box(126, 0, 4, 146, 6, 18, C('#8a6a44', 0, 0.06));                                        // crate of negi
-  for (let x = 128; x < 144; x += 2) m.box(x, 6, 6, x + 1, 7, 16, (xx, y, z) => (z < 11 ? C('#f0f4e0', 0, 0.04) : C('#4a9a3a', 0, 0.08)));
+  m.box(2, 0, 4, 18, 1, 16, board2);
+  for (const [x, z, c] of [[4, 7, '#f08a4a'], [6, 8, '#f08a4a'], [9, 6, '#f4f0e6'], [11, 10, '#4a9a3a'], [13, 9, '#e8f0d0'], [15, 7, '#b0182a']]) m.box(x, 1, z, x + 2, 3, z + 2, C(c, 0, 0.08));
+  m.cyl(27, 11, 7, 0, 4, (x, y) => (y === 3 ? C('#fbf8ee', 0, 0.03) : C('#a8784a', 0, 0.05)));   // hangiri tub of sushi rice
+  m.cyl(41, 9, 4, 0, 4, K.chrome); m.cyl(41, 9, 3, 3, 4, C('#d8c8a0', 0, 0.06));             // bowl of gyoza filling
+  m.box(48, 0, 3, 72, 1, 20, K.chrome);                                                       // tray of folded gyoza
+  for (let x = 50; x < 70; x += 4) for (let z = 5; z < 18; z += 4) m.box(x, 1, z, x + 3, 3, z + 2, C('#f0e6d0', 0, 0.05));
+  for (let i = 0; i < 6; i++) m.cyl(80, 10, 4.4, i, i + 1, K.white);                          // plates
+  m.box(86, 0, 4, 99, 6, 18, C('#8a6a44', 0, 0.06));                                         // crate of negi
+  for (let x = 88; x < 98; x += 2) m.box(x, 6, 6, x + 1, 7, 16, (xx, y, z) => (z < 11 ? C('#f0f4e0', 0, 0.04) : C('#4a9a3a', 0, 0.08)));
   return m;
 });
 export const ticketRail = memo(() => {
@@ -841,6 +843,69 @@ export const beltHatch = memo(() => {
 // ---------------------------------------------------------------- placement
 // opts.city: the shop on a city street (maps/tokyo): one restroom (the stair up takes the other's place), the back
 // door in the kitchen, nothing outside (the street furnishes itself), the flat entered from the back room
+// ---------------------------------------------------------------- the back of house: the bin, out in the yard
+// the kitchen bin: a tall grey bin, its black liner folded over the rim (open to the top; what's in it is service's)
+export const kitchenBin = memo(() => {
+  const m = new Model(7, 12, 7, 1 / 16);
+  const grey = C('#6a6e72', 0, 0.04), greyD = C('#4a4e52', 0, 0.04), liner = C('#1c1e20', 0, 0.04);
+  m.box(0, 0, 0, 7, 11, 7, (x, y, z) => (x > 0 && x < 6 && z > 0 && z < 6 && y > 0 ? null : y === 0 || y === 5 ? greyD : grey));
+  m.box(0, 11, 0, 7, 12, 7, (x, y, z) => (x > 0 && x < 6 && z > 0 && z < 6 ? null : liner));
+  m.box(2, 1, 0, 5, 2, 1, K.black);                                                       // the foot pedal
+  return m;
+});
+// a gomi station: a folding wire cage, green, a lid on top, a little board saying what goes in on which day (faces -z)
+export const gomiCage = memo(() => {
+  const m = new Model(24, 14, 13, 1 / 16);
+  const g = C('#3a7a4a', 0, 0.05), gD = C('#2a5a36', 0, 0.05), board = C('#f0ece0', 0, 0.03), ink = C('#2a5a36', 0, 0.03);
+  for (let y = 0; y < 14; y++) for (let z = 0; z < 13; z++) for (let x = 0; x < 24; x++) {
+    const side = x === 0 || x === 23 || z === 0 || z === 12, lid = y === 13;
+    if (!side && !lid) continue;
+    const post = (x === 0 || x === 23) && (z === 0 || z === 12), rim = y === 0 || y === 12 || y === 13 && (x === 0 || x === 23 || z === 0 || z === 12);
+    const u = z === 0 || z === 12 ? x : z, v = lid ? (z === 0 || z === 12 ? x : z) : y;
+    if (post || rim) m.set(x, y, z, gD);
+    else if (lid ? (x % 3 === 0 || z % 3 === 0) : (u % 3 === 0 || v % 3 === 0)) m.set(x, y, z, g);
+  }
+  m.box(16, 6, 0, 22, 10, 1, board); m.box(17, 8, 0, 21, 9, 1, ink); m.box(17, 7, 0, 19, 8, 1, ink);
+  return m;
+});
+// an air conditioner's outdoor unit: a fan behind a round grille, slats beside it (faces -z)
+export const acUnit = memo(() => {
+  const m = new Model(13, 10, 5, 1 / 16);
+  const body = C('#d8d8d2', 0, 0.03), dark = C('#3a3c3e', 0, 0.04), grille = C('#9a9c9a', 0, 0.04);
+  m.box(0, 1, 0, 13, 10, 5, body);
+  for (let y = 2; y < 9; y++) for (let x = 1; x < 8; x++) { const d = Math.hypot(x - 4, y - 5); if (d < 3.6) m.set(x, y, 0, d < 1 || (x + y) % 2 ? dark : grille); }
+  for (let y = 2; y < 9; y += 2) m.box(9, y, 0, 12, y + 1, 1, grille);
+  m.box(1, 0, 1, 3, 1, 4, dark); m.box(10, 0, 1, 12, 1, 4, dark);
+  m.box(12, 3, 5, 13, 9, 6, C('#e8e4da', 0, 0.03));                                       // the pipes' cover, round the back
+  m.box(0, 10, 0, 13, 11, 5, (x, y, z) => (hash01(x, y, z) > 0.2 ? K.snow : null));
+  return m;
+});
+// empty beer crates, stacked by the back door for the brewery's truck (faces -z)
+export const beerCrates = memo(() => {
+  const m = new Model(16, 15, 7, 1 / 16);
+  const cols = [C('#d8a020', 0, 0.05), C('#c8302a', 0, 0.05), C('#d8a020', 0, 0.05)], bottle = C('#5a3a18', 0, 0.06);
+  const crate = (x0, y0, c) => {
+    m.box(x0, y0, 0, x0 + 8, y0 + 5, 7, (x, y, z) => (x === x0 || x === x0 + 7 || z === 0 || z === 6 || y === y0 ? ((x + y) % 3 === 1 && y > y0 ? null : c) : null));
+    for (let z = 1; z < 6; z += 2) for (let x = x0 + 1; x < x0 + 7; x += 2) m.box(x, y0 + 1, z, x + 1, y0 + 4, z + 1, bottle);
+  };
+  crate(0, 0, cols[0]); crate(8, 0, cols[1]); crate(3, 5, cols[2]); crate(3, 10, cols[1]);
+  m.box(3, 15 - 1, 0, 11, 15, 7, (x, y, z) => (hash01(x, y, z) > 0.3 ? K.snow : null));
+  return m;
+});
+// a mamachari, the shopping bike with a basket out front, leaned on its stand (along x, seen from -z)
+export const bicycle = memo(() => {
+  const m = new Model(28, 17, 5, 1 / 16);
+  const frame = C('#a8b4bc', 0, 0.04), tyre = C('#1a1a1c', 0, 0.04), seat = C('#2a1a12', 0, 0.05), basket = C('#c0c4c8', 0, 0.04);
+  for (const cx of [5, 22]) for (let y = 0; y < 11; y++) for (let x = cx - 6; x <= cx + 6; x++) { const d = Math.hypot(x - cx, y - 5); if (d > 4.3 && d < 5.4) m.set(x, y, 2, tyre); else if (d < 0.8) m.set(x, y, 2, frame); }
+  const line = (x0, y0, x1, y1) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i++) m.set(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), 2, frame); };
+  line(5, 5, 12, 5); line(12, 5, 10, 11); line(10, 11, 21, 10); line(12, 5, 21, 10); line(22, 5, 21, 13); line(5, 5, 10, 11);
+  m.box(8, 12, 1, 13, 13, 4, seat); m.box(10, 11, 2, 11, 12, 3, frame);
+  m.box(19, 13, 1, 25, 14, 4, frame);                                                     // the bars
+  m.box(22, 10, 0, 27, 15, 5, (x, y, z) => (x === 22 || x === 26 || z === 0 || z === 4 || y === 10 ? ((x + y + z) % 2 ? basket : null) : null));
+  m.box(0, 8, 1, 7, 9, 4, frame);                                                         // the rack over the back wheel
+  return m;
+});
+
 export function placeProps(batch, opts = {}) {
   const city = !!opts.city;
   const F = 0.25; // shop floor
@@ -891,11 +956,12 @@ export function placeProps(batch, opts = {}) {
 
   // ================= the front room behind the shoji: booths end-on to the glass, looking out over the bay.
   // No belt out here: these guests are served by hand.
+  // (a quarter metre off the glass: the inside sill runs along under it)
   [1.4, 3.65, 5.9, 8.15, 10.4].forEach((bx, i) => {
-    batch.add(booth(), bx, F, -3.125 + 21 / 32, 1);
-    for (const sx of [-0.7, 0.7]) for (const sz of [-2.8, -2.2]) seats.push({ x: bx + sx, z: sz, y: 0.69, yaw: sx < 0 ? -Math.PI / 2 : Math.PI / 2, kind: 'booth', surf: 1.0, approach: [bx + sx, -1.42] });
-    batch.add(tableSets[(i + 1) % 4](), bx, F + 0.75, -2.67, 0, false);
-    batch.add(chochin(5, i % 2 ? 'red' : 'cream'), bx, 2.0, -2.55, 0, false);
+    batch.add(booth(), bx, F, -2.875 + 21 / 32, 1);
+    for (const sx of [-0.7, 0.7]) for (const sz of [-2.55, -1.95]) seats.push({ x: bx + sx, z: sz, y: 0.69, yaw: sx < 0 ? -Math.PI / 2 : Math.PI / 2, kind: 'booth', surf: 1.0, approach: [bx + sx, -1.17] });
+    batch.add(tableSets[(i + 1) % 4](), bx, F + 0.75, -2.42, 0, false);
+    batch.add(chochin(5, i % 2 ? 'red' : 'cream'), bx, 2.0, -2.3, 0, false);
   });
   for (const x of [2.6, 5.2, 7.8, 10.4, 14.4]) batch.add(pothosBasket(), x, 2.74, -2.8, Math.floor(r() * 4), false);
   for (let x = 0.5; x < 15.6; x += 0.34 + r() * 0.12) {
@@ -954,7 +1020,7 @@ export function placeProps(batch, opts = {}) {
   batch.add(yakitoriGrill(), 9.65, F, KL, 0, true, 'grill9.65'); batch.add(yakitoriGrill(), 10.65, F, KL, 0, true, 'grill10.65');
   batch.add(range(), 12.0, F, KL, 0, true, 'ramen'); batch.add(range(), 13.6, F, KL, 0);
   batch.add(hangingPans(), 10.4, 2.24, 14.2, 0, false);
-  batch.add(prepStuff(), 8.9, 0.875, 12.875, 0, false);
+  batch.add(prepStuff(), 8.875, 0.875, 12.875, 0, false);
   batch.add(sacks(), 8.9, 0.5, 12.875, 0, false);
   batch.add(ticketRail(), 12.6, 2.2, 10.32, 2, false);
   // the plating station under the pass: plates and the rice cookers on one side of the belt, the sushi case on the
@@ -963,6 +1029,7 @@ export function placeProps(batch, opts = {}) {
   batch.add(riceCooker(), 11.55, 1.125, 10.98, 2, false, 'rice'); batch.add(riceCooker(), 11.93, 1.125, 10.98, 2, false, 'rice');
   batch.add(sushiCase(), 13.1, 1.125, 10.98, 2, false, 'sushi');
   batch.add(dishRack(), 5.5, 0.875, 13.3, 0, false, 'dishRack');
+  batch.add(kitchenBin(), 5.45, 0.25, 14.2, 3, true, 'trashBin');                    // the kitchen bin, at the end of the dish station
   batch.add(faucetSpray(), 5.3, 0.875, 12.3, 3, false);
   if (!city) batch.add(sacks(), 15.4, 0.25, 15.3, 1);
   batch.add(radio(), 15.5, 2.125, 13.4, 1, false);
@@ -1001,6 +1068,8 @@ function placeOutside(batch) {
   batch.add(vending(), 19.2, S, -2.6, 0);
   batch.add(postbox(), 11.1, S, -5.75);
   batch.add(nobori(), 11.9, S, -5.6, 0); batch.add(nobori(), 15.0, S, -5.6, 0);
+  // the gomi stations: out the back door, and by the front for while that's snowed shut
+  batch.add(gomiCage(), 2.9, S, 17.1, 0, true, 'gomi_back'); batch.add(gomiCage(), 10.4, S, -3.85, 0, true, 'gomi_front');
 }
 
 function placeFlat(batch, city) {

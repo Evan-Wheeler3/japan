@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { Model, C } from './voxel.js';
 import { Belt } from './belt.js';
 import { MAP } from './maps/index.js';
+import { Trash, bagModel } from './trash.js';
 
 export const MENU = {
   tea: { name: 'Green tea', price: 300 },
@@ -23,6 +24,7 @@ const NAMES = ['a tired salaryman', 'the ski instructor', 'two snowboarders', 'a
 const yen = (v) => `¥${Math.round(v).toLocaleString('en-US')}`;
 
 // ---------------------------------------------------------------- little voxel models for dishes
+const BIG = new Set(['tub', 'clean', 'trash']); // things carried in both hands
 const INVISIBLE = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 
 // counter tops you can set things on, and the spots on them kept clear for props, come from the map
@@ -138,14 +140,16 @@ function drawIcon(g, ic) {
 }
 // speech-bubble icon textures
 const bubbleCache = new Map();
-function bubbleTex(key) {
-  if (bubbleCache.has(key)) return bubbleCache.get(key);
+// hi: the order you're carrying something for, ringed in gold
+function bubbleTex(key, hi = false) {
+  const ck = key + (hi ? '|hi' : '');
+  if (bubbleCache.has(ck)) return bubbleCache.get(ck);
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
   const g = cv.getContext('2d');
   const icons = key.split(',');
   const w = 64 + icons.length * 70;
   const x0 = (256 - w) / 2;
-  g.fillStyle = 'rgba(250,244,232,0.95)'; g.strokeStyle = 'rgba(60,40,30,0.9)'; g.lineWidth = 5;
+  g.fillStyle = hi ? 'rgba(255,240,196,0.98)' : 'rgba(250,244,232,0.95)'; g.strokeStyle = hi ? '#ffaa10' : 'rgba(60,40,30,0.9)'; g.lineWidth = hi ? 11 : 5;
   g.beginPath(); g.roundRect(x0, 8, w, 90, 26); g.moveTo(118, 96); g.lineTo(128, 120); g.lineTo(140, 96); g.fill(); g.stroke();
   icons.forEach((ic, i) => {
     const cx = x0 + 32 + 35 + i * 70, cy = 53;
@@ -154,8 +158,21 @@ function bubbleTex(key) {
     g.restore();
   });
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
-  bubbleCache.set(key, t);
+  bubbleCache.set(ck, t);
   return t;
+}
+// the marker over where dishes go onto the belt (shown, through walls, while you carry a dish for someone at the belt)
+function beltMarker() {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 160;
+  const g = cv.getContext('2d');
+  g.fillStyle = 'rgba(255,240,196,0.97)'; g.strokeStyle = '#ffaa10'; g.lineWidth = 11;
+  g.beginPath(); g.roundRect(14, 10, 228, 100, 30); g.fill(); g.stroke();
+  g.fillStyle = '#3a2418'; g.font = '700 46px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('belt ⟳', 128, 62);
+  g.fillStyle = '#ffaa10'; g.beginPath(); g.moveTo(100, 118); g.lineTo(156, 118); g.lineTo(128, 154); g.fill();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, depthTest: false }));
+  sp.scale.set(0.62, 0.39, 1); sp.renderOrder = 31; sp.visible = false;
+  return sp;
 }
 function tagSprite() {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
@@ -182,6 +199,7 @@ function tagSprite() {
 export class Service {
   constructor(o) {
     Object.assign(this, o); // scene, camera, crowd, audio, interactions, toast, litMat, emitMat, ui, player
+    this.reviews = []; this.dirtyT = 0; this.rating = 3; // tonight's guests' stars; the shop's rating (from the save)
     this.money = 0; this.tips = 0; this.served = 0; this.walkouts = 0; this.washed = 0; this.burnt = 0;
     // unlocks (see shift.js)
     this.handCap = 1;      // how many things you can carry at once
@@ -208,14 +226,17 @@ export class Service {
     this.heldEmit = this.emitMat.clone(); this.heldEmit.depthTest = false;
     this.held = new THREE.Group(); this.camera.add(this.held);
     this.setupStations();
+    this.trash = new Trash(this);
     this.belt = new Belt(this.scene, (type) => this.dishModel(type).mesh(this.litMat, this.emitMat));
+    { const [bx, bz] = MAP.shop.belt.path[0]; this.beltMark = beltMarker(); this.beltMark.position.set(bx, 1.75, bz); this.scene.add(this.beltMark); }
     this.A = this.actions();
     this.setupInteractions();
     this.crowd.onSeated = (q) => this.seated(q);
     this.refreshUI(true);
   }
   model(key, build) { return this.models[key] || (this.models[key] = build()); }
-  heldModel(h) { return h.type === 'tub' || h.type === 'clean' ? tubModel(h.mugs, h.plates, h.type === 'clean') : this.dishModel(h.type); }
+  heldModel(h) { return h.type === 'trash' ? bagModel() : h.type === 'tub' || h.type === 'clean' ? tubModel(h.mugs, h.plates, h.type === 'clean') : this.dishModel(h.type); }
+  tubMesh(t) { return tubModel(t.mugs, t.plates, false).mesh(this.litMat, this.emitMat); }
   dishModel(type) {
     if (type === 'tea' || type === 'mug' || type === 'mugDirty') return this.model(type, () => mugModel(type === 'tea' ? 'coffee' : type === 'mug' ? 'empty' : 'dirty'));
     return this.model(type, () => plateModel(type === 'plate' ? null : type === 'plateDirty' ? 'dirty' : type));
@@ -309,21 +330,31 @@ export class Service {
 
   update(dt) {
     const sim = this.role !== 'guest'; // guests just show what the host sends
+    const held = new Set(this.hands.map((h) => h.type));
+    let beltWant = false;
     for (const q of [...this.crowd.people]) {
       const s = q.svc; if (!s) continue;
       if (!sim) {}
       else if (s.phase === 'menu' && q.state === 'sit') { s.t -= dt; if (s.t < 0) { s.phase = 'order'; this.sfxAll('clickSound'); } }
-      else if (s.phase === 'order') { s.orderWait += dt; if (s.orderWait > 150 * this.patience * this.patienceBonus * (this.choreP || 1)) this.giveUp(q); }
-      else if (s.phase === 'food') { s.foodWait += dt; if (s.foodWait > 300 * this.patience * this.patienceBonus * (this.choreP || 1)) this.giveUp(q); }
+      else if (s.phase === 'order') { s.orderWait += dt; if (s.orderWait > 150 * this.patience * this.patienceBonus) this.giveUp(q); }
+      else if (s.phase === 'food') { s.foodWait += dt; if (s.foodWait > 300 * this.patience * this.patienceBonus) this.giveUp(q); }
       else if (s.phase === 'eat') { s.t -= dt; if (s.t < 0) this.doneEating(q); }
       const key = this.bubbleKey(q), b = s.bubble;
       if (b) {
         b.visible = !!key;
-        if (key && b.userData.key !== key) { b.material.map = bubbleTex(key); b.material.needsUpdate = true; b.userData.key = key; b.scale.set(0.24 + key.split(',').length * 0.13, 0.21, 1); }
+        // a guest waiting to order shows through walls; so does one whose dish you're carrying (ringed in gold)
+        const want = s.phase === 'food' && s.items.some((i) => !i.done && held.has(i.kind));
+        b.material.depthTest = !(key === '!' || want); b.renderOrder = key === '!' || want ? 30 : 21;
+        const tk = key && key + (want ? '|hi' : '');
+        if (key && b.userData.key !== tk) { b.material.map = bubbleTex(key, want); b.material.needsUpdate = true; b.userData.key = tk; const k = want ? 1.3 : 1; b.scale.set((0.24 + key.split(',').length * 0.13) * k, 0.21 * k, 1); }
+        if (want && q.seat && this.seatBeltS(q.seat) !== null) beltWant = true;
         b.position.y = q.state === 'sit' || q.state === 'sitting' ? (q.seat ? q.seat.y - q.pos.y : 0.5) + 1.0 : 2.0;
         if (key === '!' || key === '¥') b.position.y += Math.sin(performance.now() / 260) * 0.03;
       }
     }
+    // carrying a dish for someone at the belt: the belt's way in, marked through the walls
+    this.beltMark.visible = beltWant;
+    if (beltWant) this.beltMark.position.y = 1.75 + Math.sin(performance.now() / 240) * 0.04;
     // the sushi belt: any guest whose seat it passes lifts off what they're waiting for
     this.belt.update(dt);
     if (sim) for (const p of [...this.belt.plates]) {
@@ -376,12 +407,13 @@ export class Service {
     }
     this.uiT = (this.uiT || 0) - dt;
     if (this.uiT < 0) { this.uiT = 0.25; this.refreshUI(); }
-    // the hired help (staff.js) and the chores before opening (chores.js)
+    this.trash.update(dt, this.isOpen ? this.isOpen() : true);
+    if (sim && (!this.isOpen || this.isOpen())) { let dirty = 0; for (const st of this.crowd.seats) if (st.needsBus && !st.occupant) dirty++; this.dirtyT += dt * Math.max(0, dirty - 2); }
+    // the hired help (staff.js)
     if (this.crew) this.crew.update(dt, this.isOpen ? this.isOpen() : true);
-    if (this.chores) this.chores.update();
   }
   giveUp(q) {
-    this.walkouts++;
+    this.walkouts++; this.reviews.push(1);
     this.sayAll(`${q.svc.name} gave up waiting and left`);
     q.svc.phase = 'gone';
     if (q.seat) this.dirtyDishes(q.seat);
@@ -407,18 +439,23 @@ export class Service {
       }
     });
   }
+  // what a guest thinks of the night, out of five: how long they sat waiting to order, and then for their food
+  review(q) {
+    const o = q.svc.orderWait || 0, f = q.svc.foodWait || 0;
+    return Math.max(1, Math.min(5, 5 - Math.max(0, (o - 25) / 35) - Math.max(0, (f - 60) / 60)));
+  }
   bill(q) {
     const food = q.svc.items.filter((i) => i.done).reduce((a, i) => a + MENU[i.kind].price + ((this.priceBonus || {})[i.kind] || 0), 0);
     const sub = food + (food > 0 ? this.drinkBill || 0 : 0); // a drink from the fridge (and warm sake) with the meal
     const mood = Math.max(0.05, 0.25 - 0.1 * (q.svc.orderWait / 60) - 0.05 * (q.svc.foodWait / 90));
-    return { sub, tip: Math.round(sub * mood * (this.tipMul || 1) / 10) * 10 }; // a swept floor (see chores.js) tips better
+    return { sub, tip: Math.round(sub * mood * (this.tipMul || 1) / 10) * 10 };
   }
 
   // ------------------------------------------------ hands
   // the first thing goes in your right hand; with both hands unlocked the next one goes in your left
-  get handsFree() { return this.handCap - this.hands.length - (this.hands.some((h) => h.type === 'tub' || h.type === 'clean') ? 1 : 0); }
+  get handsFree() { return this.handCap - this.hands.length - (this.hands.some((h) => BIG.has(h.type)) ? 1 : 0); }
   hold(item) {
-    item.slot = item.type === 'tub' || item.type === 'clean' ? 'both' : this.hands.some((h) => h.slot === 'R') ? 'L' : 'R';
+    item.slot = BIG.has(item.type) ? 'both' : this.hands.some((h) => h.slot === 'R') ? 'L' : 'R';
     this.hands.push(item); this.redrawHands();
   }
   takeHand(type) { const i = this.hands.findIndex((h) => h.type === type); if (i < 0) return null; const h = this.hands.splice(i, 1)[0]; this.redrawHands(); return h; }
@@ -438,6 +475,7 @@ export class Service {
     const h = this.hands[this.hands.length - 1];
     if (!h) return;
     if (h.type === 'tub') { this.say('take the dirty dishes to the sink in the kitchen'); return; }
+    if (h.type === 'trash') { this.say(`take the bag out to the gomi station ${this.trash.station().key === 'back' ? 'in the yard' : 'out front'}`); return; }
     this.hands.pop();
     if (h.type === 'mug') this.stock.mugs++;
     else if (h.type === 'plate') this.stock.plates++;
@@ -505,7 +543,6 @@ export class Service {
       openShop: () => { if (this.onOpenShop) this.onOpenShop(); },
       buy: (id) => { if (this.onBuy) this.onBuy(id); },
       bow: () => { if (this.onBow) this.onBow(this.actor); },
-      chore: (kind, i) => { if (this.chores) this.chores.stroke(kind, i); },
       placePiece: (key, x, z, rot) => { if (this.onPlace) this.onPlace(key, x, z, rot); },
       station: (i) => {
         const st = this.stations[i]; if (!st) return;
@@ -532,6 +569,16 @@ export class Service {
         this.hold({ type: 'clean', mugs: this.rack.mugs, plates: this.rack.plates }); this.rack.mugs = this.rack.plates = 0; this.sfx('clickSound');
       },
       register: () => this.ringUp(),
+      trashTake: () => {
+        if (!this.trash.n) return T('the bin is empty');
+        if (this.hands.length) return T('empty your hands first');
+        this.trash.empty(); this.hold({ type: 'trash' }); this.sfx('clickSound');
+        T(`tied off the bag · out to the gomi station ${this.trash.station().key === 'back' ? 'in the yard' : 'out front'}`);
+      },
+      trashOut: (key) => {
+        if (!this.has('trash')) return;
+        this.takeHand('trash'); this.trash.dropOff(key); this.sfx('clickSound'); T('bag out · collected in the morning');
+      },
       cust: (id) => { const q = this.crowd.people.find((p) => p.id === id); if (q && q.svc) this.custAct(q); },
       bus: (i) => { const seat = this.crowd.seats[i]; if (seat && seat.needsBus) this.bus(seat); },
       setDown: (x, y, z, yaw) => this.setDown(x, y, z, yaw),
@@ -615,6 +662,13 @@ export class Service {
       const n = this.rack.mugs + this.rack.plates;
       return n ? `Take the clean dishes (${this.rack.mugs} cups, ${this.rack.plates} plates)` : 'Dish rack (empty)';
     }, R('rack'), null, shape('dishRack'));
+    // the kitchen bin, and the gomi stations its bags go out to
+    if (this.trash.T) {
+      const TR = this.trash.T;
+      I.add(TR.box, () => (this.has('trash') ? 'Kitchen bin (take the bag out)' : this.trash.n ? `Take the trash out (${Math.round(Math.min(1, this.trash.n / 12) * 100)}% full)` : 'Kitchen bin (empty)'), R('trashTake'), null, shape('trashBin'));
+      for (const st of TR.stations) I.add(st.box, () => (this.has('trash') ? 'Put the bag in the gomi station' : `Gomi station${this.trash.bags[st.key] ? ` · ${this.trash.bags[st.key]} bag${this.trash.bags[st.key] > 1 ? 's' : ''} for the morning` : ''}`),
+        R('trashOut', st.key), null, shape(`gomi_${st.key}`));
+    }
     // the register
     I.add(MAP.shop.register.box, () => {
       const q = this.queue[0];
@@ -650,8 +704,8 @@ export class Service {
     this.stock = { mugs: this.stockMax, plates: this.stockMax }; this.sink = { mugs: 0, plates: 0 }; this.rack = { mugs: 0, plates: 0 };
     this.washing = 0; this.washer = null;
     for (const st of this.stations) { st.state = 'idle'; st.t = 0; st.left = 0; }
-    this.tipMul = 1; this.choreP = 1;
-    if (this.chores) this.chores.reset();
+    this.tipMul = 1; this.reviews = []; this.dirtyT = 0;
+    this.trash.collect(); if (this.crew) this.crew.reset();
     this.belt.clear();
     this.queue = [];
     this.refreshUI(true);
@@ -664,7 +718,7 @@ export class Service {
   }
   itemLabel(h) {
     if (!h) return '';
-    return h.type === 'tub' ? 'bus tub' : h.type === 'clean' ? 'clean dishes' : h.type === 'mug' ? 'clean cup' : h.type === 'plate' ? 'clean plate' : MENU[h.type].name.toLowerCase();
+    return h.type === 'trash' ? 'trash bag' : h.type === 'tub' ? 'bus tub' : h.type === 'clean' ? 'clean dishes' : h.type === 'mug' ? 'clean cup' : h.type === 'plate' ? 'clean plate' : MENU[h.type].name.toLowerCase();
   }
   // where the reticle meets the sushi belt
   pickBelt() {
@@ -684,7 +738,7 @@ export class Service {
   }
   // where the reticle meets a counter top (only while carrying something)
   pickCounter() {
-    if (!this.hands.length) return false;
+    if (!this.hands.length || this.has('trash')) return false;
     const o = this.camera.getWorldPosition(new THREE.Vector3()), d = this.camera.getWorldDirection(new THREE.Vector3());
     if (d.y > -0.05) return false;
     let best = null, bt = 2.3;
@@ -766,6 +820,8 @@ export class Service {
     if (!q || q.svc.phase !== 'pay') return this.say("nobody's waiting to pay");
     const b = this.bill(q);
     this.money += b.sub + b.tip; this.tips += b.tip; this.served++;
+    this.reviews.push(this.review(q));
+    this.trash.add(1);
     this.sfxAll('kaching');
     this.pop(b.tip > 0 ? `+${yen(b.tip)} tip!` : `+${yen(b.sub)}`);
     this.say(`${q.svc.name}: gochisōsama deshita! · ${yen(b.sub + b.tip)}`);
@@ -850,7 +906,6 @@ export class Service {
       svc: this.crowd.people.filter((q) => q.svc).map((q) => [q.id, q.svc.phase, q.svc.name, q.svc.items.map((i) => i.kind + (i.done ? '+' : '')).join(',')]),
       seats: this.crowd.seats.map((st, i) => (st.dishes && st.dishes.length ? [i, st.dishes.map((d) => d.type).join(','), st.needsBus ? 1 : 0] : null)).filter(Boolean),
       st: this.stations.map((st) => [st.state, r2(st.t), st.left || 0]),
-      ch: this.chores ? this.chores.snapshot() : null,
       sink: this.sink, rack: this.rack, stock: this.stock,
       wash: [this.washing, this.washTotal, this.washDone, r2(this.washT || 0), r2(this.washShow || 0)],
       items: this.counterItems.map((c) => [c.id, ...hand(c.item), r3(c.x), r3(c.y), r3(c.z), r2(c.yaw)]),
@@ -862,6 +917,8 @@ export class Service {
       own: this.owned,
       cash: Math.round(this.cashBox || 0),
       lay: this.layout || {},
+      trash: this.trash.snapshot(),
+      crew: this.crew ? this.crew.snapshot() : null,
     };
   }
   applySnapshot(d) {
@@ -883,7 +940,6 @@ export class Service {
       seat.needsBus = !!bus;
     });
     d.st.forEach(([state, t, left], i) => { this.stations[i].state = state; this.stations[i].t = t; this.stations[i].left = left; });
-    if (d.ch && this.chores) this.chores.applySnapshot(d.ch);
     this.sink = d.sink; this.rack = d.rack; this.stock = d.stock;
     [this.washing, this.washTotal, this.washDone, this.washT, this.washShow] = d.wash;
     const hand = ([type, slot, mugs, plates]) => ({ type, slot, mugs, plates });
@@ -901,6 +957,8 @@ export class Service {
     if (d.belt) this.belt.applySnapshot(d.belt);
     if (d.own && d.own.length !== this.owned.length && this.onOwned) this.onOwned(d.own);
     if (d.cash !== undefined) this.cashBox = d.cash;
+    if (d.trash) this.trash.applySnapshot(d.trash);
+    if (d.crew && this.crew) this.crew.applySnapshot(d.crew);
     if (d.lay && JSON.stringify(d.lay) !== this._lay) { this._lay = JSON.stringify(d.lay); if (this.onLayout) this.onLayout(d.lay); }
   }
   // switch this game into co-op: you're `id`, and either run the shop ('host') or mirror it ('guest')

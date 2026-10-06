@@ -55,14 +55,26 @@ export const MOUNTAIN = {
     // the window booths are popular
     seatWeight: (s) => (s.z < 0 ? 1.6 : s.kind === 'stool' ? 1.7 : s.kind === 'booth' ? 1.6 : 0.8),
     crowd: { nav: [-1.5, -5.0, 34, 17.5], spawns: [[33.5, -4.3], [-1.0, 15.2], [-1.0, -4.6]], back: { spawn: [1.0, 17.0], block: [0.25, 1.75, 15.4, 16.6] } },
-    chores: {
-      sweep: [[13.0, -2.15], [5.2, -1.2], [9.4, -1.25], [4.6, 3.05], [8.0, 3.3], [11.4, 3.0]], sweepY: 0.25,
-      shovel: [[1.5, -4.3], [4.6, -4.2], [7.6, -4.35], [10.5, -4.25], [13.3, -4.7], [17.0, -2.3]], shovelY: 0.125,
-    },
+    // the hired help's posts (they walk from them to wherever the work is, and back)
     staff: {
       staff_wash: { x: 6.05, z: 12.55, yaw: Math.PI / 2 },
       staff_sushi: { x: 13.55, z: 11.62, yaw: 0 },
+      staff_cook: { x: 10.2, z: 14.3, yaw: Math.PI },
+      staff_waiter: { x: 13.25, z: 9.3, yaw: Math.PI },
       staff_hall: { x: 15.48, z: -0.62, yaw: 0 },
+    },
+    // the pass: dishes the cooks have plated wait here for whoever carries them out [x, top, z]; where the cook stands
+    // to set one down (kitchen side), where a waiter stands to pick one up (dining side); where tea gets poured
+    pass: [[13.0, 1.125, 10.1], [13.45, 1.125, 10.1]],
+    passCook: [13.0, 11.6], passGrab: [13.2, 9.35], urnStand: [6.3, 8.75],
+    // the kitchen bin [x, floor, z] (how deep it is, where to stand at it) and the gomi stations a full bag goes out to:
+    // the back one when the back door's open, the front one otherwise
+    trash: {
+      bin: [5.45, 0.25, 14.2], depth: 0.6, stand: [6.0, 14.2], box: [5.45, 0.5, 14.2, 0.26, 0.4, 0.26],
+      stations: [
+        { key: 'back', door: 'back', at: [2.9, 0.125, 17.1], yaw: 0, stand: [2.9, 16.35], box: [2.9, 0.55, 17.1, 0.8, 0.5, 0.45] },
+        { key: 'front', at: [10.4, 0.125, -3.85], yaw: 0, stand: [10.4, -4.6], box: [10.4, 0.55, -3.85, 0.8, 0.5, 0.45] },
+      ],
     },
     steam: [
       { pos: [6.0, 1.95, 9.65], size: 0.35 }, { pos: [6.6, 1.95, 9.65], size: 0.3 },        // the tea urns on the back bar

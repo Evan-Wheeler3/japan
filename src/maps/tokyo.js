@@ -22,7 +22,7 @@ export const TOKYO = {
     cliff: -16,
     bounds: { x0: TK.ends.x0 + 0.3, x1: TK.ends.x1 - 0.3, z0: S + 0.3, z1: 17.6 },
     // where no snow falls: the shop, under the viaduct, the shed, the store fronts' awnings
-    roofDry: [[-0.75, 16.75, -4.0, 16.75], [-16, -12.5, -16, 18], [19.0, 24.0, 12.5, 18]],
+    roofDry: [[-0.75, 16.75, -4.0, 16.75], [-16, -12.5, -16, 18], [20.5, 24.25, 13.0, 18]],
   },
   build: (world) => buildTokyo(world),
   props: (batch) => placeTokyo(batch),
@@ -40,12 +40,11 @@ export const TOKYO = {
     ...M,
     // a street full of people: guests come from either end, on either pavement; passers-by just walk through
     crowd: {
-      nav: [TK.ends.x0 + 0.2, S + 0.2, TK.ends.x1 - 0.2, 16.0],
+      nav: [TK.ends.x0 + 0.2, S + 0.2, TK.ends.x1 - 0.2, 17.6],
       spawns: [[TK.ends.x0 + 0.5, -4.4], [TK.ends.x1 - 0.5, -4.4], [TK.ends.x0 + 0.5, -12.05], [TK.ends.x1 - 0.5, -12.05]],
       back: null,
       passersby: { every: [2.0, 5.0], max: 10, ends: [TK.ends.x0 + 0.5, TK.ends.x1 - 0.5], lanes: [[-4.75, -4.45], [-10.4, -6.4], [-12.2, -11.95]] },
     },
-    chores: { ...M.chores, shovel: [[1.5, -4.4], [4.6, -4.6], [7.6, -4.5], [10.5, -4.4], [13.3, -4.8], [15.2, -4.5]] },
     doors: [
       ...M.doors.filter((d) => ['front', 'kitchen', 'freezer'].includes(d.key)),
       { ...M.doors.find((d) => d.key === 'restA'), hinge: [2.5625, 11.0], block: [2.5, 2.75, 11.0, 12.0] }, // the hall's wider here
@@ -56,6 +55,14 @@ export const TOKYO = {
         needs: 'kura', locked: ['The old shed (padlocked)', "it's full of the last owner's junk. (the catalog: clear out the shed)"] },
     ],
     snowPile: [16.6, 0.125, 15.0], snowPileYaw: -R,
+    // the gomi stations: in the corner of the yard, and on the pavement out front (while the back door's shut)
+    trash: {
+      ...M.trash,
+      stations: [
+        { key: 'back', door: 'back', at: [16.95, 0.125, 17.2], yaw: 0, stand: [16.95, 16.3], box: [16.95, 0.55, 17.2, 0.8, 0.5, 0.45] },
+        { key: 'front', at: [1.0, 0.125, N - 0.45], yaw: 0, stand: [1.0, N - 1.2], box: [1.0, 0.55, N - 0.45, 0.8, 0.5, 0.45] },
+      ],
+    },
     faucets: M.faucets.slice(0, 1).concat(M.faucets.slice(2)),
     acts: [
       ...M.acts.filter((a) => !['chain', 'vending'].includes(a.act) && !(a.act === 'towel' && a.box[2] > 13)),

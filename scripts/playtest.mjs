@@ -69,7 +69,7 @@ try {
   // ---- the catalog: new dishes, an upgrade and things for home
   st = await page.evaluate(() => {
     const d = window.__yoake;
-    d.save.yen = 45000;
+    d.save.yen = 150000;
     d.menu.h.onBuy('beltMotor2'); // needs the first motor: refused
     const early = d.service.owned.length;
     for (const id of ['onigiri', 'tempura', 'ramen', 'beltMotor', 'beltMotor2', 'irori', 'telescope', 'catbed', 'crt', 'famicom', 'game_dash', 'game_koi', 'game_daruma']) d.menu.h.onBuy(id);
@@ -164,7 +164,7 @@ try {
   });
   check(!st.blocked && st.at === st.want && st.solid && st.oldClear && st.saved, 'furniture moves, takes its collision with it, and the spot is saved');
 
-  // ---- before opening: upgrade the kitchen's stations, hire help, and do the chores
+  // ---- before opening: upgrade the kitchen's stations and hire help
   st = await page.evaluate(() => {
     const d = window.__yoake, s = d.service;
     d.save.devYen = true; s.cashBox = 1e9;
@@ -182,15 +182,12 @@ try {
     s.request('plate'); s.request('station', 0); s.request('drop');
     const still = yak.state;
     s.request('plate'); s.request('station', 0); s.request('drop');
-    // sweep every patch, shovel every drift
-    for (const kind of ['sweep', 'shovel']) s.chores.left[kind].forEach((_, i) => { for (let k = 0; k < 3; k++) s.request('chore', kind, i); });
     return { label, teas, left, still, after: yak.state, fast: Math.abs(yak.cook / yak.baseCook - 0.75 * gy.cook / gy.baseCook) < 1e-9, bonus: s.priceBonus.tea,
-      staff: [...s.staff].length, wages: s.wages, nextTea: s.upNext('tea'), tip: s.tipMul, wait: s.choreP };
+      staff: [...s.staff].length, wages: s.wages, nextTea: s.upNext('tea') };
   });
   check(/^Upgrade 1\/2: twin urn taps/.test(st.label) && st.teas === 2 && st.bonus === 100 && !st.nextTea, `station upgrades between nights: "${st.label}", two cups at once, gyokuro +¥100`);
   check(st.fast && st.left === 2 && st.still === 'ready' && st.after === 'idle', 'upgraded grills cook 25% faster and a batch plates twice');
-  check(st.staff === 3 && st.wages === 2100, 'hired a dishwasher, a sushi chef and a hall server (¥2,100 a night)');
-  check(st.tip === 1.3 && st.wait === 1.25, 'sweeping and shovelling before opening: better tips and more patient guests tonight');
+  check(st.staff === 3 && st.wages === 4800, 'hired a dishwasher, a sushi chef and a cashier (¥4,800 a night)');
 
   // ---- open the shop and work the night
   await page.evaluate(() => {
@@ -262,8 +259,9 @@ try {
   check(result.walkouts <= 1, 'almost nobody walked out');
   check(result.beltServed >= 1, 'the belt delivered at least one dish');
   check(result.washed >= 1, 'dishes were washed');
-  check(Object.values(result.crew).some((n) => n > 0) && result.card.includes('¥2,100 in staff wages'), `the staff pitched in (${JSON.stringify(result.crew)}) and were paid at sunrise`);
+  check(Object.values(result.crew).some((n) => n > 0) && result.card.includes('¥4,800 in staff wages'), `the staff pitched in (${JSON.stringify(result.crew)}) and were paid at sunrise`);
   check(result.save.night === 2 && result.save.yen > 0, `the save moved on to night 2 with ¥${result.save.yen}`);
+  check(typeof result.save.rating === 'number' && /the shop's rating/.test(result.card) && /the goal/.test(result.card), `the night was rated and the shop's rating saved (★${result.save.rating})`);
 
   // ---- sunrise, then bed
   await page.waitForTimeout(6000);
@@ -282,12 +280,39 @@ try {
   st = await page.evaluate(() => { const d = window.__yoake, p = d.home.pieces.get('bonsai'); return { at: [p.x, p.z, p.rot].join(), want: d.map.test.bonsaiTo.join() }; });
   check(st.at === st.want, 'the bonsai is still where you put it');
 
+  // ---- night 2: all five hired, and nobody playing. The shop runs itself
+  st = await page.evaluate(() => {
+    const d = window.__yoake, s = d.service;
+    d.save.devYen = true; s.cashBox = 1e9;
+    for (const id of ['staff_waiter', 'staff_cook', 'dishes', 'backdoor']) s.request('buy', id);
+    d.save.devYen = false;
+    s.request('openShop');
+    d.player.pos.set(9, 3.75, 4); // upstairs, out of the way
+    return { staff: [...s.staff].length, wages: s.wages };
+  });
+  check(st.staff === 5 && st.wages === 10000, 'hired the waiter and the cook as well: all five (¥10,000 a night)');
+  result = null;
+  for (let i = 0; i < 6000 && !result; i++) {
+    result = await page.evaluate(() => {
+      const d = window.__yoake, s = d.service;
+      for (let k = 0; k < 8; k++) { d.crowd.update(0.1); s.update(0.1); d.shift.update(0.1); for (const dr of d.doors) dr.update(0.1, [d.player.pos, ...d.crowd.positions(), ...s.crew.positions()]); }
+      if (!document.body.classList.contains('summary')) return null;
+      return { served: s.served, walkouts: s.walkouts, crew: s.crew.did, bags: s.trash.bags, save: { ...d.save }, card: document.querySelector('#summary').textContent };
+    });
+  }
+  if (!result) throw new Error('night 2 never ended');
+  console.log(`  night 2 (nobody playing): served ${result.served}, walked out ${result.walkouts}, crew ${JSON.stringify(result.crew)}`);
+  const c = result.crew;
+  check(result.served >= 10 && result.walkouts <= Math.max(3, result.served / 4), 'with all five hired the shop runs itself: guests fed, few walkouts');
+  check(c.orders > 0 && c.served > 0 && c.bussed > 0 && c.washed > 0 && c.cooked > 0 && c.sushi > 0 && c.rang > 0, 'everyone pitched in: orders, cooking, sushi, serving, bussing, washing, the register');
+
   // ---- 百鬼夜行: the night parade (a survival mode that leaves the shop's save alone)
   await page.reload(); await ready();
   const saveBefore = await page.evaluate(() => localStorage.getItem('yoake.save'));
   check(await page.evaluate(() => window.__yoake.map.id) === 'tokyo', 'the shop is on the Tokyo street');
   // the parade is played up on the mountain: the menu item reloads onto that map, and a click goes in
-  await Promise.all([page.waitForEvent('load', { timeout: 240000 }), page.click('#screen [data-act="parade"]')]);
+  // (clicked from the page: at this tiny size, the card with your lifetime stats can sit over the menu)
+  await Promise.all([page.waitForEvent('load', { timeout: 240000 }), page.evaluate(() => document.querySelector('#screen [data-act="parade"]').click())]);
   await page.waitForFunction(() => window.__yoake && document.querySelector('#screen [data-act="enter"]'), null, { timeout: 240000 });
   check(await page.evaluate(() => window.__yoake.map.id) === 'mountain', 'the night parade loads the snowy mountain');
   await page.click('#screen [data-act="enter"]');

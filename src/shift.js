@@ -19,6 +19,8 @@ export const clockText = (min) => {
   const h = Math.floor(total / 60), m = total % 60;
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 };
+// five stars, filled to the nearest half
+export const starRow = (r) => { const h = Math.round(r * 2) / 2; return [1, 2, 3, 4, 5].map((i) => `<i class="${h >= i ? 'on' : h >= i - 0.5 ? 'half' : ''}">★</i>`).join(''); };
 const hourText = (h) => `${h % 12 || 12} ${h % 24 < 12 ? 'AM' : 'PM'}`;
 
 export class Shift {
@@ -31,12 +33,13 @@ export class Shift {
   }
   snapshot() {
     return { n: this.n, t: Math.round(this.t * 10) / 10, active: this.active, closing: this.closing, waiting: this.waiting, p: this.pending.length, w: this.waveIdx,
-      waves: this.waves.map((w) => [w.at, w.size, w.name]) };
+      waves: this.waves.map((w) => [w.at, w.size, w.name]), rt: this.service.rating };
   }
   applySnapshot(d) {
     this.n = d.n; this.t = d.t; this.active = d.active; this.closing = d.closing; this.waiting = d.waiting; this.waveIdx = d.w;
     this.pending = new Array(d.p).fill(0);
     this.waves = d.waves.map(([at, size, name]) => ({ at, size, name }));
+    if (d.rt !== undefined) this.service.rating = d.rt;
     this.draw();
   }
   get range() { return `${hourText(START_HOUR)} – ${hourText(START_HOUR + HOURS)}`; }
@@ -56,7 +59,8 @@ export class Shift {
     const count = Math.min(5, 2 + n), first = 8, last = LAST_CALL - 50;
     this.waves = Array.from({ length: count }, (_, i) => ({
       at: first + (count > 1 ? i * (last - first) / (count - 1) : 0),
-      size: Math.min(9, 2 + Math.floor(n / 2) + i) + (s.extraGuests || 0), // the back door brings a few more
+      // the back door brings a few more; a well-rated shop draws a bigger crowd (a 1★ shop 80%, 5★ 130%)
+      size: Math.round((Math.min(9, 2 + Math.floor(n / 2) + i) + (s.extraGuests || 0)) * (0.68 + 0.124 * (s.rating ?? 3))),
       name: WAVE_NAMES[(i + n - 1) % WAVE_NAMES.length],
     }));
     this.pending = []; this.waveIdx = 0;
@@ -107,7 +111,7 @@ export class Shift {
     this.redraw = 10;
     const next = this.waves[this.waveIdx];
     let status, calm = true;
-    if (this.waiting) status = 'closed · upgrade stations, do chores, then turn the sign by the door';
+    if (this.waiting) status = 'closed · upgrade stations, then turn the sign by the door';
     else if (this.closing) status = `closing · ${this.activeCustomers()} still here`;
     else if (this.pending.length) { status = `rush on · ${this.pending.length} more coming`; calm = false; }
     else if (this.t >= LAST_CALL) status = 'last orders · no more walk-ins';
@@ -118,7 +122,8 @@ export class Shift {
     const html = `<div class="time glass"><b>${hm}</b><span>${ap.toLowerCase()}</span></div>` +
       `<div class="bar"><i style="width:${(frac * 100).toFixed(1)}%"></i>${this.waves.map((w) =>
         `<u class="${w.at <= this.t ? 'past' : ''}" style="left:${(w.at / (HOURS * 60) * 100).toFixed(1)}%"></u>`).join('')}</div>` +
-      `<div class="status hand${calm ? ' calm' : ''}">${status}</div>`;
+      `<div class="status hand${calm ? ' calm' : ''}">${status}</div>` +
+      `<div class="rate glass" title="the shop's rating">${starRow(this.service.rating ?? 3)}<b>${(this.service.rating ?? 3).toFixed(1)}</b></div>`;
     if (this.ui.schedule._html !== html) { this.ui.schedule.innerHTML = html; this.ui.schedule._html = html; }
   }
 
@@ -127,11 +132,16 @@ export class Shift {
     const s = this.service, d = (k) => s[k] - this.snap[k];
     const wages = s.wages || 0; s.money -= wages; // the hired help is paid at sunrise, out of the till
     const served = d('served'), walk = d('walkouts');
-    const stars = Math.max(1, Math.min(5, Math.round(5 * served / Math.max(1, served + walk * 1.5) + (d('burnt') ? -0.5 : 0))));
+    // tonight's rating: what the guests thought (walkouts give one star), less a bin left overflowing, tables left
+    // dirty and anything burnt
+    const rv = s.reviews || [], avg = rv.length ? rv.reduce((a, b) => a + b, 0) / rv.length : 3;
+    const hits = { trash: Math.min(0.6, (s.trash ? s.trash.overT : 0) / 150), dirty: Math.min(0.5, (s.dirtyT || 0) / 400), burnt: Math.min(0.5, d('burnt') * 0.1) };
+    const rating = Math.round(Math.max(1, Math.min(5, avg - hits.trash - hits.dirty - hits.burnt)) * 10) / 10;
+    const stars = Math.max(1, Math.min(5, Math.round(rating)));
     const unlock = UNLOCKS[this.n - 1];
     if (unlock) unlock.apply(s);
     this.onEnd({
-      n: this.n, range: this.range, closedAt: clockText(HOURS * 60).toLowerCase(), stars, unlock,
+      n: this.n, range: this.range, closedAt: clockText(HOURS * 60).toLowerCase(), stars, rating, hits, reviews: rv.length, unlock,
       fed: served, earned: d('money'), wages, tips: d('tips'), walkouts: walk, washed: d('washed'), burnt: d('burnt'), till: s.money,
     });
   }

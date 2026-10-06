@@ -430,7 +430,7 @@ export class Parade {
   // ---- dishes on the front room's tables: round one's weapons
   buildPiles() {
     this.piles = PILES.map((x) => {
-      const z = -2.55;
+      const z = -2.3;
       let top = 0.8; for (let y = 1.3; y > 0.3; y -= 0.03125) if (this.world.solid(x, y, z)) { top = Math.floor((y + 0.25) / 0.125) * 0.125 - 0.25 + 0.125; break; }
       const p = { x, z, y: top, n: 3, mesh: null };
       this.drawPile(p);

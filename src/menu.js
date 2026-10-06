@@ -3,7 +3,26 @@
 // Your character, settings and a few lifetime stats are remembered on this device.
 import * as THREE from 'three';
 import { Person, LOOK_OPTIONS, randomLook } from './npc.js';
+import { ICON_SRC } from './service.js';
 const STATION_NAMES = { tea: 'Tea urns', sushi: 'Sushi case', onigiri: 'Rice cookers', yakitori: 'Yakitori grills', gyoza: 'Gyoza teppan', tempura: 'Fryers', ramen: 'Ramen stove' };
+
+// the catalog is a little picture book: a tab for each section, two things to a page, a spread at a time
+const BOOK_TABS = [
+  ['shop', 'the shop', 'new dishes, and better kit for the dining room'],
+  ['staff', 'help wanted', 'hire all five and the shop runs itself · wages are paid at sunrise'],
+  ['property', 'the property', 'the rest of the building, opened up'],
+  ['station', 'the kitchen', 'buy these at the station itself, before you turn the sign'],
+  ['home', 'for home', 'things for the flat upstairs'],
+  ['games', 'fami-com', 'cartridges for the console'],
+];
+const BOOK_ICON = {
+  beltMotor: '⚙️', beltMotor2: '⚙️', binchotan: '🔥', binchotan2: '🔥', dishes: '🍽️', dishes2: '🍽️', heaters: '♨️', heaters2: '♨️', fridge: '🧃', fridge2: '🍶',
+  backdoor: '🚪', freezer: '🧊', kura: '🏯', staff_wash: '🧽', staff_waiter: '🛎️', staff_hall: '🧾', staff_sushi: '🔪', staff_cook: '🍳',
+  lanterns: '🏮', plants: '🪴', bonsai: '🌲', print: '🌊', catbed: '🐈', fishtank: '🐠', record: '📻', telescope: '🔭', irori: '🫖', crt: '📺', famicom: '🎮',
+  game_dash: '⛷️', game_koi: '🐟', game_daruma: '🎎',
+};
+const DISH_ICON = new Set(['onigiri', 'tempura', 'ramen']);
+const starRow = (r) => { const h = Math.round(r * 2) / 2; return [1, 2, 3, 4, 5].map((i) => `<i class="${h >= i ? 'on' : h >= i - 0.5 ? 'half' : ''}">★</i>`).join(''); };
 
 const KEY = 'yoake.profile';
 const HAIR_STYLES = [[0, 'short'], [1, 'swept back'], [2, 'long'], [4, 'bun'], [3, 'bald']];
@@ -158,21 +177,44 @@ export class Menu {
       </div>${keys}`;
     } else if (s === 'catalog') {
       const c = this.catalog || { yen: 0, items: [] };
-      const row = (it) => `<div class="buy${it.blocked ? ' later' : ''}"><div class="what"><b>${esc(it.name)}</b><span>${esc(it.text)}${it.blocked ? ` · needs ${esc(it.needsName.toLowerCase())}` : ''}</span></div>
-        <button class="chip${it.owned ? ' on' : ''}" data-act="buy:${it.id}" ${it.owned || it.blocked || it.price > c.yen ? 'disabled' : ''}>${it.owned ? 'yours' : `¥${it.price.toLocaleString('en-US')}`}</button></div>`;
+      const tab = this.bookTab || 'shop', T = BOOK_TABS.find((t) => t[0] === tab) || BOOK_TABS[0];
+      const list = c.items.filter((i) => i.kind === tab);
+      const wide = typeof matchMedia === 'function' && matchMedia('(min-width: 1080px)').matches, per = wide ? 2 : 1;
+      const pages = Math.max(1, Math.ceil(list.length / 2)), views = Math.ceil(pages / per);
+      const view = this.bookPage = Math.max(0, Math.min(views - 1, this.bookPage || 0));
+      const yen = (v) => `¥${v.toLocaleString('en-US')}`;
+      const icon = (it) => {
+        const k = it.kind === 'station' ? it.station : it.id;
+        return k && (it.kind === 'station' || DISH_ICON.has(k)) ? `<img src="${ICON_SRC(k)}" alt="">` : `<span>${BOOK_ICON[it.id] || '✦'}</span>`;
+      };
+      const card = (it) => {
+        const station = it.kind === 'station';
+        const name = station ? `${STATION_NAMES[it.station]}: ${it.name.toLowerCase()}` : it.name;
+        const text = station ? `${it.short}. ${it.id.endsWith('2') ? 'The second upgrade.' : 'The first upgrade.'}` : it.text;
+        const btn = it.owned ? '' : station ? `<span class="price">${yen(it.price)} · at the station</span>`
+          : it.blocked ? `<span class="price">needs ${esc(it.needsName.toLowerCase())}</span>`
+          : `<button class="buyb" data-act="buy:${it.id}" ${it.price > c.yen ? 'disabled' : ''}>${yen(it.price)}${it.wage ? `<small> + ${yen(it.wage)}/night</small>` : ''}</button>`;
+        return `<div class="item${it.owned ? ' owned' : ''}${it.blocked ? ' later' : ''}"><div class="ic">${icon(it)}</div>
+          <div class="txt"><b>${esc(name)}</b><p>${esc(text)}</p><div class="foot">${btn}</div></div>${it.owned ? '<div class="hanko">yours</div>' : ''}</div>`;
+      };
+      const page = (i) => {
+        const its = list.slice(i * 2, i * 2 + 2);
+        return `<div class="page${i % 2 ? ' right' : ' left'}">${i < pages ? `${its.map(card).join('')}<div class="pno hand">${i + 1}</div>` : '<div class="blank hand">notes</div>'}</div>`;
+      };
+      const g = c.goal;
       html = `<div class="col"><div><div class="hand tagline">mail order · delivered by morning</div><div style="font:500 44px Fredoka">the catalog</div></div>
-        <div class="purse-big">¥${Math.round(c.yen).toLocaleString('en-US')}<span>in the cash box</span></div>
+        <div class="purse-big">${yen(Math.round(c.yen))}<span>in the cash box</span></div>
+        ${g ? `<div class="goalbox glass"><div class="lbl">${g.done ? 'goal reached' : 'the goal'}</div><div class="hand">a five-star shop that runs itself</div>
+          <div class="gstars">${starRow(g.rating)}<b>${g.rating.toFixed(1)}</b></div><div class="ghired">${'<i class="on"></i>'.repeat(g.hired)}${'<i></i>'.repeat(g.of - g.hired)}<span>${g.hired} of ${g.of} hired</span></div></div>` : ''}
         ${c.note ? `<div class="err">${esc(c.note)}</div>` : ''}
         ${items([['resume', 'put it down', true]])}</div>
-        <div class="look glass catalog"><div class="scroll">
-          <section><div class="lbl">for the shop</div>${c.items.filter((i) => i.kind === 'shop').map(row).join('')}</section>
-          <section><div class="lbl">for the property</div>${c.items.filter((i) => i.kind === 'property').map(row).join('')}</section>
-          <section><div class="lbl">kitchen stations · buy at the station itself, before opening</div>${c.items.filter((i) => i.kind === 'station').map((it) => `<div class="buy${it.owned ? '' : ' later'}"><div class="what"><b>${esc(STATION_NAMES[it.station])} · ${esc(it.name.toLowerCase())}</b><span>${esc(it.short)}</span></div>
-            <button class="chip${it.owned ? ' on' : ''}" disabled>${it.owned ? 'yours' : `¥${it.price.toLocaleString('en-US')}`}</button></div>`).join('')}</section>
-          <section><div class="lbl">help wanted · paid at sunrise</div>${c.items.filter((i) => i.kind === 'staff').map(row).join('')}</section>
-          <section><div class="lbl">for home</div>${c.items.filter((i) => i.kind === 'home').map(row).join('')}</section>
-          <section><div class="lbl">for the fami-com</div>${c.items.filter((i) => i.kind === 'games').map(row).join('')}</section>
-        </div></div>`;
+        <div class="look catalog book-wrap"><div class="tabs">${BOOK_TABS.map(([k, label]) => `<button class="tab tab-${k}${k === tab ? ' on' : ''}" data-act="tab:${k}">${label}</button>`).join('')}</div>
+          <div class="book${per === 2 ? ' spread' : ''}${this.bookTurn ? ` turn-${this.bookTurn}` : ''}">
+            <div class="blurb hand">${esc(T[2])}</div>
+            <div class="pages">${Array.from({ length: per }, (_, k) => page(view * per + k)).join('')}</div>
+            <div class="nav"><button class="turn" data-act="page:-1" ${view <= 0 ? 'disabled' : ''}>‹ back</button><span class="hand">${view + 1} of ${views}</span><button class="turn" data-act="page:1" ${view >= views - 1 ? 'disabled' : ''}>next ›</button></div>
+          </div></div>`;
+      this.bookTurn = null;
     } else if (s === 'ready') {
       html = `<div class="col"><div><div class="hand tagline">${esc(this.readyNote || 'the shop is open')}</div><div style="font:500 44px Fredoka">${esc(this.readyTitle || 'clock in')}</div></div>
         ${items([['enter', this.readyItem || 'come on in', true, true]])}</div>${keys}`;
@@ -230,6 +272,8 @@ export class Menu {
     else if (a === 'quit') this.h.onQuit();
     else if (a === 'devYen') this.h.onDevYen();
     else if (a.startsWith('buy:')) this.h.onBuy(a.slice(4));
+    else if (a.startsWith('tab:')) { this.bookTab = a.slice(4); this.bookPage = 0; this.bookTurn = 'next'; this.render(); }
+    else if (a.startsWith('page:')) { const d = +a.slice(5); this.bookPage = (this.bookPage || 0) + d; this.bookTurn = d > 0 ? 'next' : 'prev'; this.render(); }
     else if (a === 'newGame') { if (this.confirmNew) this.h.onNewGame(); else this.show('settings', { confirmNew: true }); }
   }
 }

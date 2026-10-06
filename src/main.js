@@ -8,10 +8,9 @@ import { Ambience } from './audio.js';
 import { Interactions, Door } from './interact.js';
 import { Crowd } from './npc.js';
 import { Service } from './service.js';
-import { Shift, clockText, START_HOUR, UNLOCKS } from './shift.js';
+import { Shift, clockText, START_HOUR, UNLOCKS, starRow } from './shift.js';
 import { loadSave, writeSave, clearSave, CATALOG, STATION_UPS, itemById, applyUpgrades, ownedGames, Home } from './home.js';
 import { Staff } from './staff.js';
-import { Chores } from './chores.js';
 import { Arcade } from './arcade.js';
 import { Menu } from './menu.js';
 import { Net, newCode } from './net.js';
@@ -140,6 +139,23 @@ async function boot() {
   }
   const frontDoor = D.front;
   world.blockers = doors;
+  // a swinging door opens toward the wall or corner beside it, where it lies flat out of the way, never out into the
+  // room: try both ways, and keep the one whose open panel is clear of things and has a wall close alongside
+  for (const d of doors) {
+    if (d.slide || d.spec.front) continue;
+    let best = 0, bestScore = -Infinity;
+    for (const s of [1, -1]) {
+      const ang = d.base + s * d.max, dx = Math.cos(ang), dz = -Math.sin(ang), nx = -dz, nz = dx;
+      let score = 0;
+      for (let t = 0.15; t <= 1.0; t += 0.1) {
+        const px = d.hinge.x + dx * d.width * t, pz = d.hinge.z + dz * d.width * t;
+        if (world.solid(px, 1.0, pz)) score -= 10;                                   // it would swing into something
+        for (const o of [0.18, 0.3]) for (const k of [1, -1]) if (world.solid(px + nx * o * k, 1.0, pz + nz * o * k)) score += o < 0.2 ? 2 : 1;
+      }
+      if (score > bestScore) { bestScore = score; best = s; }
+    }
+    d.openSign = best;
+  }
 
   // shoji panels in the partition: paper with a kumiko lattice, drawn once to a canvas
   const shojiCanvas = document.createElement('canvas'); shojiCanvas.width = 256; shojiCanvas.height = 96;
@@ -330,6 +346,7 @@ async function boot() {
   // bought from the catalog are saved on this device.
   const save = loadSave();
   service.owned = [...save.owned];
+  service.rating = save.rating ?? 3;
   const homeSteam = [];
   // the Fami-Com and the TV it plugs into
   const arcade = new Arcade();
@@ -528,6 +545,7 @@ async function boot() {
     yen: cashBox(),
     note: coop && !coop.isHost ? 'orders go on the shop\'s cash box' : '',
     items: CATALOG.map((c) => ({ ...c, owned: service.owned.includes(c.id), blocked: !!c.needs && !service.owned.includes(c.needs), needsName: c.needs ? itemById(c.needs).name : '' })),
+    goal: goalState(),
   });
   // buying runs on the host (or solo): it comes out of the shared cash box and everyone gets the delivery
   const buyItem = (id) => {
@@ -583,6 +601,13 @@ async function boot() {
 
   // nights: waves of customers, a clock with sunrise in sight, and a stats card between nights
   const money = (v) => `¥${Math.round(v).toLocaleString('en-US')}`;
+  // the goal: a five-star rating, and the shop running itself (all five hired)
+  const goalState = () => {
+    const staff = CATALOG.filter((c) => c.kind === 'staff'), hired = staff.filter((c) => service.owned.includes(c.id)).length, rating = save.rating ?? service.rating ?? 3;
+    return { rating, hired, of: staff.length, done: rating >= 4.75 && hired === staff.length,
+      line: `the goal: a five-star shop that runs itself · ★${rating.toFixed(1)} of 5 · ${hired} of ${staff.length} hired` };
+  };
+  const hitText = (r) => { const h = r.hits || {}, bits = [h.trash >= 0.05 && 'the bin overflowed', h.dirty >= 0.05 && 'tables sat dirty', h.burnt >= 0.05 && 'food burned'].filter(Boolean); return bits.length ? ` (${bits.join(', ')})` : ''; };
   const showSummary = (r, canStart) => {
     menu.addShift(r.tips);
     sunriseStart();
@@ -590,12 +615,15 @@ async function boot() {
     $('summary').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
         <div class="when hand">sunrise · night ${r.n}</div>
         <div class="closed neon amber">YOAKE</div>
-        <div class="stars">${'★'.repeat(r.stars)}<i>${'★'.repeat(5 - r.stars)}</i></div></div>
+        <div class="stars">${'★'.repeat(r.stars)}<i>${'★'.repeat(5 - r.stars)}</i></div>
+        ${r.shop !== undefined ? `<div class="small">tonight ★${r.rating.toFixed(1)}${r.reviews ? ` from ${r.reviews} guest${r.reviews > 1 ? 's' : ''}` : ''}${hitText(r)} · the shop's rating <b>★${r.shop.toFixed(1)}</b>${r.prev !== undefined && Math.abs(r.shop - r.prev) >= 0.05 ? ` (${r.shop > r.prev ? '▲' : '▼'}${Math.abs(r.shop - r.prev).toFixed(1)})` : ''}</div>` : ''}</div>
       <div class="stats">
         <div class="stat glass"><b>${r.fed}</b><span>people fed</span></div>
         <div class="stat glass"><b>${money(r.earned)}</b><span>earned</span></div>
         <div class="stat glass"><b>${money(r.tips)}</b><span>in tips</span></div></div>
       ${extra ? `<div class="small">${extra}</div>` : ''}
+      ${r.goal ? `<div class="unlock goal"><div class="ic">★</div><div><b>five stars, and it runs itself</b><span>Yoake is the best little shop on the street, and the help have it all in hand. People are talking: there's an empty shopfront further down the street…</span></div></div>`
+        : r.goalLine ? `<div class="small goal">${r.goalLine}</div>` : ''}
       ${r.unlock ? `<div class="unlock"><div class="ic">✦</div><div><b>new: ${r.unlock.name.toLowerCase()}</b><span>${r.unlock.text}</span></div></div>` : ''}
       ${!coop || coop.isHost ? `<div class="small">${money(save.yen)} in the cash box · the catalog is on the kotatsu upstairs</div>` : ''}
       <div class="actions">${canStart ? '<button class="pill-btn" data-act="again">go up to bed</button>' : '<button class="pill-btn" disabled>waiting for the host…</button>'}
@@ -608,18 +636,23 @@ async function boot() {
     unlock();
   };
   const shift = new Shift({ service, crowd, audio, toast, ui: { schedule: $('schedule') }, onEnd: (r) => {
-    save.night = r.n + 1; save.yen = Math.max(0, save.yen + r.earned); save.owned = [...service.owned]; writeSave(save);
+    save.night = r.n + 1; save.yen = Math.max(0, save.yen + r.earned); save.owned = [...service.owned];
+    // the shop's rating: a rolling average of its nights (the newest counts for 40%)
+    r.prev = save.rating; save.rating = r.shop = save.rating === undefined ? r.rating : Math.round((save.rating * 0.6 + r.rating * 0.4) * 100) / 100;
+    service.rating = save.rating;
+    const g = goalState();
+    if (g.done && !save.goal) { save.goal = r.n; r.goal = true; } else if (!save.goal) r.goalLine = g.line;
+    writeSave(save);
     if (coop) net.send({ t: 'summary', r: { ...r, unlock: r.unlock && { name: r.unlock.name, text: r.unlock.text } } });
     showSummary(r, true);
   } });
   shift.players = () => (coop && net ? Math.max(1, net.players.length) : 1);
   shift.onStart = (n) => { if (coop && coop.isHost) net.send({ t: 'shiftStart', n }); };
-  // between nights (the sign still says CLOSED) you can upgrade the kitchen's stations and do the chores
+  // between nights (the sign still says CLOSED) you can upgrade the kitchen's stations
   service.between = () => shift.active && shift.waiting;
   service.isOpen = () => shift.active && !shift.waiting;
   service.stationUps = STATION_UPS;
   service.crew = new Staff({ scene, service, litMat, emitMat });
-  service.chores = new Chores({ scene, service, interactions, audio, litMat, emitMat, between: service.between });
   if (dev) { shift.start(1); shift.openShop(); }
 
   // ---------------------------------------------------------------- main menu + co-op
@@ -774,7 +807,7 @@ async function boot() {
       const now = performance.now(), dt = Math.min(0.25, (now - bgLast) / 1000); bgLast = now;
       if (!document.hidden || !coop || !coop.isHost) return;
       crowd.update(dt); service.update(dt); shift.update(dt);
-      for (const d of doors) d.update(dt, [player.pos, ...crowd.positions(), ...crowd.others]);
+      for (const d of doors) d.update(dt, [player.pos, ...crowd.positions(), ...crowd.others, ...service.crew.positions()]);
       coop.update(dt);
     };
   } catch (e) { console.warn('[yoake] no background ticker:', e.message); } // some sandboxes refuse blob workers
@@ -816,7 +849,7 @@ async function boot() {
     if (parade) parade.update(dt);
     else if ((arrived || dev || (coop && !coop.isHost)) && !bgHost) { crowd.update(dt); service.update(dt); shift.update(dt); }
     if (coop) coop.update(dt);
-    const agents = parade ? [player.pos, ...parade.horde.list.filter((k) => k.alive).map((k) => k.pos)] : [player.pos, ...crowd.positions(), ...crowd.others];
+    const agents = parade ? [player.pos, ...parade.horde.list.filter((k) => k.alive).map((k) => k.pos)] : [player.pos, ...crowd.positions(), ...crowd.others, ...service.crew.positions()];
     for (const d of doors) d.update(dt, coop && !coop.isHost ? null : agents); // guests: the host decides when doors close
     if (moving) updateMove();
     else if (player.locked) interactions.update();
@@ -904,7 +937,7 @@ async function boot() {
   }
   requestAnimationFrame(tick);
   window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home, arcade,
-    get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, deco, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
+    catalogData, get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, deco, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
 }
 
 boot().catch((e) => { console.error(e); status('something spilled: ' + e.message); });

@@ -98,7 +98,8 @@ export class Door {
     this.wasNear = false; this.openFor = 0;
     if (this.slide) { this.target = this.max; return 'open'; }
     const side = (p.x - this.hinge.x) * this.plusDir[0] + (p.z - this.hinge.z) * this.plusDir[1];
-    this.target = side < 0 ? this.max : -this.max; // swing away from the player
+    // a door that knows which way it goes (toward its wall: see main.js) always swings that way; otherwise away from you
+    this.target = this.openSign ? this.openSign * this.max : side < 0 ? this.max : -this.max;
     return 'open';
   }
   playerInDoorway(p) {

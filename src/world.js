@@ -535,9 +535,10 @@ export function buildShop(K, opts = {}) {
       B(1.75, 0.25, 11.0, 2.0, 2.25, 12.0, 0); B(1.75, 0.25, 13.75, 2.0, 2.25, 14.75, 0);
       B(1.75, 2.25, 10.9, 1.875, 2.375, 12.1, P.walnutD); B(1.75, 2.25, 13.65, 1.875, 2.375, 14.85, P.walnutD);
       B(2.0, 0.25, 13.0, 4.875, 3.0, 13.125, (x, y, z) => wallFinish('rest', x, y));
-    } else { // one restroom, a little narrower; past it the hall opens into a nook for the mops and buckets
-      B(2.5, 0.25, 10.25, 2.625, 3.0, 13.125, (x, y, z) => wallFinish('hall', z, y));
-      B(2.625, 0.25, 10.25, 2.75, 3.0, 13.125, (x, y, z) => wallFinish('rest', z, y));
+    } else { // one restroom, a little narrower; past it, behind a door, the closet with the mops and buckets
+      B(2.5, 0.25, 10.25, 2.625, 3.0, 15.75, (x, y, z) => wallFinish('hall', z, y));
+      B(2.625, 0.25, 10.25, 2.75, 3.0, 15.75, (x, y, z) => wallFinish('rest', z, y));
+      B(2.375, 0.25, 13.75, 2.5, 2.25, 14.875, (x, y, z) => (y === Y(2.25) - 1 || z === Z(13.75) || z === Z(14.875) - 1 ? P.timberD : (y === Y(1.0) && z === Z(14.625) ? P.chrome : P.oak[(z >> 1) & 1])));
       B(2.5, 0.25, 11.0, 2.75, 2.25, 12.0, 0); B(2.5, 2.25, 10.9, 2.625, 2.375, 12.1, P.walnutD);
       B(2.75, 0.25, 13.0, 4.875, 3.0, 13.125, (x, y, z) => wallFinish('rest', x, y));
     }
