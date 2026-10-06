@@ -18,6 +18,7 @@ export class Player {
     this.locked = false;
     this.frozen = false; this.nod = 0; // a bow: hold still, dip the head (0..1)
     this.speedMul = 1; // a hot can from the vending machine puts a spring in your step
+    this.loadMul = 1;  // ...and a keg of sake in your arms takes it out again
     addEventListener('keydown', (e) => { this.keys[e.code] = true; });
     addEventListener('keyup', (e) => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
@@ -90,7 +91,7 @@ export class Player {
     const s = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0) + st.x;
     if (k.ArrowLeft) this.yaw += dt * 1.8;
     if (k.ArrowRight) this.yaw -= dt * 1.8;
-    const speed = (k.ShiftLeft || k.ShiftRight || push > 0.95 ? 4.6 : 2.7) * this.speedMul; // push the stick all the way to hurry
+    const speed = (k.ShiftLeft || k.ShiftRight || push > 0.95 ? 4.6 : 2.7) * this.speedMul * this.loadMul; // push the stick all the way to hurry
     const fw = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     const rt = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     const want = fw.multiplyScalar(f).add(rt.multiplyScalar(s));

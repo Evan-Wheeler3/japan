@@ -28,7 +28,7 @@ room looking onto the street, the genkan and register by the door, the kitchen, 
 A narrow flight of stairs runs up one side of the restroom hall, a rail either side, and the whole floor upstairs
 is your flat: a hall along the back, the living room with the kotatsu and the long front windows, the bedroom, the
 back room with the little kitchen, a spare tatami room full of boxes and closets, a bathroom with a hinoki tub, and a
-storeroom with the futons and the cleaning things. A steel door in the storeroom's side wall is the fire escape: out
+storeroom with the kitchen's pantry shelves, the futons and the cleaning things. A steel door in the storeroom's side wall is the fire escape: out
 onto the flat roof of next door's back wing, across it, through a gap in its parapet onto a grated landing, and down
 an open steel stair into the yard (it stays locked until there's a reason to go down it). The kitchen's back door opens onto a plain concrete service yard,
 boxed in by the back of the building next door (its kitchen door, a frosted window, the downpipes), the izakaya's
@@ -106,7 +106,18 @@ walkout gives one star. Tonight's rating is the guests' average, less a bit for 
 dirty and anything burnt. The shop's rating (under the clock) is a rolling average of its nights, and a
 better-rated shop draws bigger crowds: a 5★ shop gets 30% more guests a rush, a 1★ shop 20% fewer.
 
-**The goal: a five-star shop that runs itself.** Get the shop's rating to five stars and hire all five of the
+**Supplies.** Every dish uses some: tea leaves at the urns, salmon at the sushi case, rice at the cookers, skewers
+at the grills, gyoza at the teppan, prawns at the fryers, noodles and broth at the ramen pot. Each station starts
+the night full (the morning delivery) and a crate fills it again: 12 cups of tea, 8 lots of onigiri, 5 to 6 of
+everything else. When one's down to its last third, a crate marker pops up over it; when it's empty it turns red and
+shows through the walls, and nothing more comes off that station until it's restocked. The crates are on the steel
+shelves in the storeroom upstairs, one bay for each: take one (it fills both hands), carry it down and click the
+station. Once the kura's yours, the house sake keg on the back bar drains a cup with every bill; when it's dry the
+sake comes off the bills until you fetch a fresh keg from the shed in the yard (heavy: you walk slower carrying it).
+None of it is free: the wholesaler's bill for what was used comes off the night's takings at sunrise, a fifth to a
+third of what each dish sells for. (Up on the mountain the old wholesaler still stocks the kitchen himself.)
+
+**The goal: a five-star shop that runs itself.** Get the shop's rating to five stars and hire all six of the
 help. The catalog keeps track.
 
 ## Milestones
@@ -176,8 +187,10 @@ has to be paid, so it takes a good many nights to have it all.
     everyone else; green tea down the belt for the belt's guests.
   - **Ren, line cook** (¥2,800): fires the grills, the teppan, the fryer and the ramen pot for whatever's been ordered
     and plates it onto the pass.
+  - **Sota, stock hand** (¥1,200): keeps the kitchen stocked. When a station runs low he goes up to the storeroom for
+    a crate and carries it down; when the sake keg runs dry he fetches a fresh one from the shed.
 
-  With all five hired the shop runs itself (you can still pitch in).
+  With all six hired the shop runs itself (you can still pitch in).
 - **for home:** paper lanterns, houseplants, a bonsai, a big woodblock print, a cat bed (a black cat moves
   in), a goldfish tank, a record player, a brass telescope at the front window (put your eye to it and it swings round to Tokyo Tower, or Fuji on the mountain), and an
   irori hearth to sit by, a CRT television, and a Fami-Com console that plugs into it.
@@ -347,6 +360,7 @@ On a phone there are strike, use, dish, pot, jump, 1/2 and reload buttons.
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen round the island, the plates riding it |
 | `src/home.js` | The save file, the catalog, the milestones, what each upgrade does, and the things you can buy for the apartment |
 | `src/minigames.js` | The full-screen milestone games: a recipe's ingredients in order, picking a lock, shovelling the drift |
+| `src/supplies.js` | What the stations run on: levels, the crates in the storeroom upstairs, the sake keg, the wholesaler's bill |
 | `src/tutorial.js` | The first night's walk-through: one step at a time, and a marker over where to go |
 | `src/arcade.js` | The Fami-Com: a 256×224 canvas that is the CRT's picture, and its four games |
 | `src/shift.js` | The clock (10 PM → 6 AM), rushes, the dawn, the stats card, perks |
@@ -360,8 +374,8 @@ On a phone there are strike, use, dish, pot, jump, 1/2 and reload buttons.
 `npm install && npm run playtest` runs a bot through the whole loop in a headless browser: start in the street and
 walk to the shop with the tutorial up, buy from the catalog (the Fami-Com and its games), reach milestones, shovel out
 the back door and pick two locks, play Sushi Catch, buy station upgrades, open, work a full night (every dish, the
-belt, washing up), learn nigiri off the night's card by dragging the ingredients onto the dish, sleep, wake for night 2, reload
-and check the save, hire all five and let them run night 2 with nobody playing, then hold the front room in the night parade with a katana, break a seal, sit through an oni
+belt, washing up, a station restocked from the storeroom), learn nigiri off the night's card by dragging the ingredients onto the dish, sleep, wake for night 2, reload
+and check the save, hire all six and let them run night 2 with nobody playing, then hold the front room in the night parade with a katana, break a seal, sit through an oni
 night and fall. Set `CHROME_PATH` if Playwright can't find a Chromium.
 
 `.github/workflows/pages.yml` publishes the game to GitHub Pages on every push and runs the playtest. Turn it

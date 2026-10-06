@@ -649,7 +649,7 @@ async function boot() {
 
   // nights: waves of customers, a clock with sunrise in sight, and a stats card between nights
   const money = (v) => `¥${Math.round(v).toLocaleString('en-US')}`;
-  // the goal: a five-star rating, and the shop running itself (all five hired)
+  // the goal: a five-star rating, and the shop running itself (everyone hired)
   const goalState = () => {
     const staff = CATALOG.filter((c) => c.kind === 'staff'), hired = staff.filter((c) => service.owned.includes(c.id)).length, rating = save.rating ?? service.rating ?? 3;
     return { rating, hired, of: staff.length, done: rating >= 4.75 && hired === staff.length,
@@ -659,7 +659,7 @@ async function boot() {
   const showSummary = (r, canStart) => {
     menu.addShift(r.tips);
     sunriseStart();
-    const extra = [r.wages && `${money(r.wages)} in staff wages`, r.walkouts && `${r.walkouts} walked out`, r.burnt && `${r.burnt} burnt`, r.washed && `${r.washed} dishes washed`].filter(Boolean).join(' · ');
+    const extra = [r.wages && `${money(r.wages)} in staff wages`, r.supplies && `${money(r.supplies)} to the wholesaler`, r.walkouts && `${r.walkouts} walked out`, r.burnt && `${r.burnt} burnt`, r.washed && `${r.washed} dishes washed`].filter(Boolean).join(' · ');
     $('summary').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
         <div class="when hand">sunrise · night ${r.n}</div>
         <div class="closed neon amber">YOAKE</div>
@@ -894,6 +894,7 @@ async function boot() {
     if (paused) { last = now; requestAnimationFrame(tick); return; }
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     updateBow();
+    player.loadMul = service.has('keg') ? 0.7 : 1;
     if (boostLeft > 0 && (boostLeft -= dt) <= 0) { boostLeft = 0; player.speedMul = 1; toast('the hot drink wears off. back to a steady pace.'); }
     player.update(dt);
     const p = player.pos;

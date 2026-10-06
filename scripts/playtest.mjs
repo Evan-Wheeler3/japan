@@ -1,7 +1,8 @@
 // End-to-end playtest: a bot plays the whole loop in a headless browser and checks it holds together.
 //   start in the street where the title camera was, walk to the shop (the tutorial follows along) → up to the flat
 //   → buy from the catalog (the TV, the Fami-Com and its games) → milestones: the drinks fridge arrives, the back door
-//   is shovelled out, two locks picked → play the Fami-Com → station upgrades → open the shop → work a full night
+//   is shovelled out, two locks picked → play the Fami-Com → station upgrades → supplies: a station runs dry, a crate
+//   from the storeroom, the sake keg from the shed → open the shop → work a full night
 //   (by hand and by belt, cooking every dish, washing up) → sunrise and the night's card → learn nigiri on it by
 //   dragging the ingredients onto the dish → go to bed → wake for night 2
 //   → reload and check the save carried over → the night parade: hold the front room with a katana, break a seal,
@@ -241,6 +242,31 @@ try {
     `station upgrades between nights are speed or value: "${st.label}", tea now +¥${st.tea} a cup`);
   check(st.fast && st.yak === 150 && st.batch === 1 && st.sushi, 'the grill cooks a fifth faster and its yakitori earns ¥150 more (no sushi upgrades until the recipe)');
   check(st.staff === 3 && st.wages === 4800, 'hired a dishwasher, a sushi chef and a cashier (¥4,800 a night)');
+  // ---- supplies: a station that's run dry won't cook; a crate from the storeroom upstairs fills it; the keg's the same
+  st = await page.evaluate(() => {
+    const d = window.__yoake, s = d.service, S = s.supplies, I = d.interactions;
+    const label = (re) => { const it = I.items.find((x) => { try { return re.test(x.label()); } catch { return false; } }); return it && it.label(); };
+    const yak = s.stations.find((x) => x.kind === 'yakitori');
+    S.level.yakitori = 0; S.update();
+    s.request('station', s.stations.indexOf(yak));
+    const refused = yak.state === 'idle', mark = S.marks.yakitori.sp.visible && !S.marks.yakitori.sp.material.depthTest;
+    const shelf = label(/^Take a crate of skewers/);
+    s.request('crateTake', 'yakitori');
+    const carrying = s.loadKind(), stationLabel = (() => { const it = I.items.find((x) => { try { return /^Restock the yakitori/.test(x.label()); } catch { return false; } }); return it && it.label(); })();
+    s.request('refill', 'gyoza'); const wrong = S.level.gyoza === 6 && s.loadKind() === 'yakitori';
+    s.request('refill', 'yakitori');
+    const full = S.level.yakitori === 6 && !s.hands.length;
+    // the sake: a cup with every bill while there's some in the keg
+    const q = { svc: { items: [{ kind: 'gyoza', done: true }], orderWait: 0, foodWait: 0 } };
+    const withSake = s.bill(q).sub; S.level.sake = 0; const dry = s.bill(q).sub;
+    s.request('kegTake'); const keg = s.has('keg'); s.request('refill', 'sake');
+    const cost0 = S.cost; S.use('tea'); S.use('gyoza');
+    return { refused, mark, shelf, carrying, stationLabel, wrong, full, sakePart: withSake - dry, keg, sake: S.level.sake, cost: S.cost - cost0 };
+  });
+  check(st.refused && st.mark && /^Take a crate of skewers/.test(st.shelf || '') && st.carrying === 'yakitori' && st.wrong && st.full,
+    `out of skewers the grill won't cook (a marker through the walls); "${st.shelf}" upstairs, carried down, fills it`);
+  check(st.sakePart === 400 && st.keg && st.sake === 12 && st.cost === 240, 'a dry keg takes the house sake off the bill till a fresh one comes from the shed; supplies are billed by the serving');
+  await page.evaluate(() => window.__yoake.service.supplies.reset());
 
   // ---- open the shop and work the night
   await page.evaluate(() => {
@@ -258,6 +284,9 @@ try {
         d.interactions.update();
       }
       if (s.washing > 0) { atSink(); return; }
+      // a station about to run dry: a crate down from the storeroom (or a keg from the shed)
+      const dry = !H.length && s.supplies.kinds().find((k) => s.supplies.level[k] <= 1);
+      if (dry) { if (dry === 'sake') act('kegTake'); else act('crateTake', dry); act('refill', dry); stats.restocked = (stats.restocked || 0) + 1; return; }
       if (s.has('tub')) { atSink(); act('sink'); act('sink'); stats.washes++; return; }
       if (s.has('clean')) { act('mug'); return; }
       if (!H.length && s.rack.mugs + s.rack.plates > 0 && (s.stock.mugs < 3 || s.stock.plates < 3)) { act('rack'); return; }
@@ -316,6 +345,7 @@ try {
   check(result.washed >= 1, 'dishes were washed');
   check(Object.values(result.crew).some((n) => n > 0) && result.card.includes('¥4,800 in staff wages'), `the staff pitched in (${JSON.stringify(result.crew)}) and were paid at sunrise`);
   check(result.save.night === 2 && result.save.yen > 0, `the save moved on to night 2 with ¥${result.save.yen}`);
+  check(/to the wholesaler/.test(result.card), `the wholesaler's bill came off the takings (${(result.card.match(/¥[\d,]+ to the wholesaler/) || [''])[0]}, ${result.stats.restocked || 0} crates fetched)`);
   check(typeof result.save.rating === 'number' && /the shop's rating/.test(result.card) && /the goal/.test(result.card), `the night was rated and the shop's rating saved (★${result.save.rating})`);
   check(result.tut >= 3 && result.save.tutorialDone, `the tutorial followed the night along (to step ${result.tut + 1}) and won't come back`);
   check(result.save.served >= 6 && result.save.pending.includes('sushi') && result.learn, `${result.save.served} guests served: the nigiri milestone is on the card, ready to learn`);
@@ -360,18 +390,18 @@ try {
   st = await page.evaluate(() => { const d = window.__yoake, p = d.home.pieces.get('bonsai'); return { at: [p.x, p.z, p.rot].join(), want: d.map.test.bonsaiTo.join() }; });
   check(st.at === st.want, 'the bonsai is still where you put it');
 
-  // ---- night 2: all five hired, and nobody playing. The shop runs itself
+  // ---- night 2: everyone hired, and nobody playing. The shop runs itself
   st = await page.evaluate(() => {
     const d = window.__yoake, s = d.service;
     d.save.devYen = true; s.cashBox = 1e9;
-    for (const id of ['staff_waiter', 'staff_cook']) s.request('buy', id);
+    for (const id of ['staff_waiter', 'staff_cook', 'staff_stock']) s.request('buy', id);
     d.save.devYen = false;
     for (const id of ['dishes', 'dishes2']) d.ms.complete(id); // (a five-star crowd needs the full set of tableware)
     s.request('openShop');
     d.player.pos.set(9, 3.75, 4); // upstairs, out of the way
     return { staff: [...s.staff].length, wages: s.wages };
   });
-  check(st.staff === 5 && st.wages === 10000, 'hired the waiter and the cook as well: all five (¥10,000 a night)');
+  check(st.staff === 6 && st.wages === 11200, 'hired the waiter, the cook and the stock hand as well: all six (¥11,200 a night)');
   result = null;
   for (let i = 0; i < 6000 && !result; i++) {
     result = await page.evaluate(() => {
@@ -384,8 +414,8 @@ try {
   if (!result) throw new Error('night 2 never ended');
   console.log(`  night 2 (nobody playing): served ${result.served}, walked out ${result.walkouts}, crew ${JSON.stringify(result.crew)}`);
   const c = result.crew;
-  check(result.served >= 10 && result.walkouts <= Math.max(3, result.served / 4), 'with all five hired the shop runs itself: guests fed, few walkouts');
-  check(c.orders > 0 && c.served > 0 && c.bussed > 0 && c.washed > 0 && c.cooked > 0 && c.sushi > 0 && c.rang > 0, 'everyone pitched in: orders, cooking, sushi, serving, bussing, washing, the register');
+  check(result.served >= 10 && result.walkouts <= Math.max(3, result.served / 4), 'with everyone hired the shop runs itself: guests fed, few walkouts');
+  check(c.orders > 0 && c.served > 0 && c.bussed > 0 && c.washed > 0 && c.cooked > 0 && c.sushi > 0 && c.rang > 0 && c.stocked > 0, 'everyone pitched in: orders, cooking, sushi, serving, bussing, washing, the register, the stockroom');
 
   // ---- 百鬼夜行: the night parade (a survival mode that leaves the shop's save alone)
   await page.reload(); await ready();

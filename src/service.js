@@ -1,10 +1,12 @@
-// Working the night: take orders, pour tea and make food, serve, ring up, bus and wash dishes, restock.
+// Working the night: take orders, pour tea and make food, serve, ring up, bus and wash dishes, restock (the shelves
+// with clean ones, and the stations from the storeroom upstairs: see supplies.js).
 // (Internally a cup is still a 'mug', so co-op snapshots keep their shape.)
 import * as THREE from 'three';
 import { Model, C } from './voxel.js';
 import { Belt } from './belt.js';
 import { MAP } from './maps/index.js';
 import { Trash, bagModel } from './trash.js';
+import { Supplies, SUPPLY, isLoad, crateKind, crateModel } from './supplies.js';
 
 export const MENU = {
   tea: { name: 'Green tea', price: 300 },
@@ -24,7 +26,8 @@ const NAMES = ['a tired salaryman', 'the ski instructor', 'two snowboarders', 'a
 const yen = (v) => `¥${Math.round(v).toLocaleString('en-US')}`;
 
 // ---------------------------------------------------------------- little voxel models for dishes
-const BIG = new Set(['tub', 'clean', 'trash']); // things carried in both hands
+const BIG = new Set(['tub', 'clean', 'trash']); // things carried in both hands (and crates and kegs: supplies.js)
+const big = (type) => BIG.has(type) || isLoad(type);
 const INVISIBLE = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 
 // counter tops you can set things on, and the spots on them kept clear for props, come from the map
@@ -226,6 +229,7 @@ export class Service {
     this.heldEmit = this.emitMat.clone(); this.heldEmit.depthTest = false;
     this.held = new THREE.Group(); this.camera.add(this.held);
     this.setupStations();
+    this.supplies = new Supplies(this, drawIcon);
     this.trash = new Trash(this);
     this.belt = new Belt(this.scene, (type) => this.dishModel(type).mesh(this.litMat, this.emitMat));
     { const [bx, bz] = MAP.shop.belt.path[0]; this.beltMark = beltMarker(); this.beltMark.position.set(bx, 1.75, bz); this.scene.add(this.beltMark); }
@@ -235,7 +239,7 @@ export class Service {
     this.refreshUI(true);
   }
   model(key, build) { return this.models[key] || (this.models[key] = build()); }
-  heldModel(h) { return h.type === 'trash' ? bagModel() : h.type === 'tub' || h.type === 'clean' ? tubModel(h.mugs, h.plates, h.type === 'clean') : this.dishModel(h.type); }
+  heldModel(h) { return isLoad(h.type) ? crateModel(crateKind(h.type)) : h.type === 'trash' ? bagModel() : h.type === 'tub' || h.type === 'clean' ? tubModel(h.mugs, h.plates, h.type === 'clean') : this.dishModel(h.type); }
   tubMesh(t) { return tubModel(t.mugs, t.plates, false).mesh(this.litMat, this.emitMat); }
   dishModel(type) {
     if (type === 'tea' || type === 'mug' || type === 'mugDirty') return this.model(type, () => mugModel(type === 'tea' ? 'coffee' : type === 'mug' ? 'empty' : 'dirty'));
@@ -375,7 +379,7 @@ export class Service {
       st.redraw -= dt;
       if (st.redraw <= 0) {
         st.redraw = 0.2;
-        if (st.state === 'idle') st.tag.userData.draw('');
+        if (st.state === 'idle') st.tag.userData.draw(this.supplies.ok(st.kind) || !this.menuKinds.has(st.kind) ? '' : `out of ${SUPPLY[st.kind].what}`, null);
         else if (st.state === 'cooking') st.tag.userData.draw(`${st.label} cooking`, st.t / st.cook, '#f0b45a');
         else if (st.state === 'ready') st.tag.userData.draw(`${st.label} ready!${st.left > 1 ? ` ×${st.left}` : ''}`, 1 - st.t / st.burn, '#a8e0a8');
         else st.tag.userData.draw('burnt :(', null);
@@ -408,6 +412,7 @@ export class Service {
     this.uiT = (this.uiT || 0) - dt;
     if (this.uiT < 0) { this.uiT = 0.25; this.refreshUI(); }
     this.trash.update(dt, this.isOpen ? this.isOpen() : true);
+    this.supplies.update();
     if (sim && (!this.isOpen || this.isOpen())) { let dirty = 0; for (const st of this.crowd.seats) if (st.needsBus && !st.occupant) dirty++; this.dirtyT += dt * Math.max(0, dirty - 2); }
     // the hired help (staff.js)
     if (this.crew) this.crew.update(dt, this.isOpen ? this.isOpen() : true);
@@ -446,16 +451,17 @@ export class Service {
   }
   bill(q) {
     const food = q.svc.items.filter((i) => i.done).reduce((a, i) => a + MENU[i.kind].price + ((this.priceBonus || {})[i.kind] || 0), 0);
-    const sub = food + (food > 0 ? this.drinkBill || 0 : 0); // a drink from the fridge (and warm sake) with the meal
+    // a drink from the fridge (and house sake, while there's some in the keg) with the meal
+    const sub = food + (food > 0 ? (this.drinkBill || 0) - (this.supplies.ok('sake') ? 0 : this.sakeBill || 0) : 0);
     const mood = Math.max(0.05, 0.25 - 0.1 * (q.svc.orderWait / 60) - 0.05 * (q.svc.foodWait / 90));
     return { sub, tip: Math.round(sub * mood * (this.tipMul || 1) / 10) * 10 };
   }
 
   // ------------------------------------------------ hands
   // the first thing goes in your right hand; with both hands unlocked the next one goes in your left
-  get handsFree() { return this.handCap - this.hands.length - (this.hands.some((h) => BIG.has(h.type)) ? 1 : 0); }
+  get handsFree() { return this.handCap - this.hands.length - (this.hands.some((h) => big(h.type)) ? 1 : 0); }
   hold(item) {
-    item.slot = BIG.has(item.type) ? 'both' : this.hands.some((h) => h.slot === 'R') ? 'L' : 'R';
+    item.slot = big(item.type) ? 'both' : this.hands.some((h) => h.slot === 'R') ? 'L' : 'R';
     this.hands.push(item); this.redrawHands();
   }
   takeHand(type) { const i = this.hands.findIndex((h) => h.type === type); if (i < 0) return null; const h = this.hands.splice(i, 1)[0]; this.redrawHands(); return h; }
@@ -465,8 +471,8 @@ export class Service {
     (this.handsBy[this.me] || []).forEach((h) => {
       const g = this.heldModel(h).mesh(this.heldLit, this.heldEmit);
       g.traverse((o) => { o.renderOrder = 30; });
-      g.position.set(h.slot === 'both' ? 0 : h.slot === 'L' ? -0.17 : 0.17, -0.2, -0.5);
-      g.rotation.x = 0.45; g.scale.setScalar(0.55);
+      g.position.set(h.slot === 'both' ? 0 : h.slot === 'L' ? -0.17 : 0.17, isLoad(h.type) ? -0.3 : -0.2, -0.5);
+      g.rotation.x = 0.45; g.scale.setScalar(isLoad(h.type) ? 0.36 : 0.55); // (a crate or a keg, low in your arms)
       this.held.add(g);
     });
     this.refreshUI(true);
@@ -476,6 +482,7 @@ export class Service {
     if (!h) return;
     if (h.type === 'tub') { this.say('take the dirty dishes to the sink in the kitchen'); return; }
     if (h.type === 'trash') { this.say(`take the bag out to the gomi station ${this.trash.station().key === 'back' ? 'in the yard' : 'out front'}`); return; }
+    if (isLoad(h.type)) { const k = crateKind(h.type); this.say(`take ${SUPPLY[k].crate.replace(/^an? /, 'the ')} to the ${this.supplies.dish(k)}`); return; }
     this.hands.pop();
     if (h.type === 'mug') this.stock.mugs++;
     else if (h.type === 'plate') this.stock.plates++;
@@ -524,11 +531,13 @@ export class Service {
       plate: takePlate,
       urn: () => {
         if (!this.has('mug')) return T('grab a clean cup from the shelf first');
+        if (!this.supplies.use('tea')) return T(`the urns are ${this.supplies.outText('tea')}`);
         make('tea', 'mug'); this.sfx('pour');
       },
       sushi: () => {
         if (!this.menuKinds.has('sushi')) return;
         if (!this.has('plate')) return T('grab a clean plate first');
+        if (!this.supplies.use('sushi')) return T(`the sushi case is ${this.supplies.outText('sushi')}`);
         make('sushi', 'plate'); this.sfx('clickSound');
       },
       icecream: () => {
@@ -539,6 +548,7 @@ export class Service {
       onigiri: () => {
         if (!this.menuKinds.has('onigiri')) return;
         if (!this.has('plate')) return T('grab a clean plate first');
+        if (!this.supplies.use('onigiri')) return T(`the rice cookers are ${this.supplies.outText('onigiri')}`);
         make('onigiri', 'plate'); this.sfx('clickSound');
       },
       openShop: () => { if (this.onOpenShop) this.onOpenShop(); },
@@ -547,8 +557,10 @@ export class Service {
       placePiece: (key, x, z, rot) => { if (this.onPlace) this.onPlace(key, x, z, rot); },
       station: (i) => {
         const st = this.stations[i]; if (!st) return;
-        if (st.state === 'idle') { st.state = 'cooking'; st.t = 0; this.sfx('sizzleBurst'); }
-        else if (st.state === 'ready') {
+        if (st.state === 'idle') {
+          if (!this.supplies.use(st.kind)) return T(`the ${st.label.toLowerCase()} station is ${this.supplies.outText(st.kind)}`);
+          st.state = 'cooking'; st.t = 0; this.sfx('sizzleBurst');
+        } else if (st.state === 'ready') {
           if (!this.has('plate')) return T('you need a clean plate');
           this.takeHand('plate'); this.hold({ type: st.kind }); this.sfx('clickSound');
           st.left = (st.left || 1) - 1; if (st.left <= 0) st.state = 'idle'; // a big batch makes two plates
@@ -580,6 +592,26 @@ export class Service {
         if (!this.has('trash')) return;
         this.takeHand('trash'); this.trash.dropOff(key); this.sfx('clickSound'); T('bag out · collected in the morning');
       },
+      // supplies: a crate off the storeroom shelves (or a keg from the shed), down to where it goes
+      crateTake: (k) => {
+        if (!SUPPLY[k] || k === 'sake') return;
+        if (!this.menuKinds.has(k)) return T("that's not on the menu yet");
+        if (this.hands.length) return T('empty your hands first: a crate takes both');
+        this.hold({ type: `crate_${k}` }); this.sfx('clickSound');
+        T(`${SUPPLY[k].crate} · down to the ${this.supplies.dish(k)}`);
+      },
+      kegTake: () => {
+        if (!this.supplies.sake()) return;
+        if (this.hands.length) return T('empty your hands first: a keg takes both, and then some');
+        this.hold({ type: 'keg' }); this.sfx('clickSound'); T('a fresh keg of sake · heavy · over to the back bar');
+      },
+      refill: (k) => {
+        const h = this.hands.find((x) => isLoad(x.type)); if (!h) return;
+        const c = crateKind(h.type);
+        if (c !== k) return T(`that's ${SUPPLY[c].what}: it goes to the ${this.supplies.dish(c)}`);
+        this.takeHand(h.type); this.supplies.refill(k); this.sfx('clickSound');
+        T(k === 'sake' ? 'the fresh keg is in · house sake on every bill again' : `the ${this.supplies.dish(k)}: restocked with ${SUPPLY[k].what}`);
+      },
       cust: (id) => { const q = this.crowd.people.find((p) => p.id === id); if (q && q.svc) this.custAct(q); },
       bus: (i) => { const seat = this.crowd.seats[i]; if (seat && seat.needsBus) this.bus(seat); },
       setDown: (x, y, z, yaw) => this.setDown(x, y, z, yaw),
@@ -603,10 +635,12 @@ export class Service {
     // what gets outlined when you look at a station: the props themselves (kept invisible, the outline pass still sees them)
     const shape = (tag) => { const m = this.batch.shape(tag); this.scene.add(m); return { highlight: m }; };
     // between nights, walking up to a station empty-handed offers its next upgrade instead
+    // (and one carrying a crate restocks it)
     const up = (kind, label, act, busy = () => false) => [
-      () => { const u = !busy() && this.upNext(kind); return u ? this.upLabel(u) : label(); },
-      () => { const u = !busy() && this.upNext(kind); if (u) this.upBuy(u); else act(); },
+      () => { const c = this.loadKind(); if (c) return this.crateLabel(c, kind); const u = !busy() && this.upNext(kind); return u ? this.upLabel(u) : label(); },
+      () => { if (this.loadKind()) return this.request('refill', kind); const u = !busy() && this.upNext(kind); if (u) this.upBuy(u); else act(); },
     ];
+    const out = (k, text) => () => (this.supplies.ok(k) ? text() : `${text().replace(/ \(.*\)$/, '')} (${this.supplies.outText(k)})`);
     const sinkMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 2.75), INVISIBLE);
     const SK = MAP.shop.sink, BX = MAP.shop.boxes;
     sinkMesh.position.set(SK.x, 0.85, SK.z); this.scene.add(sinkMesh);
@@ -623,13 +657,13 @@ export class Service {
     const plateLabel = () => (this.has('clean') ? 'Restock cups & plates' : `Take a clean plate (${this.stock.plates} left)`);
     for (const [box, tag] of BX.plates) I.add(box, plateLabel, R('plate'), null, shape(tag));
     // tea urns
-    I.add(BX.urns, ...up('tea', () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)'), R('urn')), null, shape('urns'));
+    I.add(BX.urns, ...up('tea', out('tea', () => (this.has('mug') ? 'Pour a green tea' : 'Tea urn (grab a clean cup)')), R('urn')), null, shape('urns'));
     // the sushi case on the plating station, right by the belt
-    I.add(BX.sushi, ...up('sushi', () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)'), R('sushi')), () => this.menuKinds.has('sushi'), shape('sushi'));
+    I.add(BX.sushi, ...up('sushi', out('sushi', () => (this.has('plate') ? 'Make salmon nigiri' : 'Sushi case (grab a clean plate)')), R('sushi')), () => this.menuKinds.has('sushi'), shape('sushi'));
     // the chest freezer in the walk-in: matcha ice cream, once it's running
     I.add(BX.icecream, ...up('icecream', () => (this.has('plate') ? 'Plate up some mochi ice cream' : 'Chest freezer (grab a clean plate for mochi ice cream)'), R('icecream')), () => this.menuKinds.has('icecream'));
     // the rice cookers: onigiri, once they're on the menu
-    I.add(BX.rice, ...up('onigiri', () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)'), R('onigiri')), () => this.menuKinds.has('onigiri'), shape('rice'));
+    I.add(BX.rice, ...up('onigiri', out('onigiri', () => (this.has('plate') ? 'Press a couple of onigiri' : 'Rice cookers (grab a clean plate for onigiri)')), R('onigiri')), () => this.menuKinds.has('onigiri'), shape('rice'));
     // the sushi belt: put finished dishes on it (in the kitchen, in the well or anywhere along it), or take one off
     I.add(() => this.beltBox, () => {
       const h = this.hands[this.hands.length - 1];
@@ -642,7 +676,7 @@ export class Service {
     // griddles + broiler
     this.stations.forEach((st, i) => {
       I.add([st.x, 1.15, st.z, st.kind === 'gyoza' ? 0.44 : st.kind === 'tempura' ? 0.62 : 0.48, 0.25, 0.42], ...up(st.kind, () => {
-        if (st.state === 'idle') return st.idleText;
+        if (st.state === 'idle') return this.supplies.ok(st.kind) ? st.idleText : `${st.label} (${this.supplies.outText(st.kind)})`;
         if (st.state === 'cooking') return `${st.label} cooking… ${Math.round(st.t / st.cook * 100)}%`;
         const more = st.left > 1 ? ` (${st.left} plates)` : '';
         if (st.state === 'ready') return this.has('plate') ? `Plate the ${st.label.toLowerCase()}${more}` : `${st.label} ready${more} — grab a clean plate`;
@@ -670,6 +704,25 @@ export class Service {
       for (const st of TR.stations) I.add(st.box, () => (this.has('trash') ? 'Put the bag in the gomi station' : `Gomi station${this.trash.bags[st.key] ? ` · ${this.trash.bags[st.key]} bag${this.trash.bags[st.key] > 1 ? 's' : ''} for the morning` : ''}`),
         R('trashOut', st.key), null, shape(`gomi_${st.key}`));
     }
+    // the storeroom shelves upstairs (a crate of each), the house sake keg on the back bar, and the shed's kegs
+    const SP = this.supplies.P;
+    if (SP) {
+      for (const [k, [x, y, z]] of Object.entries(SP.shelves)) {
+        I.add([x, y + 0.16, z, 0.5, 0.2, 0.36], () => {
+          const what = SUPPLY[k].crate, dish = this.supplies.dish(k);
+          if (!this.menuKinds.has(k)) return `${what[0].toUpperCase()}${what.slice(1)} (for the ${dish}: not on the menu yet)`;
+          if (this.hands.length) return `${what[0].toUpperCase()}${what.slice(1)} (hands full)`;
+          return `Take ${what} for the ${dish} (${this.supplies.level[k]} of ${SUPPLY[k].cap} left down there)`;
+        }, R('crateTake', k), null, { highlight: this.supplies.shelf[k] });
+      }
+      if (SP.keg) {
+        I.add([SP.keg.at[0], SP.keg.at[1] + 0.3, SP.keg.at[2], 0.28, 0.32, 0.28], () => (this.has('keg') ? 'Swap in the fresh keg'
+          : this.supplies.level.sake > 0 ? `House sake keg (${this.supplies.level.sake} cups left)` : 'House sake keg (empty · a fresh one from the shed in the yard)'),
+        () => { if (this.has('keg')) this.request('refill', 'sake'); else this.say(this.supplies.level.sake > 0 ? 'still some in it' : 'empty: fetch a fresh keg from the shed in the yard'); },
+        () => this.supplies.sake(), { highlight: () => this.supplies.kegMesh });
+        I.add(SP.keg.store, () => (this.hands.length ? 'Kegs of sake (hands full)' : 'Take a fresh keg of sake'), R('kegTake'), () => this.supplies.sake());
+      }
+    }
     // the register
     I.add(MAP.shop.register.box, () => {
       const q = this.queue[0];
@@ -696,6 +749,12 @@ export class Service {
     if ((this.cashBox ?? 0) < u.price) { this.toast(`${u.name.toLowerCase()} costs ${yen(u.price)}. maybe after another night.`); this.audio.rattle(); return; }
     this.request('buy', u.id);
   }
+  // a crate (or keg) in hand: which supply it is, and what a station says about it
+  loadKind() { const h = this.hands.find((x) => isLoad(x.type)); return h ? crateKind(h.type) : null; }
+  crateLabel(c, kind) {
+    if (c !== kind) return `(that ${c === 'sake' ? 'keg' : 'crate'}'s for the ${this.supplies.dish(c)})`;
+    return `Restock the ${this.supplies.dish(kind)} (${this.supplies.level[kind]} of ${SUPPLY[kind].cap} left)`;
+  }
   fullMsg() { return this.handCap < 2 ? 'one thing at a time — set it down on a counter first' : 'your hands are full'; }
   // a fresh shift: clear the tables, the sink and the counters, and start with a full stock of clean dishes
   resetForShift() {
@@ -707,7 +766,7 @@ export class Service {
     this.washing = 0; this.washer = null;
     for (const st of this.stations) { st.state = 'idle'; st.t = 0; st.left = 0; }
     this.tipMul = 1; this.reviews = []; this.dirtyT = 0;
-    this.trash.collect(); if (this.crew) this.crew.reset();
+    this.trash.collect(); this.supplies.reset(); if (this.crew) this.crew.reset();
     this.belt.clear();
     this.queue = [];
     this.refreshUI(true);
@@ -720,6 +779,7 @@ export class Service {
   }
   itemLabel(h) {
     if (!h) return '';
+    if (isLoad(h.type)) return SUPPLY[crateKind(h.type)].crate.replace(/^an? /, '');
     return h.type === 'trash' ? 'trash bag' : h.type === 'tub' ? 'bus tub' : h.type === 'clean' ? 'clean dishes' : h.type === 'mug' ? 'clean cup' : h.type === 'plate' ? 'clean plate' : MENU[h.type].name.toLowerCase();
   }
   // where the reticle meets the sushi belt
@@ -740,7 +800,7 @@ export class Service {
   }
   // where the reticle meets a counter top (only while carrying something)
   pickCounter() {
-    if (!this.hands.length || this.has('trash')) return false;
+    if (!this.hands.length || this.has('trash') || this.loadKind()) return false;
     const o = this.camera.getWorldPosition(new THREE.Vector3()), d = this.camera.getWorldDirection(new THREE.Vector3());
     if (d.y > -0.05) return false;
     let best = null, bt = 2.3;
@@ -821,6 +881,7 @@ export class Service {
     const q = this.queue[0];
     if (!q || q.svc.phase !== 'pay') return this.say("nobody's waiting to pay");
     const b = this.bill(q);
+    if (this.sakeBill && q.svc.items.some((i) => i.done)) this.supplies.use('sake');
     this.money += b.sub + b.tip; this.tips += b.tip; this.served++;
     this.reviews.push(this.review(q));
     this.trash.add(1);
@@ -920,6 +981,7 @@ export class Service {
       cash: Math.round(this.cashBox || 0),
       lay: this.layout || {},
       trash: this.trash.snapshot(),
+      sup: this.supplies.snapshot(),
       crew: this.crew ? this.crew.snapshot() : null,
     };
   }
@@ -960,6 +1022,7 @@ export class Service {
     if (d.own && d.own.length !== this.owned.length && this.onOwned) this.onOwned(d.own);
     if (d.cash !== undefined) this.cashBox = d.cash;
     if (d.trash) this.trash.applySnapshot(d.trash);
+    if (d.sup) this.supplies.applySnapshot(d.sup);
     if (d.crew && this.crew) this.crew.applySnapshot(d.crew);
     if (d.lay && JSON.stringify(d.lay) !== this._lay) { this._lay = JSON.stringify(d.lay); if (this.onLayout) this.onLayout(d.lay); }
   }

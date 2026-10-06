@@ -9,14 +9,14 @@ const STATION_NAMES = { tea: 'Tea urns', sushi: 'Sushi case', onigiri: 'Rice coo
 // the catalog is a little picture book: a tab for each section, two things to a page, a spread at a time
 const BOOK_TABS = [
   ['milestones', 'milestones', 'not for sale: new recipes, the rest of the building and new kit come as the shop grows'],
-  ['staff', 'help wanted', 'hire all five and the shop runs itself · wages are paid at sunrise'],
+  ['staff', 'help wanted', 'hire them all and the shop runs itself · wages are paid at sunrise'],
   ['station', 'the kitchen', 'faster stations and dearer dishes · buy these at the station itself, before you turn the sign'],
   ['home', 'for home', 'things for the flat upstairs'],
   ['games', 'fami-com', 'cartridges for the console'],
 ];
 const BOOK_ICON = {
   beltMotor: '⚙️', beltMotor2: '⚙️', binchotan: '🔥', binchotan2: '🔥', dishes: '🍽️', dishes2: '🍽️', heaters: '♨️', heaters2: '♨️', fridge: '🧃', fridge2: '🍶',
-  backdoor: '🚪', freezer: '🧊', kura: '🏯', staff_wash: '🧽', staff_waiter: '🛎️', staff_hall: '🧾', staff_sushi: '🔪', staff_cook: '🍳',
+  backdoor: '🚪', freezer: '🧊', kura: '🏯', staff_wash: '🧽', staff_waiter: '🛎️', staff_hall: '🧾', staff_sushi: '🔪', staff_cook: '🍳', staff_stock: '📦',
   lanterns: '🏮', plants: '🪴', bonsai: '🌲', print: '🌊', catbed: '🐈', fishtank: '🐠', record: '📻', telescope: '🔭', irori: '🫖', crt: '📺', famicom: '🎮',
   game_dash: '⛷️', game_koi: '🐟', game_daruma: '🎎',
 };

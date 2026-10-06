@@ -9,16 +9,20 @@
 //   Yui, waiter: takes orders, pours tea, and carries dishes from the pass (or off any counter) out to the tables,
 //     up to three at a time on a tray.
 //   Hana, hall server: rings people up at the register, and takes orders when nobody's waiting to pay.
-// With all five on, the shop runs itself.
+//   Sota, stock hand: when a station runs low he goes up to the storeroom for a crate and carries it down; when the
+//     house sake runs dry he fetches a fresh keg from the shed.
+// With everyone on, the shop runs itself.
 import { Person } from './npc.js';
 import { MENU } from './service.js';
 import { MAP } from './maps/index.js';
+import { SUPPLY, lowAt } from './supplies.js';
 
 const LOOKS = {
   staff_wash: { name: 'Taro', look: { skin: '#e0ac85', hair: '#1a1412', coat: '#e8e4dc', pants: '#2a3a5a', shoes: '#141414', hairStyle: 0, hat: -1, glasses: true, long: false, umbrella: '#141416', scarf: '#2a5a8a' } },
   staff_sushi: { name: 'Kenji', look: { skin: '#c68863', hair: '#3a2418', coat: '#f0ece4', pants: '#1c1c20', shoes: '#141414', hairStyle: 3, hat: 0, glasses: false, long: false, umbrella: '#141416', scarf: null } },
   staff_cook: { name: 'Ren', look: { skin: '#d8a07a', hair: '#141010', coat: '#f4f2ec', pants: '#2a2a2e', shoes: '#141414', hairStyle: 1, hat: 0, glasses: false, long: false, umbrella: '#141416', scarf: '#c8302a' } },
   staff_waiter: { name: 'Yui', look: { skin: '#f0c8a0', hair: '#2a1a12', coat: '#1a1a1e', pants: '#1a1a1e', shoes: '#141414', hairStyle: 4, hat: -1, glasses: false, long: true, umbrella: '#141416', scarf: '#e8e4dc' } },
+  staff_stock: { name: 'Sota', look: { skin: '#d8a882', hair: '#2a1c14', coat: '#4a5a3a', pants: '#2a2a2e', shoes: '#3a2a1a', hairStyle: 2, hat: -1, glasses: false, long: false, umbrella: '#141416', scarf: '#c8a040' } },
   staff_hall: { name: 'Hana', look: { skin: '#f1c9a5', hair: '#1a1412', coat: '#24324e', pants: '#24324e', shoes: '#4a2a18', hairStyle: 4, hat: -1, glasses: false, long: true, umbrella: '#141416', scarf: '#a82a2a' } },
 };
 const COOKED = ['yakitori', 'gyoza', 'tempura', 'ramen'];
@@ -38,7 +42,7 @@ export class Staff {
       this.people[id] = { id, name: l.name, post, person, pos: { x: post.x, y: 0.25, z: post.z }, yaw: post.yaw, path: null, then: null, busy: 0, task: null, dish: null, tray: [], carry: null, carryKey: null, speed: 0 };
     }
     this.t = { wash: 0, sushi: 0, pay: 0, think: 0 };
-    this.did = { washed: 0, carried: 0, sushi: 0, orders: 0, rang: 0, bussed: 0, cooked: 0, served: 0, trash: 0 }; // a tally, for the playtest
+    this.did = { washed: 0, carried: 0, sushi: 0, orders: 0, rang: 0, bussed: 0, cooked: 0, served: 0, trash: 0, stocked: 0 }; // a tally, for the playtest
     this.claimed = new Set(); // guests, counter items, seats and stations someone's already on their way to
   }
   hired(id) { return !!this.service.staff && this.service.staff.has(id) && !!this.people[id]; }
@@ -51,9 +55,14 @@ export class Staff {
     const path = this.service.crowd.nav.path(p.pos.x, p.pos.z, x, z);
     p.path = path ? [...path, [x, z]] : [[x, z]]; p.then = then;
   }
+  // a fixed way round, off the walking grid (up the stairs and through the flat): [x, z, y] points
+  route(p, pts, then) { p.path = pts.map((q) => [...q]); p.then = then; }
   step(p, dt) {
     if (!p.path) return 0;
-    const [tx, tz] = p.path[0], dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz), v = SPEED * dt;
+    const [tx, tz, ty] = p.path[0], dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz), v = SPEED * dt;
+    // (on a fixed way the height comes with it: up and down the stairs, across the floor above)
+    p.air = ty !== undefined;
+    if (p.air) p.pos.y = d <= v ? ty : p.pos.y + (ty - p.pos.y) * v / d;
     for (const door of this.service.crowd.doors || []) {
       if (!door.locked && !door.open && Math.abs((door.y0 || 0) - p.pos.y) < 1.5 && Math.hypot(door.center.x - p.pos.x, door.center.z - p.pos.z) < 1.1) door.toggle(p.pos);
     }
@@ -79,7 +88,7 @@ export class Staff {
     if (!key) return;
     const [kind, mugs, plates] = key.split(':');
     p.carry = s.heldModel({ type: kind, mugs: +mugs || 0, plates: +plates || 0 }).mesh(s.litMat, s.emitMat);
-    p.carry.position.set(0, kind === 'trash' ? 0.62 : 0.98, -0.3);
+    p.carry.position.set(0, kind === 'trash' ? 0.62 : kind === 'keg' ? 0.55 : 0.98, -0.3);
     p.person.group.add(p.carry);
   }
   free(p) { return !p.task && !p.path; }
@@ -92,7 +101,7 @@ export class Staff {
       if (!on) continue;
       p.busy = Math.max(0, p.busy - dt);
       const speed = guest ? p.speed : this.step(p, dt);
-      p.pos.y += ((s.crowd.floorAt(p.pos.x, p.pos.z) || 0.25) - p.pos.y) * Math.min(1, dt * 10);
+      if (!p.air) p.pos.y += ((s.crowd.floorAt(p.pos.x, p.pos.z) || 0.25) - p.pos.y) * Math.min(1, dt * 10);
       p.person.group.position.set(p.pos.x, p.pos.y, p.pos.z); p.person.group.rotation.y = p.yaw;
       p.person.pose(dt, speed, 0, 0, false);
       // working arms (scrubbing, slicing, writing an order), or both out in front, carrying
@@ -109,6 +118,7 @@ export class Staff {
     if (this.hired('staff_cook') && think) this.cook();
     if (this.hired('staff_waiter') && think) this.waiter();
     if (this.hired('staff_hall')) this.cashier(dt, think);
+    if (this.hired('staff_stock') && think) this.stocker();
   }
 
   // ---------------------------------------------------------------- Taro: the sink, the tables, the bin
@@ -197,13 +207,13 @@ export class Staff {
     // anything riding round that nobody wants any more comes off as it passes back through the kitchen
     for (const b of [...s.belt.plates]) if (b.seg === 'kitchen' && !this.anyoneWants(b.type)) { s.belt.remove(b); if (b.type === 'tea') s.sink.mugs++; else s.sink.plates++; }
     // green tea for the belt's guests rides the belt too
-    if (s.menuKinds.has('tea') && s.stock.mugs > 0 && this.wanted('tea').belt > 0 && s.belt.isFree(0.25)) { s.stock.mugs--; s.belt.add('tea', 0.25); p.busy = 1.0; this.did.sushi++; return; }
+    if (s.menuKinds.has('tea') && s.stock.mugs > 0 && this.wanted('tea').belt > 0 && s.belt.isFree(0.25) && s.supplies.use('tea')) { s.stock.mugs--; s.belt.add('tea', 0.25); p.busy = 1.0; this.did.sushi++; return; }
     for (const kind of PLATED) {
-      if (!s.menuKinds.has(kind) || s.stock.plates <= 0) continue;
+      if (!s.menuKinds.has(kind) || s.stock.plates <= 0 || !s.supplies.ok(kind)) continue;
       const { belt, hand } = this.wanted(kind);
-      if (belt > 0 && s.belt.isFree(0.25)) { s.stock.plates--; s.belt.add(kind, 0.25); p.busy = 1.5; this.did.sushi++; return; }
+      if (belt > 0 && s.belt.isFree(0.25)) { s.supplies.use(kind); s.stock.plates--; s.belt.add(kind, 0.25); p.busy = 1.5; this.did.sushi++; return; }
       // (onto the pass for the rest only if there's a waiter to carry it out)
-      if (hand > 0 && this.hired('staff_waiter') && this.toPass(kind)) { s.stock.plates--; p.busy = 1.5; this.did.sushi++; return; }
+      if (hand > 0 && this.hired('staff_waiter') && this.toPass(kind)) { s.supplies.use(kind); s.stock.plates--; p.busy = 1.5; this.did.sushi++; return; }
     }
   }
   // how many of a dish are still wanted, by guests along the belt and elsewhere, less what's already on its way: on
@@ -286,12 +296,12 @@ export class Staff {
     if (s.stock.plates <= onLine) return;
     for (const kind of COOKED) {
       if (!s.menuKinds.has(kind) || this.wanted(kind).total <= 0) continue;
-      const st = s.stations.find((x) => x.kind === kind && x.state === 'idle' && !this.claimed.has(x));
+      const st = s.supplies.ok(kind) && s.stations.find((x) => x.kind === kind && x.state === 'idle' && !this.claimed.has(x));
       if (!st) continue;
       this.claimed.add(st); p.task = 'fire';
       this.walk(p, ...stand(st), () => {
         this.face(p, st.x, st.z); p.busy = 0.8; this.claimed.delete(st);
-        if (st.state === 'idle') { st.state = 'cooking'; st.t = 0; s.sfx('sizzleBurst'); }
+        if (st.state === 'idle' && s.supplies.use(st.kind)) { st.state = 'cooking'; st.t = 0; s.sfx('sizzleBurst'); }
         p.task = null; // stays by the line, ready for the next
       });
       return;
@@ -349,7 +359,7 @@ export class Staff {
     // tea: pour a trayful at the urns and carry it round (the belt's guests get theirs down the belt, if Kenji's in)
     const beltTea = this.hired('staff_sushi');
     const want = this.wanted('tea'), n = beltTea ? want.hand : want.total;
-    if (s.stock.mugs > 0 && s.menuKinds.has('tea') && n > 0) {
+    if (s.stock.mugs > 0 && s.menuKinds.has('tea') && n > 0 && s.supplies.ok('tea')) {
       const who = s.crowd.people.filter((g) => seated(g) && wants(g, 'tea') && !(beltTea && s.seatBeltS(g.seat) !== null)).slice(0, Math.min(TRAY, n));
       if (who.length) {
         for (const q of who) this.claimed.add(q);
@@ -357,7 +367,7 @@ export class Staff {
         const at = MAP.shop.urnStand || [p.post.x, p.post.z];
         this.walk(p, at[0], at[1], () => {
           this.face(p, at[0], at[1] + 1); p.busy = 1.0;
-          for (const q of who) { if (s.stock.mugs > 0) { s.stock.mugs--; p.tray.push({ kind: 'tea', q }); } else this.claimed.delete(q); }
+          for (const q of who) { if (s.stock.mugs > 0 && s.supplies.use('tea')) { s.stock.mugs--; p.tray.push({ kind: 'tea', q }); } else this.claimed.delete(q); }
           if (p.tray.length) s.sfx('pour');
           this.serveNext(p);
         });
@@ -409,6 +419,36 @@ export class Staff {
     return k >= 0 ? nav.center(k) : [x, z];
   }
 
+  // ---------------------------------------------------------------- Sota: crates down from the storeroom, kegs from the shed
+  stocker() {
+    const s = this.service, p = this.people.staff_stock, S = s.supplies, P = S && S.P;
+    if (!P || !this.free(p)) return;
+    // whatever's lowest (for what it holds), once it's down to the marker
+    const need = S.kinds().filter((k) => S.level[k] <= lowAt(k) && !this.claimed.has(`sup:${k}`)).sort((a, b) => S.level[a] / SUPPLY[a].cap - S.level[b] / SUPPLY[b].cap)[0];
+    if (!need) { if (Math.hypot(p.pos.x - p.post.x, p.pos.z - p.post.z) > 0.3) this.home(p); return; }
+    const key = `sup:${need}`; this.claimed.add(key); p.task = 'stock';
+    const deliver = () => {
+      const at = S.stand(need) || [p.post.x, p.post.z];
+      this.walk(p, at[0], at[1], () => {
+        p.busy = 0.8; S.refill(need); this.hold(p, null); this.did.stocked++; this.claimed.delete(key);
+        s.sayAll(`${p.name} restocked the ${S.dish(need)}`);
+        this.home(p);
+      });
+    };
+    if (need === 'sake') {
+      const st = P.keg.storeStand;
+      return this.walk(p, st[0], st[1], () => { p.busy = 1.0; this.hold(p, 'keg'); deliver(); });
+    }
+    // up the stairs to the storeroom, a crate off the shelf, and back down
+    const [sx, , sz] = P.shelves[need], up = P.up, F = up[up.length - 1][2];
+    this.walk(p, P.foot[0], P.foot[1], () => {
+      this.route(p, [...up, [sx, P.shelfZ, F]], () => {
+        this.face(p, sx, sz); p.busy = 0.8; this.hold(p, `crate_${need}`);
+        this.route(p, [[sx, P.shelfZ, F], ...[...up].reverse(), [P.foot[0], P.foot[1], up[0][2]]], () => { p.air = false; deliver(); });
+      });
+    });
+  }
+
   // ---------------------------------------------------------------- Hana: the register, and orders when it's quiet
   cashier(dt, think) {
     const s = this.service, p = this.people.staff_hall;
@@ -433,19 +473,20 @@ export class Staff {
   reset() {
     this.claimed.clear();
     for (const p of Object.values(this.people)) {
-      p.path = null; p.then = null; p.task = null; p.dish = null; p.tray = []; this.hold(p, null);
-      p.pos.x = p.post.x; p.pos.z = p.post.z; p.yaw = p.post.yaw;
+      p.path = null; p.then = null; p.task = null; p.dish = null; p.tray = []; p.air = false; this.hold(p, null);
+      p.pos.x = p.post.x; p.pos.z = p.post.z; p.pos.y = 0.25; p.yaw = p.post.yaw;
     }
   }
   // co-op: the host sends where everyone is and what they're carrying
   snapshot() {
     const r2 = (v) => Math.round(v * 100) / 100;
-    return Object.values(this.people).filter((p) => this.hired(p.id)).map((p) => [p.id, r2(p.pos.x), r2(p.pos.z), r2(p.yaw), p.carryKey || '', p.path ? 1 : 0]);
+    return Object.values(this.people).filter((p) => this.hired(p.id)).map((p) => [p.id, r2(p.pos.x), r2(p.pos.z), r2(p.yaw), p.carryKey || '', p.path ? 1 : 0, p.air ? r2(p.pos.y) : null]);
   }
   applySnapshot(list) {
-    for (const [id, x, z, yaw, carry, moving] of list) {
+    for (const [id, x, z, yaw, carry, moving, y] of list) {
       const p = this.people[id]; if (!p) continue;
       p.pos.x = x; p.pos.z = z; p.yaw = yaw; p.speed = moving ? SPEED : 0;
+      p.air = y !== null && y !== undefined; if (p.air) p.pos.y = y;
       this.hold(p, carry || null);
     }
   }

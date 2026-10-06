@@ -131,6 +131,7 @@ export class Shift {
     this.active = false;
     const s = this.service, d = (k) => s[k] - this.snap[k];
     const wages = s.wages || 0; s.money -= wages; // the hired help is paid at sunrise, out of the till
+    const supplies = s.supplies ? s.supplies.cost : 0; s.money -= supplies; // and the wholesaler's bill for what was used
     const served = d('served'), walk = d('walkouts');
     // tonight's rating: what the guests thought (walkouts give one star), less a bin left overflowing, tables left
     // dirty and anything burnt
@@ -142,7 +143,7 @@ export class Shift {
     if (unlock) unlock.apply(s);
     this.onEnd({
       n: this.n, range: this.range, closedAt: clockText(HOURS * 60).toLowerCase(), stars, rating, hits, reviews: rv.length, unlock,
-      fed: served, earned: d('money'), wages, tips: d('tips'), walkouts: walk, washed: d('washed'), burnt: d('burnt'), till: s.money,
+      fed: served, earned: d('money'), wages, supplies, tips: d('tips'), walkouts: walk, washed: d('washed'), burnt: d('burnt'), till: s.money,
     });
   }
 }

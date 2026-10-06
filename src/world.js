@@ -891,13 +891,14 @@ export function buildShop(K, opts = {}) {
       B(4.0, F2, 10.375, 5.375, F2 + 0.875, 10.875, (x, y) => (y === Y(F2 + 0.875) - 1 ? P.hinoki : P.oak[1]));
       B(4.25, F2 + 0.75, 10.4375, 5.125, F2 + 0.875, 10.8125, C('#f0f2f2', 0, 0.02));
       B(4.25, F2 + 1.25, H1 + 0.125, 5.125, F2 + 1.875, H1 + 0.25, P.chrome);
-      // ---- the storeroom: steel shelving full of boxes, the futon pile, the cleaning things, washing drying on a pole
+      // ---- the storeroom: steel shelving full of boxes (the middle shelves are the kitchen's pantry: its crates are
+      // props, see supplies.js), the futon pile, the cleaning things
       const bins = ['#c84a3a', '#3a6ab0', '#e8c040', '#5aa060', '#e8e4dc'].map((h) => C(h, 0, 0.06));
       for (const [x0, x1] of [[6.0, 9.25], [11.25, 15.5]]) {
         for (const px of [x0, x1 - 0.125]) for (const pz of [15.0, 15.625]) B(px, F2, pz, px + 0.125, F2 + 2.0, pz + 0.125, P.steelD);
         for (const sy of [0.375, 1.0, 1.625]) {
           B(x0, F2 + sy, 15.0, x1, F2 + sy + 0.0625, 15.75, P.steel);
-          for (let bx = x0 + 0.125; bx < x1 - 0.5; bx += 0.625) if (hash01(Math.floor(bx * 8), Math.floor(sy * 8), 61) > 0.2) {
+          for (let bx = x0 + 0.125; bx < x1 - 0.5; bx += 0.625) if (sy !== 1.0 && hash01(Math.floor(bx * 8), Math.floor(sy * 8), 61) > 0.2) {
             const c = hash01(Math.floor(bx * 8), Math.floor(sy * 8), 62) < 0.6 ? card[Math.floor(bx * 3) % 3] : bins[Math.floor(bx * 5) % 5];
             B(bx, F2 + sy + 0.0625, 15.0625, bx + 0.5, F2 + sy + 0.5, 15.6875, c);
           }
@@ -910,8 +911,6 @@ export function buildShop(K, opts = {}) {
       B(8.25, F2, 10.5, 8.75, F2 + 0.375, 11.0, C('#c8302a', 0, 0.04)); B(8.4375, F2 + 0.375, 10.6875, 8.5625, F2 + 1.0, 10.8125, P.black); // a vacuum
       for (let i = 0; i < 5; i++) B(6.0 + i * 0.25, F2 + 0.625, 10.375, 6.125 + i * 0.25, F2 + 0.875, 10.5, bins[(i + 2) % 5]);     // spray bottles on a ledge
       B(6.0, F2 + 0.5625, 10.25, 7.25, F2 + 0.625, 10.5, P.oak[0]);
-      B(8.5, F2 + 1.875, 13.0, 13.0, F2 + 1.9375, 13.0625, P.chrome);                                       // the drying pole
-      for (let i = 0; i < 5; i++) { const tx = 8.75 + i * 0.85; B(tx, F2 + 1.125, 13.0, tx + 0.625, F2 + 1.875, 13.0625, C(['#f4f4f0', '#8ab0d8', '#f0c8c8', '#f4f4f0', '#c8d8a0'][i], 0, 0.04)); }
       // ---- the hall: a long runner down the boards, a little table by the bathroom door
       const runner = [C('#6a2a2a', 0, 0.05), C('#2a3a5a', 0, 0.04)];
       for (let z = Z(9.125); z < Z(9.75); z++) for (let x = X(1.625); x < X(15.375); x++) G.set(x, Y(F2) - 1, z, z === Z(9.125) || z === Z(9.75) - 1 ? runner[1] : runner[0]);

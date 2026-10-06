@@ -58,6 +58,17 @@ export const TOKYO = {
         needs: 'kura', locked: ['The old shed (padlocked)', "the last owner took the key. (see the catalog's milestones)"] },
     ],
     snowPile: [16.6, 0.125, 15.0], snowPileYaw: -R,
+    // the kitchen's pantry: a bay of the storeroom's steel shelving upstairs for each supply, crates on the middle shelf
+    // [x, shelf top, z]; the house sake keg on the back bar (and where to stand at it), the shed's kegs; the way up the
+    // stairs from the restroom hall to the storeroom door, for the hired help
+    pantry: {
+      shelves: Object.fromEntries([['tea', 6.6], ['sushi', 7.625], ['onigiri', 8.65], ['yakitori', 11.8], ['gyoza', 12.85], ['tempura', 13.9], ['ramen', 14.92]]
+        .map(([k, x]) => [k, [x, 3.75 + 1.0625, 15.375]])),
+      shelfZ: 14.45,
+      keg: { at: [8.8, 1.0, 9.7], stand: [8.8, 8.75], store: [TK.shed.x0 + 1.45, 0.8, TK.shed.z1 - 0.55, 1.05, 0.42, 0.35], storeStand: [TK.shed.x0 + 1.45, 16.5] },
+      foot: [1.9, 15.2],
+      up: [[0.75, 15.3, 0.25], [0.75, 10.05, 3.6], [0.75, 9.45, 3.75], [9.95, 9.45, 3.75], [10.05, 11.0, 3.75], [10.05, 12.0, 3.75]],
+    },
     backHint: 'snowed shut from the yard side: go up through the flat, out the fire escape in the storeroom, and dig it out',
     // the gomi stations: in the corner of the yard, and on the pavement out front (while the back door's shut)
     trash: {
@@ -68,6 +79,8 @@ export const TOKYO = {
       ],
     },
     faucets: M.faucets.slice(0, 1).concat(M.faucets.slice(2)),
+    keepClear: [...M.keepClear, [8.8, 9.7, 0.32]],          // (the sake keg's spot on the back bar)
+    staff: { ...M.staff, staff_stock: { x: 14.7, z: 13.4, yaw: Math.PI / 2 } },
     acts: [
       ...M.acts.filter((a) => !['chain', 'vending'].includes(a.act) && !(a.act === 'towel' && a.box[2] > 13)),
       { box: [17.9, 1.2, N - 0.8, 0.45, 0.6, 0.12], act: 'vending' },
