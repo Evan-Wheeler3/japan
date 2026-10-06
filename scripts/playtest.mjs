@@ -339,7 +339,8 @@ try {
     }
     return { round: P.round, kills: P.kills, tore, points: P.points, limbs: P.limbs, splats: P.gore.sN };
   });
-  check(st.round >= 3 && st.kills >= 14 && st.tore && st.splats > 0, `two rounds held: ${st.kills} yōkai cut down, ${st.limbs} limbs taken, boards torn off the windows`);
+  // (rounds one and two bring 4 and 6)
+  check(st.round >= 3 && st.kills >= 10 && st.tore && st.splats > 0, `two rounds held: ${st.kills} yōkai cut down, ${st.limbs} limbs taken, boards torn off the windows`);
   st = await page.evaluate(() => {
     const d = window.__yoake, P = d.parade, pl = d.player, I = d.interactions;
     P.points = 10000;
