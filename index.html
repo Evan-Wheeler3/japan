@@ -409,6 +409,13 @@
     .zm-throw i { width: 14px; height: 14px; border-radius: 50%; background: #f2eee4; box-shadow: inset 0 0 0 3px #2a4a8a; }
     .zm-throw i.t-cup { border-radius: 3px; background: #8a5a3a; box-shadow: inset 0 3px 0 #d8c8a8; }
     .zm-throw i.t-tokkuri { border-radius: 40% 40% 30% 30%; background: #f0ece0; box-shadow: inset 0 -4px 0 #2a3a7a; height: 18px; }
+    .zm-throw .pots { display: flex; gap: 4px; align-items: center; margin-left: 10px; font-weight: 400; }
+    .zm-throw i.t-pot { width: 15px; height: 15px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #5a4a40, #1a1412 70%); box-shadow: 0 -3px 0 -1px #c8b080; }
+    .zm-throw i.t-pot.gone { opacity: .22; }
+    .zm-timers .next { font: 400 26px "Yuji Syuku", serif; color: #f4e6cc; letter-spacing: 1px; }
+    .zm-flash { position: absolute; inset: 0; opacity: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 20%, var(--c, #fff) 100%); mix-blend-mode: screen; }
+    .zm-flash.go { animation: zmFlash .9s ease-out; }
+    @keyframes zmFlash { 0% { opacity: .95; } 100% { opacity: 0; } }
     .zm-throw span { font: 700 12px Nunito, sans-serif; background: rgba(255,236,210,.18); border-radius: 5px; padding: 1px 6px; margin-left: 4px; }
     .zm-msg { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); font: 400 46px "Yuji Syuku", serif; color: #f4e6cc; opacity: 0; transition: opacity .5s ease;
       text-shadow: 0 0 18px rgba(200,20,10,.7), 0 3px 14px #000; white-space: nowrap; }
@@ -462,7 +469,7 @@
   <div id="overlay"><div class="shade"></div><div id="screen"></div></div>
   <div id="summary"></div>
   <div id="purse" class="hud glass"></div>
-  <div id="zm"><div class="zm-hurt"></div><div class="zm-round"></div><div class="zm-perks"></div><div class="zm-timers"></div>
+  <div id="zm"><div class="zm-hurt"></div><div class="zm-flash"></div><div class="zm-round"></div><div class="zm-perks"></div><div class="zm-timers"></div>
     <div class="zm-right"><div class="zm-throw"></div><div class="zm-weapon"></div><div class="zm-points"></div><div class="zm-pluses"></div></div>
     <div class="zm-msg"></div><div class="zm-sub"></div></div>
   <div id="zm-over"></div>

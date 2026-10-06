@@ -67,8 +67,38 @@ export class Gore {
     if (grow) this.grow.push(s);
   }
   setSplat(s) {
-    _q.setFromEuler(_e.set(0, s.rot, 0)); _s.set(s.sx * s.k, 1, s.sz * s.k); _p.set(s.x, s.y, s.z);
+    if (s.q) _q.copy(s.q); else _q.setFromEuler(_e.set(0, s.rot, 0));
+    _s.set(s.sx * s.k, 1, s.sz * s.k); _p.set(s.x, s.y, s.z);
     this.splats.setMatrixAt(s.i, _m.compose(_p, _q, _s)); this.splats.instanceMatrix.needsUpdate = true;
+  }
+  // blood up a wall: from p along dir (flat), the first wall within reach gets a splash (and a streak running down)
+  wall(p, dir, size) {
+    const W = this.world; if (!W) return;
+    const L = Math.hypot(dir.x, dir.z) || 1, dx = dir.x / L, dz = dir.z / L, y = p.y + (Math.random() - 0.3) * 0.4;
+    for (let t = 0.15; t < 1.9; t += 0.05) {
+      const x = p.x + dx * t, z = p.z + dz * t;
+      if (!W.solid(x, y, z)) continue;
+      const bx = p.x + dx * (t - 0.05), bz = p.z + dz * (t - 0.05);
+      const nx = W.solid(x, y, bz) && !W.solid(bx, y, bz); // stepping along x is what ran into it: the wall faces x
+      const normal = nx ? new THREE.Vector3(-Math.sign(dx), 0, 0) : new THREE.Vector3(0, 0, -Math.sign(dz));
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+      q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI));
+      const i = this.sN++ % MAXS; this.splats.count = Math.min(MAXS, this.sN);
+      // snug against the wall face, just proud of it
+      const wx = nx ? Math.round(x / 0.125) * 0.125 + normal.x * 0.003 : bx, wz = nx ? bz : Math.round(z / 0.125) * 0.125 + normal.z * 0.003;
+      const s = { i, x: nx ? (dx > 0 ? Math.floor(x / 0.125) * 0.125 - 0.003 : Math.ceil(x / 0.125) * 0.125 + 0.003) : wx, y, z: nx ? wz : (dz > 0 ? Math.floor(z / 0.125) * 0.125 - 0.003 : Math.ceil(z / 0.125) * 0.125 + 0.003),
+        sx: size * (0.6 + Math.random() * 0.6), sz: size * (0.6 + Math.random() * 0.6), q, k: 1 };
+      this.setSplat(s);
+      this.splats.setColorAt(i, _c.set(BLOOD[(Math.random() * BLOOD.length) | 0])); this.splats.instanceColor.needsUpdate = true;
+      // and a run of drips down from it
+      if (Math.random() < 0.7) for (let j = 1; j < 4; j++) {
+        const k = this.sN++ % MAXS; this.splats.count = Math.min(MAXS, this.sN);
+        const d = { ...s, i: k, y: s.y - j * size * 0.35, sx: size * 0.12, sz: size * 0.3, q: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal) };
+        if (d.y < 0.05) break;
+        this.setSplat(d); this.splats.setColorAt(k, _c.set(0x5a0404)); this.splats.instanceColor.needsUpdate = true;
+      }
+      return;
+    }
   }
   // a pool spreading under a body
   pool(x, y, z, size) { this.splat(x, y, z, size, 0x4e0303, 2.5); }

@@ -110,8 +110,16 @@ export class Player {
 
     // ground follow: step up instantly, fall with gravity
     const g = this.groundAt(p.x, p.z, p.y);
+    // space jumps (once per press, from the ground)
+    if (k.Space && !this.jumpHeld && g >= p.y - 0.05 && this.vy <= 0) this.vy = 4.3;
+    this.jumpHeld = !!k.Space;
+    if (this.vy > 0) { // going up: until the jump runs out, or your head meets something
+      this.vy -= 9.8 * dt; const ny = p.y + this.vy * dt;
+      if (this.blocked(p.x, p.z, ny)) this.vy = -0.01; else p.y = ny;
+      if (this.vy <= 0) this.vy = -0.01;
+    }
     // only step up if there's headroom up there, otherwise we'd climb walls one step per frame
-    if (g > p.y + 0.01 && this.blocked(p.x, p.z, g)) { this.vy = 0; }
+    else if (g > p.y + 0.01 && this.blocked(p.x, p.z, g)) { this.vy = 0; }
     else if (g >= p.y - 0.01) { p.y = g; this.vy = 0; }
     else if (this.vy === 0 && g >= p.y - 0.3) { p.y = g; } // walking down steps: keep your feet on them rather than hop
     else { this.vy -= 9.8 * dt; p.y = Math.max(g, p.y + this.vy * dt); }

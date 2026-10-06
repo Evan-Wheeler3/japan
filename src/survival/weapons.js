@@ -13,9 +13,13 @@ export const WEAPONS = {
   katana: { name: 'Katana', kind: 'melee', dmg: 330, range: 2.05, arc: 1.9, cleave: 3, rate: 0.55, blade: 0.7, hit: 0.2, price: 1500 },
   naginata: { name: 'Naginata', kind: 'melee', dmg: 440, range: 2.8, arc: 1.5, cleave: 4, rate: 0.78, blade: 0.75, hit: 0.28 },
   kanabo: { name: 'Kanabō', kind: 'melee', dmg: 850, range: 1.9, arc: 1.6, cleave: 3, rate: 1.0, blunt: true, knock: 3.2, hit: 0.38 },
+  odachi: { name: 'Ōdachi', kind: 'melee', dmg: 900, range: 2.7, arc: 2.3, cleave: 6, rate: 0.62, blade: 1, hit: 0.24, price: 3000, great: true },
   muramasa: { name: 'Muramasa', kind: 'melee', dmg: 1400, range: 2.2, arc: 2.1, cleave: 6, rate: 0.42, blade: 1, hit: 0.15, heal: 12, cursed: true },
   revolver: { name: 'Type 26 revolver', kind: 'gun', dmg: 140, head: 3, mag: 6, reserve: 48, rate: 0.3, reload: 2.4, spread: 0.012, pierce: 1, price: 1000, ammo: 500 },
   murata: { name: 'Murata rifle', kind: 'gun', dmg: 360, head: 4, mag: 8, reserve: 56, rate: 0.95, reload: 3.0, spread: 0.002, pierce: 3, price: 1250, ammo: 650, pop: 0.8 },
+  // the fully automatic ones: hold the mouse down
+  type100: { name: 'Type 100 SMG', kind: 'gun', auto: true, dmg: 95, head: 2.5, mag: 30, reserve: 210, rate: 0.085, reload: 2.4, spread: 0.032, pierce: 1, price: 1200, ammo: 600 },
+  type96: { name: 'Type 96 LMG', kind: 'gun', auto: true, dmg: 150, head: 2.5, mag: 30, reserve: 300, rate: 0.12, reload: 3.6, spread: 0.026, pierce: 2, price: 2000, ammo: 1000, pop: 0.6 },
   tanegashima: { name: 'Tanegashima', kind: 'gun', dmg: 1300, head: 3, mag: 1, reserve: 30, rate: 0.3, reload: 2.8, spread: 0.004, pierce: 5, pop: 1, blast: true },
 };
 export const THROWN = {
@@ -56,6 +60,7 @@ const MODELS = {
   tanto: () => swordModel(16),
   katana: () => swordModel(44),
   muramasa: () => swordModel(48, true),
+  odachi: () => swordModel(68),
   naginata: () => {
     const m = new Model(7, 12, 110, W, [3.5, 4, 70]);
     for (let z = 34; z < 108; z++) m.box(2, 3, z, 5, 6, z + 1, z % 18 === 0 ? gold : lacquer);
@@ -87,6 +92,27 @@ const MODELS = {
     for (const z of [20, 40]) m.box(1, 5, z, 4, 8, z + 2, gold);
     return m;
   },
+  // the Type 100: a slim submachine gun, its barrel in a perforated jacket, the magazine sticking out to the left
+  type100: () => {
+    const m = new Model(8, 14, 72, W, [4, 6, 44]);
+    m.box(3, 7, 0, 5, 9, 26, (x, y, z) => ((z % 3 === 0) && y === 8 ? black : ironC));          // the jacket, holes along it
+    m.box(3, 7, 26, 5, 10, 44, ironC); m.box(3, 10, 30, 5, 11, 32, steelD);                       // receiver, sight
+    m.box(0, 4, 30, 3, 8, 34, black);                                                             // the side magazine
+    m.box(3, 2, 44, 5, 9, 70, wood); m.box(3, 1, 58, 5, 6, 70, woodL);                            // the stock
+    m.box(3, 4, 40, 5, 7, 42, black);                                                             // trigger guard
+    return m;
+  },
+  // the Type 96: a light machine gun, finned barrel, a curved magazine on top, the bipod folded under
+  type96: () => {
+    const m = new Model(6, 20, 104, W, [3, 6, 66]);
+    m.box(2, 7, 0, 4, 9, 30, black);
+    for (let z = 30; z < 54; z++) m.box(1, 6, z, 5, 10, z + 1, z % 2 ? ironC : C('#4a4a50', 0, 0.04)); // the cooling fins
+    m.box(1, 6, 54, 5, 11, 72, ironC);
+    for (let i = 0; i < 8; i++) m.box(2, 11 + i, 56 + Math.round(i * 0.6), 4, 12 + i, 62 + Math.round(i * 0.6), C('#3a3e44', 0, 0.04)); // the magazine
+    m.box(2, 2, 72, 4, 8, 102, wood); m.box(2, 1, 88, 4, 6, 102, woodL); m.box(2, 3, 66, 4, 6, 70, wood); // stock, grip
+    m.box(2, 5, 20, 3, 6, 40, steelD); m.box(3, 5, 20, 4, 6, 40, steelD);                         // the bipod, folded
+    return m;
+  },
   tanegashima: () => {
     const m = new Model(6, 12, 96, W, [3, 6, 60]);
     m.box(2, 7, 0, 4, 9, 64, ironC); m.box(2, 9, 2, 4, 10, 4, gold);                    // octagonal barrel
@@ -116,6 +142,9 @@ const GRIP = {
   tanto: { R: [0, 0, 0.08], rest: [0.22, -0.24, -0.42], rot: [0.6, 0.35, -0.15] },
   katana: { R: [0, 0, 0.08], L: [0, 0, 0.25], rest: [0.22, -0.23, -0.46], rot: [0.72, 0.42, -0.25] },
   muramasa: { R: [0, 0, 0.08], L: [0, 0, 0.25], rest: [0.22, -0.23, -0.46], rot: [0.72, 0.42, -0.25] },
+  odachi: { R: [0, 0, 0.08], L: [0, 0, 0.27], rest: [0.24, -0.27, -0.5], rot: [0.66, 0.4, -0.25] },
+  type100: { R: [0, -0.05, 0.05], L: [0, -0.03, -0.3], rest: [0.14, -0.19, -0.34], rot: [0.02, 0.02, 0] },
+  type96: { R: [0, -0.05, 0.1], L: [0, -0.04, -0.4], rest: [0.15, -0.21, -0.36], rot: [0.02, 0.02, 0] },
   naginata: { R: [0, 0, 0.32], L: [0, 0, -0.08], rest: [0.2, -0.36, -0.5], rot: [0.32, 0.14, 0] },
   kanabo: { R: [0, 0, 0.17], L: [0, 0, 0.02], rest: [0.3, -0.34, -0.62], rot: [0.95, 0.4, -0.35] },
   revolver: { R: [0, -0.05, 0.055], rest: [0.15, -0.14, -0.4], rot: [0.04, 0.05, 0] },
@@ -286,7 +315,7 @@ export class Arsenal {
     s.mag--; this.next = this.time + w.rate * this.rateMul;
     const cam = this.camera, o = cam.getWorldPosition(new THREE.Vector3()), d = cam.getWorldDirection(new THREE.Vector3());
     d.x += (Math.random() - 0.5) * w.spread * 2; d.y += (Math.random() - 0.5) * w.spread * 2; d.z += (Math.random() - 0.5) * w.spread * 2; d.normalize();
-    const wallT = this.march(o, d, 60);
+    const wallT = this.march(o, d, 400); // no range limit: a shot carries till it hits something
     const hits = this.horde.ray(o, d, wallT, w.pierce);
     let mul = 1;
     for (const h of hits) {
@@ -295,12 +324,12 @@ export class Arsenal {
       this.onDamage(h.k, res, { gun: true, weapon: w });
       mul *= 0.75;
     }
-    if (hits.length < w.pierce && wallT < 60) {
+    if (hits.length < w.pierce && wallT < 400) {
       const p = o.clone().addScaledVector(d, wallT - 0.02);
       this.gore.burst(p.x, p.y, p.z, 4, [0x6a5a48, 0x3a2a1a, 0x9a8a78], 0.025, 1.4, p.y - 2);
       this.gore.fire(p.x, p.y, p.z, 3, 1.2);
     }
-    this.anim.kick = w.blast ? 1.4 : s.id === 'murata' ? 1 : 0.7;
+    this.anim.kick = w.blast ? 1.4 : s.id === 'murata' ? 1 : w.auto ? 0.35 : 0.7;
     this.flashT = 0.06;
     const tip = o.clone().addScaledVector(d, 0.8); this.flashLight.position.copy(tip); this.flashLight.intensity = w.blast ? 30 : 16;
     if (w.blast) { this.gore.fire(tip.x, tip.y, tip.z, 18, 1.5); }
@@ -309,7 +338,7 @@ export class Arsenal {
   }
   // distance along a ray to the first wall
   march(o, d, max) {
-    for (let t = 0.2; t < max; t += 0.05) if (this.world.solid(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t)) return t;
+    for (let t = 0.2; t < max; t += t < 30 ? 0.05 : 0.125) if (this.world.solid(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t)) return t;
     return max;
   }
   occluded(o, c) {
@@ -408,7 +437,7 @@ export class Arsenal {
     // the muzzle flash
     this.flashT = (this.flashT || 0) - dt;
     this.flash.visible = this.flashT > 0 && kind === 'gun';
-    if (this.flash.visible) { this.flash.position.set(Pv.position.x - 0.01, Pv.position.y + 0.03, Pv.position.z - (id === 'revolver' ? 0.22 : 0.95)); this.flash.scale.setScalar(1 + Math.random()); }
+    if (this.flash.visible) { this.flash.position.set(Pv.position.x - 0.01, Pv.position.y + 0.03, Pv.position.z - (id === 'revolver' ? 0.22 : id === 'type100' ? 0.72 : 0.95)); this.flash.scale.setScalar(1 + Math.random()); }
     this.flashLight.intensity = Math.max(0, this.flashLight.intensity - dt * 220);
     // the drink: weapon down, bottle up to the lips and tipped back, weapon up again
     if (this.bottle) {

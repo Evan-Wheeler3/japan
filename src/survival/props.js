@@ -91,6 +91,15 @@ export function chalk(kind, len, name, kanji, price) {
   } else if (kind === 'pistol') { // a barrel, the cylinder, a grip swept back
     g.rect(x0, cy - 12, L * 0.55, 16); g.ellipse(x0 + L * 0.62, cy - 4, L * 0.1, 18, 0, 0, Math.PI * 2);
     g.moveTo(x0 + L * 0.68, cy - 16); g.lineTo(x1, cy - 16); g.lineTo(x1 - 6, cy + 46); g.lineTo(x1 - L * 0.24, cy + 46); g.lineTo(x0 + L * 0.7, cy + 8);
+  } else if (kind === 'smg') { // a submachine gun: jacketed barrel, the magazine out to the side (drawn down), a stock
+    g.rect(x0, cy - 8, L * 0.42, 14); for (let x = x0 + 10; x < x0 + L * 0.4; x += 16) g.rect(x, cy - 3, 6, 4);
+    g.rect(x0 + L * 0.42, cy - 13, L * 0.2, 22); g.rect(x0 + L * 0.47, cy + 9, L * 0.07, 46);
+    g.moveTo(x0 + L * 0.62, cy - 6); g.lineTo(x1, cy - 2); g.lineTo(x1, cy + 30); g.lineTo(x0 + L * 0.66, cy + 12); g.closePath();
+  } else if (kind === 'lmg') { // a light machine gun: finned barrel, the curved magazine on top, a long stock
+    g.rect(x0, cy - 6, L * 0.25, 10); for (let x = x0 + L * 0.25; x < x0 + L * 0.48; x += 9) g.rect(x, cy - 12, 5, 22);
+    g.rect(x0 + L * 0.48, cy - 13, L * 0.2, 24); g.moveTo(x0 + L * 0.52, cy - 13); g.quadraticCurveTo(x0 + L * 0.56, cy - 60, x0 + L * 0.64, cy - 64); g.lineTo(x0 + L * 0.66, cy - 13);
+    g.moveTo(x0 + L * 0.68, cy - 8); g.lineTo(x1, cy - 2); g.lineTo(x1, cy + 32); g.lineTo(x0 + L * 0.72, cy + 12); g.closePath();
+    g.moveTo(x0 + L * 0.18, cy + 4); g.lineTo(x0 + L * 0.12, cy + 40); g.moveTo(x0 + L * 0.2, cy + 4); g.lineTo(x0 + L * 0.26, cy + 40);
   } else { // a rifle: the long barrel, the bolt, the stock
     g.rect(x0, cy - 9, L * 0.55, 12); g.moveTo(x0 + L * 0.55, cy - 14); g.lineTo(x0 + L * 0.72, cy - 14); g.lineTo(x0 + L * 0.72, cy + 10); g.lineTo(x0 + L * 0.55, cy + 10); g.closePath();
     g.moveTo(x0 + L * 0.66, cy - 14); g.lineTo(x0 + L * 0.69, cy - 30); g.moveTo(x0 + L * 0.72, cy - 10); g.lineTo(x1, cy - 4); g.lineTo(x1, cy + 34); g.lineTo(x0 + L * 0.74, cy + 14); g.closePath();
@@ -105,18 +114,40 @@ export function chalk(kind, len, name, kanji, price) {
   g.globalCompositeOperation = 'destination-out'; g.shadowBlur = 0;
   for (let i = 0; i < cw * ch / 60; i++) { g.fillStyle = `rgba(0,0,0,${0.3 + hash01(i, 3, 7) * 0.6})`; g.fillRect(hash01(i, 1, 7) * cw, hash01(i, 2, 7) * ch, 2, 2); }
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, color: new THREE.Color(1.2, 1.2, 1.15) }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, color: new THREE.Color(1.3, 1.25, 1.15) }));
   m.renderOrder = 3;
   return m;
+}
+// over a wall buy: a warm glow on the wall round the outline, and its price on a tag that turns to face you
+export function buyGlow(w, h) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+  const g = c.getContext('2d'), grd = g.createRadialGradient(64, 32, 4, 64, 32, 64);
+  grd.addColorStop(0, 'rgba(255,214,140,0.3)'); grd.addColorStop(0.6, 'rgba(255,170,80,0.1)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 64);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  m.renderOrder = 2;
+  return m;
+}
+export function priceTag(name, price) {
+  const c = document.createElement('canvas'); c.width = 320; c.height = 96;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(20,14,10,0.78)'; g.beginPath(); g.roundRect(4, 4, 312, 88, 44); g.fill();
+  g.strokeStyle = 'rgba(255,214,140,0.9)'; g.lineWidth = 4; g.stroke();
+  g.textAlign = 'center'; g.fillStyle = '#ffe6b8'; g.font = '600 30px Fredoka, sans-serif'; g.fillText(name, 160, 42);
+  g.fillStyle = '#ffd070'; g.font = '700 30px Fredoka, sans-serif'; g.fillText(price, 160, 78);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false }));
+  s.scale.set(0.62, 0.186, 1); s.renderOrder = 5;
+  return s;
 }
 
 // ---- the blessings' machines: a tall lacquered cabinet in the blessing's colour, a lit crest on top, a hatch the
 // bottle drops into, a coin slot (the lit front panel is perkFace, laid over it)
 const tone = (hex, k) => { const c = new THREE.Color(hex); c.multiplyScalar(k); return '#' + c.getHexString(); };
-export const perkMachine = (color) => keyed('perk' + color, () => {
+export const perkMachine = (color, on = true) => keyed('perk' + color + on, () => {
   const m = new Model(14, 34, 10, 1 / 16, [7, 0, 5]);
-  const body = C(tone(color, 0.55), 0, 0.04), bodyD = C(tone(color, 0.3), 0, 0.04), trim = C('#d8c8a0', 0, 0.03), dark = C('#101012', 0, 0.02);
-  const lit = C(tone(color, 1), 2.4, 0.03), chrome = C('#c8ccd0', 0.2, 0.03);
+  const body = C(tone(color, on ? 0.55 : 0.32), 0, 0.04), bodyD = C(tone(color, on ? 0.3 : 0.18), 0, 0.04), trim = C(on ? '#d8c8a0' : '#6a6458', 0, 0.03), dark = C('#101012', 0, 0.02);
+  const lit = on ? C(tone(color, 1), 2.4, 0.03) : C(tone(color, 0.22), 0, 0.03), chrome = C('#c8ccd0', on ? 0.2 : 0, 0.03);
   m.box(0, 0, 0, 14, 30, 10, (x, y, z) => (x === 0 || x === 13 || z === 9 ? bodyD : y < 2 ? dark : body));
   m.box(1, 30, 1, 13, 34, 9, (x, y) => (y === 33 ? trim : lit));                 // the lit crest on top
   m.box(0, 29, 0, 14, 30, 10, trim); m.box(0, 2, 0, 14, 3, 10, trim);            // brass bands
@@ -153,6 +184,36 @@ export function halo(color) {
   return s;
 }
 
+// a column of light over a gift, so you see it from across the room, and a ring turning round its foot
+export function dropBeam(color) {
+  const g = new THREE.Group(), col = new THREE.Color(color);
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64;
+  const x = c.getContext('2d'), grd = x.createLinearGradient(0, 64, 0, 0); grd.addColorStop(0, 'rgba(255,255,255,0.9)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = grd; x.fillRect(0, 0, 4, 64);
+  const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
+  mat.opacity = 0.5;
+  for (let i = 0; i < 2; i++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.16 - i * 0.08, 0.2 - i * 0.08, 4.2, 16, 1, true), mat); b.position.y = 1.2; g.add(b); }
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = -0.85; g.add(ring); g.userData.ring = ring;
+  return g;
+}
+
+// the power: a grey breaker cabinet on the wall, a big lever with a red grip, yellow and black stripes, 電源 on it
+export const breaker = memo(() => {
+  const m = new Model(12, 18, 4, 1 / 16, [6, 0, 4]);
+  const grey = C('#7a7e82', 0, 0.04), greyD = C('#4a4e52', 0, 0.04), y = C('#e8b830', 0, 0.04), k = C('#141416', 0, 0.03), w = C('#f0ece0', 0, 0.03);
+  m.box(0, 0, 0, 12, 18, 4, (x, yy, z) => (x === 0 || x === 11 || yy === 0 || yy === 17 ? greyD : grey));
+  m.box(1, 1, 0, 11, 3, 1, (x) => ((x >> 1) & 1 ? y : k));                      // hazard stripes
+  m.box(2, 13, 0, 10, 16, 1, w); m.box(3, 14, 0, 4, 15, 1, k); m.box(5, 14, 0, 7, 15, 1, k); m.box(8, 14, 0, 9, 15, 1, k); // the 電源 plate
+  m.box(5, 5, 0, 7, 11, 1, k);                                                   // the lever's slot
+  return m;
+});
+export const breakerLever = memo(() => {
+  const m = new Model(2, 8, 2, 1 / 16, [1, 0, 1]);
+  m.box(0, 0, 0, 2, 6, 2, C('#2a2a2e', 0, 0.03)); m.box(0, 6, 0, 2, 8, 2, C('#c8201a', 0.3, 0.04));
+  return m;
+});
+
 // the omikuji box: a hexagonal wooden box of fortune sticks on a red-lacquered stand, a paper sign
 export const omikuji = memo(() => {
   const m = new Model(14, 30, 14, 1 / 24, [7, 0, 7]);
@@ -186,7 +247,7 @@ export const DROPS = {
   ammo: { name: 'Ammunition', text: 'full ammo and dishes', color: 'rgba(170,255,150,0.9)' },
 };
 export const dropModel = (kind) => keyed('drop' + kind, () => {
-  const m = new Model(10, 10, 10, 1 / 28, [5, 5, 5]);
+  const m = new Model(10, 10, 10, 1 / 18, [5, 5, 5]);
   const white = C('#f4f0e8', 0.25, 0.03), red = C('#d8281a', 0.3, 0.04), gold = C('#f0c040', 0.4, 0.03), black = C('#141010', 0, 0.02);
   if (kind === 'double') { // a beckoning cat
     m.box(2, 0, 3, 8, 6, 7, white); m.box(2, 6, 3, 8, 10, 7, white); m.set(3, 10 - 1, 3, white);

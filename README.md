@@ -182,8 +182,9 @@ It's the old shop up on the snowy mountain, boarded up, with the gaki (the hungr
 of the snow in rounds. It plays like Black Ops' zombies, solo. The first five rounds are counted a stroke of 正 at a
 time (the Japanese tally), after that as kanji numerals in the corner. You start in the front room with
 500 points and nothing in your hands. The dishes on the booth tables are your first weapons: grab them with **E** and
-throw them with the mouse or **G** (plates, tea cups and sake flasks all break on whatever they hit). With no weapon
-your fists work too.
+throw them with the mouse or **Q** (plates, tea cups and sake flasks all break on whatever they hit). With no weapon
+your fists work too. **G** throws a hōrokudama, an old clay fire-pot: you start with two, get two more each round (four
+at most), and it bounces, rolls and goes off a couple of seconds later, blowing apart whatever's close.
 
 **Controls:**
 
@@ -193,17 +194,23 @@ your fists work too.
 | **Right-click**, **V** or **F** | quick melee |
 | **R** | reload |
 | **1 / 2 / 3** or the wheel | switch weapons |
-| **G** or **Q** | throw a dish |
+| **Q** | throw a dish |
+| **G** | throw a fire-pot |
+| **Space** | jump |
 | **E** | use things |
 | hold **E** at a window | rebuild its boards |
 
-On a phone there are strike, use, throw, 1/2 and reload buttons.
+On a phone there are strike, use, dish, pot, jump, 1/2 and reload buttons.
 
-- **Rounds, as in Black Ops (solo):** 6 come in round one, then 8, 13, 18, 24, 27, 28, 28, 29, 33, 34 and on up.
-  They rise one at a time, 2.1 s apart on round one and 5% quicker each round, down to 0.2 s by round 56. No more
-  than 24 are up at once; the rest come as those fall. They have 150 health on round one, 100 more each round to
-  the ninth, then a tenth more every round. They walk early on, run from about round five and sprint from about
-  round nine. A hit takes 50 health, so two hits put you down without Tetsu.
+- **Rounds: Black Ops' rules, eased.** Four-fifths as many come (4 in round one, then 6, 10, 14, 19, 21 and on up),
+  they rise 30% more slowly (2.75 s apart on round one, 5% quicker each round, down to 0.3 s), and no more than 24
+  are up at once; the rest come as those fall. They have 100 health on round one, 75 more each round to the ninth,
+  then 8% more every round. They walk early on, run from about round five and sprint from about round nine. A hit
+  takes 40 health (an oni's 60), so it takes three to put you down without Tetsu. Between rounds there are 20
+  seconds to catch your breath (the countdown's at the top of the screen).
+- **The power:** the blessings' machines stand dark and the lamps burn low until you throw the breaker in the
+  washrooms' hall (open the washrooms to reach it). Then the machines light up one after another, each playing its
+  tune.
 - **Points:** 10 for a hit, 60 for a kill, 100 for a headshot kill, 130 for a melee kill and 300 for an oni. Rebuilding
   boards is worth 10 a plank (up to 500 a round).
 - **Windows and the front door** are boarded. The gaki tear the planks off one at a time and climb through. They
@@ -222,14 +229,19 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
   Once the kitchen and the washrooms are open, gaki also break up through the floorboards there.
 - **Windows:** three in the front room (the west window, the bay and the front door), two in the dining room.
 - **Weapons on the walls** are drawn in glowing chalk with the weapon hung over its outline, its name and price
-  written underneath, as in Black Ops:
+  written underneath, as in Black Ops, with a warm glow round them and a price tag floating over them so you can
+  spot them across a room:
   - a tantō (750) and a Type 26 revolver (1,000) in the front room;
-  - a katana (1,500) in the dining room;
-  - a Murata rifle (1,250) in the kitchen.
+  - a katana (1,500) and a Type 100 submachine gun (1,200, fully automatic) in the dining room;
+  - a Murata rifle (1,250) in the kitchen;
+  - a Type 96 light machine gun (2,000, fully automatic) in the walk-in freezer;
+  - an ōdachi (3,000), the great battle sword, longer and far heavier than the katana, in the kura.
+
+  Guns have no range limit: a round carries until it hits something.
 
   Buying a gun you already carry refills its ammunition. You carry two weapons (three with Sanbon no Ya).
 - **The omikuji box** (950, in the dining room to start) rattles its fortune sticks and draws you a fortune and a
-  weapon. That might be a naginata, a kanabō, a tanegashima matchlock or, at 大吉 (great blessing), the cursed
+  weapon. That might be a naginata, a kanabō, one of the automatics, a tanegashima matchlock or, at 大吉 (great blessing), the cursed
   Muramasa, which heals you with every kill. Draw 凶 (a curse) and it refunds your points and moves to the kitchen
   or the shrine.
 - **Blessings** come from tall machines that glow in their colours and play their own tunes now and then. Buy one
@@ -247,8 +259,9 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
   Going down with the omamori costs you every blessing, and the third weapon with Sanbon no Ya.
 
 - **Gifts:** as in Black Ops, every time your points earned pass the next mark (2,000, then each mark 14% further
-  on) the next yōkai you kill leaves a gift, and now and then one drops by luck, up to four a round. Walk into it to
-  take it.
+  on) the next yōkai you kill leaves a gift, and now and then one drops by luck, up to four a round. It comes up in
+  a burst of sparks with a chime, under a column of light in its colour that you can see across the lot. Walk into it
+  to take it: the screen flashes its colour.
 
   | Gift | Effect |
   |---|---|
@@ -262,9 +275,12 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
   window's boards in one blow and hit hard enough to knock you back. With a clear run at you, an oni stamps, roars
   and charges in a straight line. If it misses it stands there blowing for a moment and takes extra damage. The last
   oni of the night always leaves ammunition.
-- **Gore:** blades cut. Arms, legs and heads come off in clean voxel pieces with red stumps, and the blood lands on
-  the floor and stays there. A gaki that loses a leg keeps coming, dragging itself along the floor. A headshot kill
-  with a gun can burst the head.
+- **Gore:** no two die alike. Each yōkai bleeds its own amount, and the killing blow decides how it goes: a blade
+  takes the head, an arm, or (a big one) cuts it clean in half at the waist, the top half flying while the legs fold;
+  a kanabō can burst it like a melon; a heavy round can take an arm or a leg off, or go through the middle; a
+  headshot can burst the head; a fire-pot throws it apart, limbs and all. Pieces come off with red stumps that keep
+  spurting, chunks scatter, blood sprays up the walls and runs down, and it all stays on the floor. A gaki that loses
+  a leg keeps coming, dragging itself along the floor.
 - **Health and falling:** health comes back if you stay out of reach for a few seconds. When you fall, the night's
   card shows your round, kills, headshots, limbs taken and points.
 
@@ -284,7 +300,7 @@ On a phone there are strike, use, throw, 1/2 and reload buttons.
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
 | `src/staff.js` | The hired help: five who walk the shop and do the work (bussing, washing, cooking, waiting, the register) |
 | `src/trash.js` | The kitchen bin, the bags and the gomi stations |
-| `src/survival/` | The night parade: `mode.js` (rounds, points, seals, buys, blessings, the box, the HUD), `nav.js` (a two-level walking grid and flow field over the whole lot), `horde.js` and `yokai.js` (the gaki and oni, their rigs and dismemberment), `weapons.js` (first-person weapons and thrown dishes), `gore.js`, `props.js`, `sfx.js` |
+| `src/survival/` | The night parade: `mode.js` (rounds, points, seals, buys, the power, blessings, the box, the HUD), `nav.js` (a two-level walking grid and flow field over the whole lot), `horde.js` and `yokai.js` (the gaki and oni, their rigs and dismemberment), `weapons.js` (first-person weapons and thrown dishes), `grenade.js` (the fire-pots), `gore.js`, `props.js`, `sfx.js` |
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen round the island, the plates riding it |
 | `src/home.js` | The save file, the catalog, what each upgrade does, and the things you can buy for the apartment |
 | `src/arcade.js` | The Fami-Com: a 256×224 canvas that is the CRT's picture, and its four games |

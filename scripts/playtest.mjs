@@ -354,8 +354,40 @@ try {
     const M = await import('/src/survival/mode.js');
     return { counts: [1, 2, 3, 4, 5, 6, 10].map(M.roundCount), d1: M.spawnDelay(1), d56: M.spawnDelay(56), oni: [5, 10, 15].map(M.oniCount), hp: [1, 10].map((r) => Math.round(M.roundHealth(r))) };
   });
-  check(st.counts.join() === '6,8,13,18,24,27,33' && st.d1 === 2.1 && st.d56 === 0.2 && st.oni.join() === '2,3,4' && st.hp.join() === '150,1045',
-    `rounds follow Black Ops: ${st.counts.join(', ')} come, ${st.d1} s apart on round one, ${st.d56} s by round 56; oni ${st.oni.join(', ')}`);
+  check(st.counts.join() === '4,6,10,14,19,21,26' && st.d1 === 2.75 && st.d56 === 0.3 && st.oni.join() === '2,3,4' && st.hp.join() === '100,756',
+    `rounds follow Black Ops, eased: ${st.counts.join(', ')} come, ${st.d1} s apart on round one, ${st.d56} s by round 56; oni ${st.oni.join(', ')}`);
+  // the power: the machines are dark until the breaker in the washrooms' hall is thrown
+  st = await page.evaluate(() => {
+    const d = window.__yoake, P = d.parade, before = P.points;
+    P.buyPerk(P.perkMachines.find((m) => m.P.id === 'tetsu').P);
+    const refused = P.points === before && !P.perks.has('tetsu');
+    P.powerOn();
+    return { refused, power: P.power };
+  });
+  check(st.refused && st.power, "the blessings stay dark (and won't sell) until the power's thrown");
+  // a fire-pot: thrown, it bounces, goes off, and takes the yōkai near it apart
+  st = await page.evaluate(() => {
+    const d = window.__yoake, P = d.parade, pl = d.player, G = P.grenades;
+    while (P.horde.list.length) { P.horde.list[0].remove(); P.horde.list.shift(); }
+    pl.pos.set(8.0, 0.25, -1.0); pl.yaw = 0; pl.pitch = -0.35; pl.update(0.016); d.camera.updateMatrixWorld();
+    const st = P.roundStats(2, 'gaki');
+    const ks = [0, 1, 2].map((i) => P.horde.spawn('gaki', 7.4 + i * 0.6, 0.25, -2.6, st, { look: i }));
+    for (const k of ks) { k.state = 'idle'; k.riseT = 9; }
+    const left = G.left, kills = P.kills; G.throw(d.camera);
+    for (let i = 0; i < 60; i++) { G.update(0.05); P.gore.update(0.05); }
+    return { used: left - G.left, killed: ks.filter((k) => !k.alive).length, limbs: ks.reduce((a, k) => a + Object.values(k.limbs).filter((v) => v === false).length, 0), kills: P.kills - kills };
+  });
+  check(st.used === 1 && st.killed >= 2 && st.limbs >= 2, `a fire-pot goes off: ${st.killed} of 3 yōkai blown apart (${st.limbs} pieces off)`);
+  // the new wall buys are up, and space jumps
+  st = await page.evaluate(() => {
+    const d = window.__yoake, P = d.parade, pl = d.player;
+    const ids = P.buys.map((b) => b.id);
+    pl.pos.set(8.0, 0.25, -1.0); pl.vel.set(0, 0, 0); pl.update(0.05);
+    pl.keys.Space = true; let top = pl.pos.y; for (let i = 0; i < 20; i++) { pl.update(0.02); top = Math.max(top, pl.pos.y); } pl.keys.Space = false;
+    for (let i = 0; i < 60; i++) pl.update(0.02);
+    return { ids, jump: top - 0.25, back: Math.abs(pl.pos.y - 0.25) < 0.01 };
+  });
+  check(['type100', 'type96', 'odachi'].every((id) => st.ids.includes(id)) && st.jump > 0.6 && st.back, `the automatic wall buys and the ōdachi are up; space jumps ${st.jump.toFixed(2)} m and lands`);
   // a blessing: the machine takes your points, you drink, and it shows in the corner
   st = await page.evaluate(() => {
     const d = window.__yoake, P = d.parade;

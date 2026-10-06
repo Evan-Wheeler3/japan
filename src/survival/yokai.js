@@ -7,6 +7,8 @@ import { BLOOD } from './gore.js';
 
 const V = 1 / 16;
 const FLESH = C('#8c0a0a', 0, 0.12), FLESH_D = C('#5a0404', 0, 0.1), BONE = C('#ece4d0', 0, 0.04);
+// what flies off when one's torn apart: mostly dark red, a little bone
+const GUTS = [...BLOOD, 0x7a1010, 0x9a1c1c, 0x5a0a0a, 0x6a1414, 0xd8c8b0];
 
 // ---------------------------------------------------------------- looks
 const SKINS = ['#a9b5a0', '#9ea8b6', '#c4b994', '#b8a8a0', '#8e9a86'];
@@ -135,9 +137,11 @@ class Rig {
   // the rig with only the pieces still attached (severed ones are debris now, and mustn't be posed)
   live(limbs) {
     const v = this._v || (this._v = { arms: [], legs: [] });
-    v.body = this.body; v.hips = this.hips; v.torso = this.torso; v.d = this.d;
-    v.neck = limbs.head ? this.neck : DUMMY;
-    v.arms[0] = limbs.armL ? this.arms[0] : DUMMY; v.arms[1] = limbs.armR ? this.arms[1] : DUMMY;
+    v.body = this.body; v.hips = this.hips; v.d = this.d;
+    const top = limbs.torso !== false; // cut in half: the top's debris now
+    v.torso = top ? this.torso : DUMMY;
+    v.neck = top && limbs.head ? this.neck : DUMMY;
+    v.arms[0] = top && limbs.armL ? this.arms[0] : DUMMY; v.arms[1] = top && limbs.armR ? this.arms[1] : DUMMY;
     v.legs[0] = limbs.legL ? this.legs[0] : DUMMY_LEG; v.legs[1] = limbs.legR ? this.legs[1] : DUMMY_LEG;
     return v;
   }
@@ -156,6 +160,9 @@ export class Yokai {
     this.limbs = { head: true, armL: true, armR: true, legL: true, legR: true };
     this.crawl = false; this.flinch = 0; this.attackT = 0; this.state = 'rise'; this.riseT = 0;
     this.wobble = (Math.random() - 0.5) * 0.6;
+    // no two bleed alike: some gush, some barely seep; and each dies its own way
+    this.bleed = 0.6 + Math.random() * 1.1;
+    this.temper = Math.random();
     {
       const P = kind === 'oni' ? parts(opts.blue ? 'oniB' : 'oniR', () => oniParts(opts.blue)) : parts('gaki' + (opts.look ?? 0), () => gakiParts(opts.look ?? 0));
       this.rig = new Rig(P, mats); this.group = this.rig.group;
@@ -208,10 +215,11 @@ export class Yokai {
     if (this.kind === 'oni' && !head) dmg *= 1;
     this.hp -= dmg; this.flinch = 1;
     const p = hit.point || this.center(), dir = hit.dir || new THREE.Vector3(0, 0, 1);
-    // blood out of the wound, and some onto the floor
-    const n = hit.blunt ? 26 : hit.gun ? 18 : 30;
-    gore.spray(p.x, p.y, p.z, dir.x * 0.8, 0.5, dir.z * 0.8, n, 2.6, 0.9, ground);
-    if (hit.blade || hit.blunt) gore.splat(p.x + dir.x * 0.5, ground, p.z + dir.z * 0.5, 0.25);
+    // blood out of the wound, and some onto the floor (and up the wall behind, if there's one close)
+    const n = Math.round((hit.blunt ? 34 : hit.gun ? 26 : 40) * this.bleed);
+    gore.spray(p.x, p.y, p.z, dir.x * 0.9, 0.5, dir.z * 0.9, n, 2.8, 1.0, ground);
+    if (hit.blade || hit.blunt || hit.gun) gore.splat(p.x + dir.x * 0.5, ground, p.z + dir.z * 0.5, 0.2 + 0.15 * this.bleed);
+    gore.wall && gore.wall(p, dir, 0.25 + 0.3 * this.bleed);
     const killed = this.hp <= 0;
     let severed = null;
     // blades take limbs: more often on the killing blow; the head only comes off if it's a killing blow (or a big blade)
@@ -225,14 +233,74 @@ export class Yokai {
       const arm = side < 0 ? 'armL' : 'armR';
       if (this.limbs[arm]) severed = arm;
     }
-    if (this.kind === 'oni' && severed && severed.startsWith('leg')) severed = null; // too thick
+    // a heavy round through an arm or a leg can take it clean off
+    if (hit.gun && !severed && part !== 'torso' && part !== 'head' && Math.random() < Math.min(0.65, hit.dmg / 700 + (killed ? 0.2 : 0))) severed = part;
+    if (this.kind === 'oni' && severed && severed.startsWith('leg') && !hit.blast) severed = null; // too thick
     if (severed && this.limbs[severed]) this.sever(severed, dir);
+    // a blast tears pieces off whatever it doesn't kill outright
+    if (hit.blast && !killed) for (const q of ['armL', 'armR', 'legL', 'legR']) if (this.limbs[q] && Math.random() < hit.blast * 0.45 && !(this.kind === 'oni' && q.startsWith('leg'))) this.sever(q, dir, 1.6);
     // a headshot kill from a gun can burst the head
     if (killed && head && hit.gun && this.limbs.head && Math.random() < (hit.pop ?? 0.55)) this.popHead(dir);
+    else if (killed && !severed) this.finish(hit, part, dir);
     if (killed || !this.limbs.head) this.die(hit);
     return { killed: killed || !this.limbs.head, head, severed };
   }
-  sever(part, dir) {
+  // the killing blow, each its own way: depends on what did it, how hard, and on the yōkai
+  finish(hit, part, dir) {
+    const r = Math.random(), big = hit.dmg >= 500 || hit.insta;
+    if (hit.blast) {
+      if (r < 0.55 * hit.blast + 0.2) return this.explode(dir, 1 + hit.blast);
+      for (const q of ['armL', 'armR', 'legL', 'legR', 'head']) if (this.limbs[q] && Math.random() < 0.4) this.sever(q, dir, 1.8);
+      return;
+    }
+    if (hit.blade) {
+      if (big && r < 0.3) return this.cutInHalf(dir, hit.side ?? 1);                    // clean through at the waist
+      if (r < 0.55 && this.limbs.head) return this.sever('head', dir);                  // off with it
+      if (r < 0.75) { const a = this.temper < 0.5 ? 'armL' : 'armR'; if (this.limbs[a]) this.sever(a, dir); }
+      return;
+    }
+    if (hit.blunt) {
+      if (hit.dmg >= 700 && r < 0.4) return this.explode(dir, 1.3);                     // the kanabō: burst like a melon
+      if (r < 0.5 && this.limbs.head) return this.popHead(dir);
+      return;
+    }
+    if (hit.gun) {
+      if (hit.dmg >= 300 && part === 'torso' && r < 0.3) return this.cutInHalf(dir, 1); // a rifle round through the middle
+      if (r < 0.3 && part !== 'head') { const q = ['armL', 'armR'][r < 0.15 ? 0 : 1]; if (this.limbs[q]) this.sever(q, dir, 1.2); }
+    }
+  }
+  // cut in two at the waist: the top half goes flying, the legs stand a moment and fold
+  cutInHalf(dir, side = 1) {
+    if (this.limbs.torso === false) return;
+    const R = this.rig, H = this.horde, gore = H.gore, ground = this.pos.y, sc = this.s;
+    this.limbs.torso = false;
+    H.scene.attach(R.torso);
+    R.stump(R.hips, new THREE.Vector3(0, 0.5 * V, 0));
+    const v = new THREE.Vector3(dir.x * 2.4 + side * 0.6, 1.4 + Math.random(), dir.z * 2.4);
+    gore.limb(R.torso, v, new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 6, side * 6), ground, 0.16 * sc);
+    gore.spurt(R.hips, new THREE.Vector3(0, 0.5 * V, 0), new THREE.Vector3(0, 1, 0), 2.6, ground);
+    gore.spurt(R.torso, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -1, 0), 1.6, ground);
+    const wp = new THREE.Vector3(); R.hips.getWorldPosition(wp);
+    gore.spray(wp.x, wp.y, wp.z, dir.x, 0.9, dir.z, Math.round(90 * this.bleed), 3.6, 1.6, ground);
+    gore.burst(wp.x, wp.y, wp.z, 14, GUTS, 0.045, 2.6, ground);
+    H.onSever && H.onSever(this, 'torso');
+  }
+  // blown apart: limbs, head and the top half every which way, and a shower of the rest
+  explode(dir, power = 1.5) {
+    const R = this.rig, H = this.horde, gore = H.gore, ground = this.pos.y;
+    const c = this.center(new THREE.Vector3());
+    for (const q of ['head', 'armL', 'armR', 'legL', 'legR']) if (this.limbs[q]) {
+      const a = Math.random() * Math.PI * 2, d = new THREE.Vector3(Math.cos(a) * 0.6 + dir.x, 0, Math.sin(a) * 0.6 + dir.z).normalize();
+      this.sever(q, d, power * (1 + Math.random()));
+    }
+    this.cutInHalf(dir, Math.random() < 0.5 ? -1 : 1);
+    R.torso.visible = Math.random() < 0.5; // sometimes there's nothing left of the middle to speak of
+    gore.burst(c.x, c.y, c.z, 34, GUTS, 0.05, 4.5 * power, ground);
+    gore.spray(c.x, c.y, c.z, 0, 1, 0, Math.round(160 * this.bleed), 4.5, 2.2, ground);
+    gore.pool(c.x, ground, c.z, 1.4);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; gore.wall && gore.wall(c, new THREE.Vector3(Math.cos(a), 0, Math.sin(a)), 0.5); }
+  }
+  sever(part, dir, power = 1) {
     const R = this.rig, H = this.horde, gore = H.gore, ground = this.pos.y, sc = this.s;
     let obj, parent, joint, spurtDir;
     if (part === 'head') { obj = R.neck; parent = R.torso; joint = R.neck.position.clone(); spurtDir = new THREE.Vector3(0, 1, 0); }
@@ -245,14 +313,15 @@ export class Yokai {
     if (part === 'head') { R.stump(obj, new THREE.Vector3(), Math.PI); R.stump(parent, joint); }
     else if (part.startsWith('arm')) { R.stump(obj, new THREE.Vector3(), 0, side * Math.PI / 2); R.stump(parent, joint, 0, -side * Math.PI / 2); }
     else { R.stump(obj, new THREE.Vector3()); R.stump(parent, joint, Math.PI); }
-    const v = new THREE.Vector3(dir.x * 2.2 + (Math.random() - 0.5), 1.6 + Math.random() * 1.6, dir.z * 2.2 + (Math.random() - 0.5));
-    if (part.startsWith('leg')) v.set(dir.x * 0.6, 0.6, dir.z * 0.6);
+    const v = new THREE.Vector3(dir.x * 2.2 + (Math.random() - 0.5), 1.6 + Math.random() * 1.6, dir.z * 2.2 + (Math.random() - 0.5)).multiplyScalar(power);
+    if (part.startsWith('leg') && power <= 1) v.set(dir.x * 0.6, 0.6, dir.z * 0.6);
     gore.limb(obj, v, new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 12), ground, part === 'head' ? 0.18 * sc : 0.1 * sc);
-    gore.spurt(parent, joint, spurtDir, part === 'head' ? 2.2 : 1.4, ground);
+    gore.spurt(parent, joint, spurtDir, (part === 'head' ? 2.2 : 1.4) * (0.6 + this.bleed * 0.6), ground);
     gore.spurt(obj, new THREE.Vector3(), new THREE.Vector3(0, part === 'head' ? -1 : 1, 0), 0.8, ground);
     const wp = new THREE.Vector3(); obj.getWorldPosition(wp);
-    gore.spray(wp.x, wp.y, wp.z, dir.x, 0.6, dir.z, 40, 3.2, 1.2, ground);
-    gore.burst(wp.x, wp.y, wp.z, 5, BLOOD, 0.05, 1.8, ground);
+    gore.spray(wp.x, wp.y, wp.z, dir.x, 0.6, dir.z, Math.round(60 * this.bleed), 3.4, 1.3, ground);
+    gore.burst(wp.x, wp.y, wp.z, 8, GUTS, 0.04, 2.0 * power, ground);
+    gore.wall && gore.wall(wp, dir, 0.4);
     if (part === 'armR' && R.club) this.unarmed = true;
     if (part.startsWith('leg')) this.goProne();
     H.onSever && H.onSever(this, part);

@@ -84,6 +84,8 @@ export class ParadeSound {
   shot(id) {
     if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(1.0);
     if (id === 'tanegashima') { this.noise(t, 0.9, 260, 0.6, 1.2, d, 'lowpass', null, this.a.brown); this.noise(t, 0.12, 1800, 0.7, 0.8, d); this.osc(t, 0.6, 70, 30, 0.9, d); for (let i = 0; i < 6; i++) this.noise(t + 0.2 + i * 0.09, 0.05, 2500, 2, 0.08, d); return; }
+    if (id === 'type100') { this.noise(t, 0.06, 2600, 0.8, 0.55, d, 'highpass'); this.noise(t, 0.14, 500, 0.7, 0.45, d, 'lowpass', null, this.a.brown); this.osc(t, 0.08, 190, 70, 0.3, d); return; }
+    if (id === 'type96') { this.noise(t, 0.08, 2000, 0.8, 0.8, d, 'highpass'); this.noise(t, 0.22, 340, 0.7, 0.75, d, 'lowpass', null, this.a.brown); this.osc(t, 0.12, 120, 50, 0.45, d); if (Math.random() < 0.3) this.noise(t + 0.15, 0.4, 600, 0.5, 0.08, d, 'lowpass'); return; }
     const big = id === 'murata';
     this.noise(t, big ? 0.16 : 0.1, 2400, 0.8, big ? 1.0 : 0.8, d, 'highpass'); this.noise(t, big ? 0.5 : 0.3, 400, 0.7, big ? 0.9 : 0.6, d, 'lowpass', null, this.a.brown);
     this.osc(t, 0.2, big ? 110 : 150, 45, 0.5, d);
@@ -91,7 +93,7 @@ export class ParadeSound {
   }
   reload(id) {
     if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(0.6);
-    const n = id === 'revolver' ? 6 : id === 'murata' ? 3 : 2;
+    const n = id === 'revolver' ? 6 : id === 'murata' ? 3 : id === 'type96' ? 4 : 2;
     for (let i = 0; i < n; i++) this.noise(t + 0.3 + i * (id === 'revolver' ? 0.22 : 0.6), 0.04, 3200, 3, 0.35, d);
     this.noise(t + 0.1, 0.06, 1400, 2, 0.3, d);
     if (id === 'tanegashima') { this.noise(t + 0.4, 0.6, 1800, 0.6, 0.15, d, 'bandpass', 600); } // ramming powder
@@ -145,6 +147,25 @@ export class ParadeSound {
     const notes = kind === 'nuke' ? [220, 165, 110] : [880, 1108, 1318, 1760];
     notes.forEach((f, i) => this.osc(t + i * 0.09, 0.9, f, f, 0.1, d, 'triangle', 0.005));
     if (kind === 'nuke') this.taiko([0, 0.18, 0.36]);
+  }
+  // a fire-pot going off: the crack, the boom rolling round the room, the debris pattering down
+  blast(pos) {
+    if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(1.6, pos);
+    this.noise(t, 0.1, 3000, 0.6, 1.2, d, 'highpass'); this.noise(t, 1.4, 180, 0.6, 1.6, d, 'lowpass', null, this.a.brown);
+    this.osc(t, 0.9, 90, 28, 1.2, d); this.osc(t + 0.02, 0.5, 55, 30, 0.8, d);
+    for (let i = 0; i < 10; i++) this.noise(t + 0.25 + Math.random() * 0.9, 0.04, 1800 + Math.random() * 2000, 3, 0.12, d);
+  }
+  // the power: a heavy clunk, a hum rising, the lights ticking on
+  powerOn() {
+    if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(1.0);
+    this.noise(t, 0.12, 400, 1, 1.0, d, 'lowpass', null, this.a.brown); this.osc(t, 0.25, 120, 60, 0.7, d);
+    this.osc(t + 0.2, 2.6, 50, 100, 0.25, d, 'sawtooth', 0.6); this.osc(t + 0.2, 2.6, 100, 200, 0.1, d, 'sawtooth', 0.6);
+    for (let i = 0; i < 6; i++) this.noise(t + 0.5 + i * 0.35, 0.03, 4000, 4, 0.3, d);
+  }
+  // a gift appearing: a bright chime
+  dropAppear(pos) {
+    if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(0.7, pos);
+    [1318, 1760, 2637].forEach((f, i) => this.osc(t + i * 0.06, 0.7, f, f, 0.08, d, 'sine', 0.003));
   }
   down() { if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(1); this.osc(t, 2.5, 220, 55, 0.3, d, 'sawtooth', 0.05); this.noise(t, 2, 300, 0.5, 0.4, d, 'lowpass', null, this.a.brown); }
   box() {

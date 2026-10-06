@@ -770,7 +770,8 @@ async function boot() {
       onQuit: () => location.reload(),
       onAgain: () => { try { sessionStorage.setItem('yoake.parade', '1'); } catch {} location.reload(); } });
     parade.start();
-    // phones: buttons to strike (hold to keep swinging), throw a dish, switch weapons, reload, and use (hold to rebuild)
+    // phones: buttons to strike (hold to keep swinging), throw a dish or a fire-pot, jump, switch weapons, reload, and
+    // use (hold to rebuild)
     if (touchUI) {
       const bar = $('touchbar');
       const btn = (label, down, up = null) => {
@@ -781,7 +782,9 @@ async function boot() {
       };
       btn('reload', () => parade.key('KeyR', true), () => parade.key('KeyR', false));
       btn('1/2', () => parade.wheel());
-      btn('throw', () => parade.key('KeyG', true), () => parade.key('KeyG', false));
+      btn('dish', () => parade.key('KeyQ', true), () => parade.key('KeyQ', false));
+      btn('pot', () => parade.key('KeyG', true), () => parade.key('KeyG', false));
+      btn('jump', () => { player.keys.Space = true; }, () => { player.keys.Space = false; });
       btn('use', () => parade.key('KeyE', true), () => parade.key('KeyE', false));
       btn('strike', () => parade.mouse(0, true), () => parade.mouse(0, false));
     }
