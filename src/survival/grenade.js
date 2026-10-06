@@ -80,10 +80,12 @@ export class Grenades {
     this.onBlast && this.onBlast(at);
   }
   groundAt(p) { for (let y = p.y + 0.2; y > p.y - 3; y -= 0.0625) if (this.solid(p.x, y, p.z)) return Math.floor((y + 0.25) / 0.125) * 0.125 - 0.25 + 0.125; return p.y - 0.2; }
+  // a wall between them shields a yōkai; a table or a bench doesn't (the blast goes over it): it's cover only if the
+  // line's blocked at every height, low, middle and high
   wallBetween(a, b) {
-    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, L = Math.hypot(dx, dy, dz);
-    for (let t = 0.3; t < L - 0.3; t += 0.12) if (this.solid(a.x + dx / L * t, a.y + 0.4 + dy / L * t, a.z + dz / L * t)) return true;
-    return false;
+    const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
+    const blocked = (h) => { for (let t = 0.3; t < L - 0.3; t += 0.1) if (this.solid(a.x + dx / L * t, h, a.z + dz / L * t)) return true; return false; };
+    return [0.4, 1.1, 1.8].every((h) => blocked(Math.max(a.y, b.y - 1) + h));
   }
   clear() { for (const G of this.live) this.scene.remove(G.mesh); this.live = []; this.left = PER_ROUND; }
 }
