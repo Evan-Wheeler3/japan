@@ -15,7 +15,7 @@
 import { Person } from './npc.js';
 import { MENU } from './service.js';
 import { MAP } from './maps/index.js';
-import { SUPPLY, lowAt } from './supplies.js';
+import { SUPPLY } from './supplies.js';
 
 const LOOKS = {
   staff_wash: { name: 'Taro', look: { skin: '#e0ac85', hair: '#1a1412', coat: '#e8e4dc', pants: '#2a3a5a', shoes: '#141414', hairStyle: 0, hat: -1, glasses: true, long: false, umbrella: '#141416', scarf: '#2a5a8a' } },
@@ -147,20 +147,24 @@ export class Staff {
     }
     // otherwise: the trash when the bin's full, tables to clear, the washing, and the clean ones out a stack at a time
     if (think) {
-      const r = s.trash && s.trash.full() && s.trash.route();
-      if (r) {
-        p.task = 'trash';
-        return this.walk(p, r.bin[0], r.bin[1], () => {
-          if (!s.trash.n) return this.home(p);
-          s.trash.empty(); this.hold(p, 'trash');
-          const st = s.trash.route();
-          this.walk(p, st.out[0], st.out[1], () => { s.trash.dropOff(st.key); this.hold(p, null); this.did.trash++; this.home(p); });
-        });
-      }
+      if (!this.hired('staff_stock') && this.trashRun(p)) return; // (Sota takes it, if he's on)
       if (this.dirtySeat(p)) return this.bus(p, { mugs: 0, plates: 0 });
       if (rackN >= 4 || (rackN && !canWash)) return this.shelve(p);
     }
     if (canWash) wash();
+  }
+  // the bin's full: tie the bag off and take it out to the gomi station
+  trashRun(p) {
+    const s = this.service, r = s.trash && s.trash.full() && !this.claimed.has('trash') && s.trash.route();
+    if (!r) return false;
+    p.task = 'trash'; this.claimed.add('trash');
+    this.walk(p, r.bin[0], r.bin[1], () => {
+      if (!s.trash.n) { this.claimed.delete('trash'); return this.home(p); }
+      s.trash.empty(); this.hold(p, 'trash');
+      const st = s.trash.route();
+      this.walk(p, st.out[0], st.out[1], () => { s.trash.dropOff(st.key); this.hold(p, null); this.did.trash++; this.claimed.delete('trash'); this.home(p); });
+    });
+    return true;
   }
   dirtySeat(p, within = Infinity) {
     let best = null, bd = within;
@@ -176,7 +180,11 @@ export class Staff {
     if (!seat || tub.mugs + tub.plates >= 8) {
       // back to the sink with what's in the tub
       p.task = 'bus';
-      return this.walk(p, p.post.x, p.post.z, () => { s.sink.mugs += tub.mugs; s.sink.plates += tub.plates; this.hold(p, null); p.yaw = p.post.yaw; p.task = null; });
+      const sink = this.people.staff_wash.post; // (anyone bussing takes the tub back to the sink)
+      return this.walk(p, sink.x, sink.z, () => {
+        s.sink.mugs += tub.mugs; s.sink.plates += tub.plates; this.hold(p, null);
+        if (p.id === 'staff_wash') { p.yaw = p.post.yaw; p.task = null; } else this.home(p);
+      });
     }
     this.claimed.add(seat); p.task = 'bus';
     this.walk(p, seat.app[0], seat.app[1], () => {
@@ -374,6 +382,8 @@ export class Staff {
         return;
       }
     }
+    // nothing to carry and nobody to serve: clear a table on the way
+    if (this.dirtySeat(p)) return this.bus(p, { mugs: 0, plates: 0 });
     if (Math.hypot(p.pos.x - p.post.x, p.pos.z - p.post.z) > 0.3) this.home(p);
   }
   takeOrder(p, q) {
@@ -422,9 +432,14 @@ export class Staff {
   // ---------------------------------------------------------------- Sota: crates down from the storeroom, kegs from the shed
   stocker() {
     const s = this.service, p = this.people.staff_stock, S = s.supplies, P = S && S.P;
-    if (!P || !this.free(p)) return;
-    // whatever's lowest (for what it holds), once it's down to the marker
-    const need = S.kinds().filter((k) => S.level[k] <= lowAt(k) && !this.claimed.has(`sup:${k}`)).sort((a, b) => S.level[a] / SUPPLY[a].cap - S.level[b] / SUPPLY[b].cap)[0];
+    if (!this.free(p)) return;
+    if (!P) { if (!this.trashRun(p) && Math.hypot(p.pos.x - p.post.x, p.pos.z - p.post.z) > 0.3) this.home(p); return; }
+    // a station that's run dry first, then a full bin, then whatever's lowest once it's down to a fifth
+    const low = (k, at) => S.level[k] <= at && !this.claimed.has(`sup:${k}`);
+    const lowest = (ks) => ks.sort((a, b) => S.level[a] / SUPPLY[a].cap - S.level[b] / SUPPLY[b].cap)[0];
+    let need = lowest(S.kinds().filter((k) => low(k, 0)));
+    if (!need && this.trashRun(p)) return;
+    need ||= lowest(S.kinds().filter((k) => low(k, Math.max(1, Math.floor(SUPPLY[k].cap * 0.2)))));
     if (!need) { if (Math.hypot(p.pos.x - p.post.x, p.pos.z - p.post.z) > 0.3) this.home(p); return; }
     const key = `sup:${need}`; this.claimed.add(key); p.task = 'stock';
     const deliver = () => {

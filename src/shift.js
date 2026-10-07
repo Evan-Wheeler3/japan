@@ -55,12 +55,13 @@ export class Shift {
     this.service.resetForShift();
     const s = this.service;
     this.snap = { money: s.money, tips: s.tips, served: s.served, walkouts: s.walkouts, washed: s.washed, burnt: s.burnt };
-    // waves get more frequent and bigger each shift
-    const count = Math.min(5, 2 + n), first = 8, last = LAST_CALL - 50;
+    // waves get more frequent and bigger each shift (about 12, 15, 22, 26, 35 guests over the first five nights, then
+    // 40-odd: before the rating's say)
+    const count = Math.min(5, 3 + Math.floor((n - 1) / 2)), first = 8, last = LAST_CALL - 50;
     this.waves = Array.from({ length: count }, (_, i) => ({
       at: first + (count > 1 ? i * (last - first) / (count - 1) : 0),
       // the back door brings a few more; a well-rated shop draws a bigger crowd (a 1★ shop 80%, 5★ 130%)
-      size: Math.round((Math.min(9, 2 + Math.floor(n / 2) + i) + (s.extraGuests || 0)) * (0.68 + 0.124 * (s.rating ?? 3))),
+      size: Math.round((Math.min(9, 3 + Math.floor(n / 2) + i) + (s.extraGuests || 0)) * (0.68 + 0.124 * (s.rating ?? 3))),
       name: WAVE_NAMES[(i + n - 1) % WAVE_NAMES.length],
     }));
     this.pending = []; this.waveIdx = 0;
@@ -136,7 +137,7 @@ export class Shift {
     // tonight's rating: what the guests thought (walkouts give one star), less a bin left overflowing, tables left
     // dirty and anything burnt
     const rv = s.reviews || [], avg = rv.length ? rv.reduce((a, b) => a + b, 0) / rv.length : 3;
-    const hits = { trash: Math.min(0.6, (s.trash ? s.trash.overT : 0) / 150), dirty: Math.min(0.5, (s.dirtyT || 0) / 400), burnt: Math.min(0.5, d('burnt') * 0.1) };
+    const hits = { trash: Math.min(0.6, (s.trash ? s.trash.overT : 0) / 240), dirty: Math.min(0.5, (s.dirtyT || 0) / 1200), burnt: Math.min(0.5, d('burnt') * 0.1) };
     const rating = Math.round(Math.max(1, Math.min(5, avg - hits.trash - hits.dirty - hits.burnt)) * 10) / 10;
     const stars = Math.max(1, Math.min(5, Math.round(rating)));
     const unlock = UNLOCKS[this.n - 1];

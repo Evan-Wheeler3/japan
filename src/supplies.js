@@ -12,14 +12,14 @@ import { sakeTaru } from './props.js';
 
 // cap: servings in a full crate (and on a full station); unit: what a serving costs from the wholesaler
 export const SUPPLY = {
-  tea: { what: 'tea leaves', crate: 'a tin of tea leaves', cap: 12, unit: 60 },
-  sushi: { what: 'salmon', crate: 'a box of salmon on ice', cap: 6, unit: 180 },
-  onigiri: { what: 'rice', crate: 'a sack of rice', cap: 8, unit: 70 },
-  yakitori: { what: 'skewers', crate: 'a crate of skewers', cap: 6, unit: 220 },
-  gyoza: { what: 'gyoza', crate: 'a tray of gyoza', cap: 6, unit: 180 },
-  tempura: { what: 'prawns', crate: 'a crate of prawns', cap: 6, unit: 240 },
-  ramen: { what: 'noodles and broth', crate: 'a crate of noodles and broth', cap: 5, unit: 300 },
-  sake: { what: 'sake', crate: 'a keg of sake', cap: 12, unit: 100 },
+  tea: { what: 'tea leaves', crate: 'a tin of tea leaves', cap: 20, unit: 60 },
+  sushi: { what: 'salmon', crate: 'a box of salmon on ice', cap: 8, unit: 180 },
+  onigiri: { what: 'rice', crate: 'a sack of rice', cap: 10, unit: 70 },
+  yakitori: { what: 'skewers', crate: 'a crate of skewers', cap: 8, unit: 220 },
+  gyoza: { what: 'gyoza', crate: 'a tray of gyoza', cap: 8, unit: 180 },
+  tempura: { what: 'prawns', crate: 'a crate of prawns', cap: 8, unit: 240 },
+  ramen: { what: 'noodles and broth', crate: 'a crate of noodles and broth', cap: 6, unit: 300 },
+  sake: { what: 'sake', crate: 'a keg of sake', cap: 20, unit: 100 },
 };
 export const isLoad = (type) => type === 'keg' || (typeof type === 'string' && type.startsWith('crate_'));
 export const crateKind = (type) => (type === 'keg' ? 'sake' : type && type.startsWith('crate_') ? type.slice(6) : null);

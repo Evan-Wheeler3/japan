@@ -108,8 +108,8 @@ better-rated shop draws bigger crowds: a 5★ shop gets 30% more guests a rush, 
 
 **Supplies.** Every dish uses some: tea leaves at the urns, salmon at the sushi case, rice at the cookers, skewers
 at the grills, gyoza at the teppan, prawns at the fryers, noodles and broth at the ramen pot. Each station starts
-the night full (the morning delivery) and a crate fills it again: 12 cups of tea, 8 lots of onigiri, 5 to 6 of
-everything else. When one's down to its last third, a crate marker pops up over it; when it's empty it turns red and
+the night full (the morning delivery) and a crate fills it again: 20 cups of tea, 10 lots of onigiri, 8 of most
+things, 6 bowls of ramen, 20 cups of sake from a keg. When one's down to its last third, a crate marker pops up over it; when it's empty it turns red and
 shows through the walls, and nothing more comes off that station until it's restocked. The crates are on the steel
 shelves in the storeroom upstairs, one bay for each: take one (it fills both hands), carry it down and click the
 station. Once the kura's yours, the house sake keg on the back bar drains a cup with every bill; when it's dry the
@@ -129,20 +129,20 @@ tab lists them all with how far along each one is.
 | At | What |
 |---|---|
 | 6 guests | **Salmon nigiri** (a recipe) |
-| 15 guests | more cups and plates (four more of each) |
-| 25 guests | **Onigiri** (a recipe) |
+| 20 guests | more cups and plates (six more of each) |
+| 45 guests | **Onigiri** (a recipe) |
 | 3 nights | a drinks fridge (¥250 more on every bill) |
-| 40 guests | **dig out the back door** (a job) |
-| 55 guests | kerosene heaters (guests wait 25% longer) |
-| 70 guests | **Tempura** (a recipe) |
-| 85 guests | a stronger belt motor |
-| 100 guests | **mochi ice cream**: pick the walk-in freezer's lock (a job) |
-| 120 guests | a full set of tableware (fourteen of each) |
-| 140 guests | **Miso ramen** (a recipe) |
-| 170 guests and 4★ | hot towels at every seat (guests wait half again as long) |
-| 200 guests | an industrial belt motor |
-| 230 guests, after the back door | **the old kura**: pick its padlock (a job): house sake on every bill |
-| 260 guests, after the kura | a sake warmer (another ¥350 a bill) |
+| 75 guests | **dig out the back door** (a job) |
+| 110 guests | kerosene heaters (guests wait 25% longer) |
+| 150 guests | **Tempura** (a recipe) |
+| 200 guests | a stronger belt motor |
+| 250 guests | **mochi ice cream**: pick the walk-in freezer's lock (a job) |
+| 300 guests | a full set of tableware (twenty of each) |
+| 350 guests | **Miso ramen** (a recipe) |
+| 430 guests and 4★ | hot towels at every seat (guests wait half again as long) |
+| 500 guests | an industrial belt motor |
+| 580 guests, after the back door | **the old kura**: pick its padlock (a job): house sake on every bill |
+| 680 guests, after the kura | a sake warmer (another ¥350 a bill) |
 
 Kit just arrives. The rest are little full-screen games; "later" puts one off, and it waits on your list:
 
@@ -181,14 +181,15 @@ has to be paid, so it takes a good many nights to have it all.
     dishes (a few tables to a tub), washes them, carries the clean ones back out to the shelves, and takes the trash
     out when the bin's full.
   - **Yui, waiter** (¥2,400): takes orders, pours tea, and carries dishes out from the pass (or off any counter) to
-    whoever ordered them, up to three at a time on a tray.
+    whoever ordered them, up to three at a time on a tray, and clears tables when there's nothing to carry.
   - **Hana, cashier** (¥1,600): rings people up at the register, and takes orders when nobody's waiting to pay.
   - **Kenji, sushi chef** (¥2,000): nigiri and onigiri down the belt for the guests along it, onto the pass for
     everyone else; green tea down the belt for the belt's guests.
   - **Ren, line cook** (¥2,800): fires the grills, the teppan, the fryer and the ramen pot for whatever's been ordered
     and plates it onto the pass.
   - **Sota, stock hand** (¥1,200): keeps the kitchen stocked. When a station runs low he goes up to the storeroom for
-    a crate and carries it down; when the sake keg runs dry he fetches a fresh one from the shed.
+    a crate and carries it down; when the sake keg runs dry he fetches a fresh one from the shed. Between runs he takes the
+    trash out.
 
   With all six hired the shop runs itself (you can still pitch in).
 - **for home:** paper lanterns, houseplants, a bonsai, a big woodblock print, a cat bed (a black cat moves
@@ -377,6 +378,12 @@ the back door and pick two locks, play Sushi Catch, buy station upgrades, open, 
 belt, washing up, a station restocked from the storeroom), learn nigiri off the night's card by dragging the ingredients onto the dish, sleep, wake for night 2, reload
 and check the save, hire all six and let them run night 2 with nobody playing, then hold the front room in the night parade with a katana, break a seal, sit through an oni
 night and fall. Set `CHROME_PATH` if Playwright can't find a Chromium.
+
+`npm run simulate -- --nights 30 --gap 2.5 --out run.json` is for balancing: a bot plays night after night of the
+real game (drawing switched off, about 30 nights a minute), learns every recipe, does every milestone job, hires and
+buys upgrades between nights, and logs each night: guests, walkouts, the rating and what cost it, takings, wages,
+the wholesaler's bill, the cash box. `--gap` is the seconds of game time between the bot's actions (the walking a
+person does); `--trace N` prints night N minute by minute.
 
 `.github/workflows/pages.yml` publishes the game to GitHub Pages on every push and runs the playtest. Turn it
 on once in the repository's Settings → Pages → Source: **GitHub Actions**; the site is then at

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { Model, C } from './voxel.js';
 import { Belt } from './belt.js';
 import { MAP } from './maps/index.js';
-import { Trash, bagModel } from './trash.js';
+import { Trash, bagModel, CAP } from './trash.js';
 import { Supplies, SUPPLY, isLoad, crateKind, crateModel } from './supplies.js';
 
 export const MENU = {
@@ -413,7 +413,9 @@ export class Service {
     if (this.uiT < 0) { this.uiT = 0.25; this.refreshUI(); }
     this.trash.update(dt, this.isOpen ? this.isOpen() : true);
     this.supplies.update();
-    if (sim && (!this.isOpen || this.isOpen())) { let dirty = 0; for (const st of this.crowd.seats) if (st.needsBus && !st.occupant) dirty++; this.dirtyT += dt * Math.max(0, dirty - 2); }
+    // (a few tables waiting to be cleared is a busy night; a room full of them is neglect. Not counted once it's
+    // getting light: the last of them all leave at once)
+    if (sim && (!this.isOpen || this.isOpen()) && !(this.closing && this.closing())) { let dirty = 0; for (const st of this.crowd.seats) if (st.needsBus && !st.occupant) dirty++; this.dirtyT += dt * Math.max(0, dirty - 4); }
     // the hired help (staff.js)
     if (this.crew) this.crew.update(dt, this.isOpen ? this.isOpen() : true);
   }
@@ -700,7 +702,7 @@ export class Service {
     // the kitchen bin, and the gomi stations its bags go out to
     if (this.trash.T) {
       const TR = this.trash.T;
-      I.add(TR.box, () => (this.has('trash') ? 'Kitchen bin (take the bag out)' : this.trash.n ? `Take the trash out (${Math.round(Math.min(1, this.trash.n / 12) * 100)}% full)` : 'Kitchen bin (empty)'), R('trashTake'), null, shape('trashBin'));
+      I.add(TR.box, () => (this.has('trash') ? 'Kitchen bin (take the bag out)' : this.trash.n ? `Take the trash out (${Math.round(Math.min(1, this.trash.n / CAP) * 100)}% full)` : 'Kitchen bin (empty)'), R('trashTake'), null, shape('trashBin'));
       for (const st of TR.stations) I.add(st.box, () => (this.has('trash') ? 'Put the bag in the gomi station' : `Gomi station${this.trash.bags[st.key] ? ` · ${this.trash.bags[st.key]} bag${this.trash.bags[st.key] > 1 ? 's' : ''} for the morning` : ''}`),
         R('trashOut', st.key), null, shape(`gomi_${st.key}`));
     }

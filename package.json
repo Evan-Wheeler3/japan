@@ -5,7 +5,8 @@
   "description": "A cozy voxel night shift in a snowy Japanese shop. No build step: serve the folder and open index.html.",
   "scripts": {
     "start": "python3 serve.py",
-    "playtest": "node scripts/playtest.mjs"
+    "playtest": "node scripts/playtest.mjs",
+    "simulate": "node scripts/simulate.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.63.0",

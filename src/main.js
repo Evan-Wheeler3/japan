@@ -707,6 +707,7 @@ async function boot() {
   // between nights (the sign still says CLOSED) you can upgrade the kitchen's stations
   service.between = () => shift.active && shift.waiting;
   service.isOpen = () => shift.active && !shift.waiting;
+  service.closing = () => shift.closing;
   service.stationUps = STATION_UPS;
   service.crew = new Staff({ scene, service, litMat, emitMat });
   if (dev) { shift.start(1); shift.openShop(); }
@@ -998,7 +999,7 @@ async function boot() {
   }
   requestAnimationFrame(tick);
   window.__yoake = window.__diner = { scene, camera, player, renderer, world, composer, bloom, named, interactions, doors, audio, crowd, service, shift, menu, save, home, arcade,
-    catalogData, mini, tutorial, ms: { record, pending, complete: completeMilestone, learn: learnRecipe, play: playMini, apply: applyAll }, get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, deco, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
+    catalogData, beginNight, mini, tutorial, ms: { record, pending, complete: completeMilestone, learn: learnRecipe, play: playMini, apply: applyAll }, get coop() { return coop; }, get net() { return net; }, map: MAP, get parade() { return parade; }, startParade, get dawn() { return dawn; }, deco, sunriseStart, sunriseEnd, setDawnOverride: (d) => { dawn = d; } };
 }
 
 boot().catch((e) => { console.error(e); status('something spilled: ' + e.message); });

@@ -31,27 +31,27 @@ export const CATALOG = [
   // right order); a locked part of the building has to be got into (a lock to pick, a drift to shovel).
   // ms: what it takes; how: 'recipe' | 'task' | 'gift'; needs: an earlier one
   { id: 'sushi', kind: 'milestone', how: 'recipe', ms: { served: 6 }, name: 'Salmon nigiri', text: 'Hand-pressed rice, a dab of wasabi, a slice of salmon. Made at the sushi case under the kitchen pass.' },
-  { id: 'dishes', kind: 'milestone', how: 'gift', ms: { served: 15 }, name: 'More cups and plates', text: 'A supplier sends four more of each for the shelves.' },
-  { id: 'onigiri', kind: 'milestone', how: 'recipe', ms: { served: 25 }, name: 'Onigiri', text: 'Rice balls round a salmon filling, wrapped in nori, pressed at the rice cookers.' },
+  { id: 'dishes', kind: 'milestone', how: 'gift', ms: { served: 20 }, name: 'More cups and plates', text: 'A supplier sends six more of each for the shelves.' },
+  { id: 'onigiri', kind: 'milestone', how: 'recipe', ms: { served: 45 }, name: 'Onigiri', text: 'Rice balls round a salmon filling, wrapped in nori, pressed at the rice cookers.' },
   { id: 'fridge', kind: 'milestone', how: 'gift', ms: { nights: 3 }, name: 'A drinks fridge', text: 'The drinks company puts a fridge by the east wall: ramune, tea and beer. ¥250 more on every bill.' },
-  { id: 'backdoor', kind: 'milestone', how: 'task', game: 'shovel', ms: { served: 40 }, name: 'Dig out the back door', text: "The back door's snowed shut from outside. Go up through the flat and down the fire escape into the yard, and shovel the drift off it. Then there's one more guest in every rush, and the trash goes out the back." },
-  { id: 'heaters', kind: 'milestone', how: 'gift', ms: { served: 55 }, name: 'Kerosene heaters', text: 'Two more heaters for the dining room. Warm guests wait 25% longer.' },
-  { id: 'tempura', kind: 'milestone', how: 'recipe', ms: { served: 70 }, name: 'Tempura', text: 'Shrimp in a light, lacy batter, fried at the fryers in the kitchen.' },
-  { id: 'beltMotor', kind: 'milestone', how: 'gift', ms: { served: 85 }, name: 'A stronger belt motor', text: 'The sushi belt runs half again as fast.' },
-  { id: 'freezer', kind: 'milestone', how: 'task', game: 'lockpick', ms: { served: 100 }, name: 'Mochi ice cream', text: "Nobody's seen the key to the old walk-in freezer in years. Pick its lock, get it humming, and mochi ice cream goes on the menu (¥450), from the chest freezer inside." },
-  { id: 'dishes2', kind: 'milestone', how: 'gift', ms: { served: 120 }, needs: 'dishes', name: 'A full set of tableware', text: 'Another four cups and plates: fourteen of each.' },
-  { id: 'ramen', kind: 'milestone', how: 'recipe', ms: { served: 140 }, name: 'Miso ramen', text: 'Bowls of ramen built up on the stove. Slow to make; everyone wants one.' },
-  { id: 'heaters2', kind: 'milestone', how: 'gift', ms: { served: 170, rating: 4 }, needs: 'heaters', name: 'Hot towels at every seat', text: 'Guests wait half again as long before giving up.' },
-  { id: 'beltMotor2', kind: 'milestone', how: 'gift', ms: { served: 200 }, needs: 'beltMotor', name: 'An industrial belt motor', text: 'The belt runs at twice its old speed.' },
-  { id: 'kura', kind: 'milestone', how: 'task', game: 'lockpick', ms: { served: 230 }, needs: 'backdoor', name: 'The old kura', text: 'The storehouse is padlocked, and the key went with the last owner. Pick the padlock and keep your own sake in there: a cup of house sake goes on every bill, ¥400 more.' },
-  { id: 'fridge2', kind: 'milestone', how: 'gift', ms: { served: 260 }, needs: 'kura', name: 'A sake warmer', text: 'Warm sake on snowy nights: another ¥350 on every bill.' },
+  { id: 'backdoor', kind: 'milestone', how: 'task', game: 'shovel', ms: { served: 75 }, name: 'Dig out the back door', text: "The back door's snowed shut from outside. Go up through the flat and down the fire escape into the yard, and shovel the drift off it. Then there's one more guest in every rush, and the trash goes out the back." },
+  { id: 'heaters', kind: 'milestone', how: 'gift', ms: { served: 110 }, name: 'Kerosene heaters', text: 'Two more heaters for the dining room. Warm guests wait 25% longer.' },
+  { id: 'tempura', kind: 'milestone', how: 'recipe', ms: { served: 150 }, name: 'Tempura', text: 'Shrimp in a light, lacy batter, fried at the fryers in the kitchen.' },
+  { id: 'beltMotor', kind: 'milestone', how: 'gift', ms: { served: 200 }, name: 'A stronger belt motor', text: 'The sushi belt runs half again as fast.' },
+  { id: 'freezer', kind: 'milestone', how: 'task', game: 'lockpick', ms: { served: 250 }, name: 'Mochi ice cream', text: "Nobody's seen the key to the old walk-in freezer in years. Pick its lock, get it humming, and mochi ice cream goes on the menu (¥450), from the chest freezer inside." },
+  { id: 'dishes2', kind: 'milestone', how: 'gift', ms: { served: 300 }, needs: 'dishes', name: 'A full set of tableware', text: 'Another eight cups and plates: twenty of each.' },
+  { id: 'ramen', kind: 'milestone', how: 'recipe', ms: { served: 350 }, name: 'Miso ramen', text: 'Bowls of ramen built up on the stove. Slow to make; everyone wants one.' },
+  { id: 'heaters2', kind: 'milestone', how: 'gift', ms: { served: 430, rating: 4 }, needs: 'heaters', name: 'Hot towels at every seat', text: 'Guests wait half again as long before giving up.' },
+  { id: 'beltMotor2', kind: 'milestone', how: 'gift', ms: { served: 500 }, needs: 'beltMotor', name: 'An industrial belt motor', text: 'The belt runs at twice its old speed.' },
+  { id: 'kura', kind: 'milestone', how: 'task', game: 'lockpick', ms: { served: 580 }, needs: 'backdoor', name: 'The old kura', text: 'The storehouse is padlocked, and the key went with the last owner. Pick the padlock and keep your own sake in there: a cup of house sake goes on every bill, ¥400 more.' },
+  { id: 'fridge2', kind: 'milestone', how: 'gift', ms: { served: 680 }, needs: 'kura', name: 'A sake warmer', text: 'Warm sake on snowy nights: another ¥350 on every bill.' },
   // the help: hire them all and the shop runs itself
   { id: 'staff_wash', kind: 'staff', name: 'Hire a dishwasher', price: 8000, wage: 1200, text: 'Taro runs the sink, and buses tables too: as guests leave he clears their dishes, washes them and shelves them, and takes the trash out when the bin is full. ¥1,200 a night.' },
-  { id: 'staff_waiter', kind: 'staff', name: 'Hire a waiter', price: 18000, wage: 2400, text: 'Yui takes orders, pours tea, and carries dishes out from the pass (or off any counter) to whoever ordered them. ¥2,400 a night.' },
+  { id: 'staff_waiter', kind: 'staff', name: 'Hire a waiter', price: 18000, wage: 2400, text: 'Yui takes orders, pours tea, and carries dishes out from the pass (or off any counter) to whoever ordered them. She clears tables too, when there\'s nothing to carry. ¥2,400 a night.' },
   { id: 'staff_hall', kind: 'staff', name: 'Hire a cashier', price: 12000, wage: 1600, text: 'Hana minds the register by the door and rings up everyone who comes to pay. ¥1,600 a night.' },
   { id: 'staff_sushi', kind: 'staff', name: 'Hire a sushi chef', price: 14000, wage: 2000, text: 'Kenji works the sushi case: nigiri (and onigiri) down the belt for the guests along it, onto the pass for everyone else. ¥2,000 a night.' },
   { id: 'staff_cook', kind: 'staff', name: 'Hire a line cook', price: 22000, wage: 2800, text: 'Ren works the grills, the teppan, the fryer and the ramen pot: he cooks what\'s been ordered and plates it onto the pass. ¥2,800 a night.' },
-  { id: 'staff_stock', kind: 'staff', name: 'Hire a stock hand', price: 9000, wage: 1200, text: 'Sota keeps the kitchen stocked: when a station runs low he fetches a crate down from the storeroom upstairs, and a fresh keg from the shed when the sake runs dry. ¥1,200 a night.' },
+  { id: 'staff_stock', kind: 'staff', name: 'Hire a stock hand', price: 9000, wage: 1200, text: 'Sota keeps the kitchen stocked: when a station runs low he fetches a crate down from the storeroom upstairs, and a fresh keg from the shed when the sake runs dry. Between runs he takes the trash out. ¥1,200 a night.' },
   { id: 'lanterns', kind: 'home', name: 'A string of paper lanterns', price: 1800, text: 'Little lanterns along the engawa, over the bay windows.' },
   { id: 'plants', kind: 'home', name: 'Houseplants', price: 2000, text: 'A monstera and a fern, for the corners.' },
   { id: 'bonsai', kind: 'home', name: 'Bonsai pine', price: 2800, text: 'On a stand by the window. Older than the shop.' },
@@ -120,7 +120,7 @@ export function applyUpgrades(service, owned) {
   const has = (id) => owned.includes(id);
   service.menuKinds = new Set(['tea', 'yakitori', 'gyoza', ...['sushi', 'onigiri', 'tempura', 'ramen'].filter(has), ...(has('freezer') ? ['icecream'] : [])]);
   const prevMax = service.stockMax;
-  service.stockMax = 6 + (has('dishes') ? 4 : 0) + (has('dishes2') ? 4 : 0);
+  service.stockMax = 6 + (has('dishes') ? 6 : 0) + (has('dishes2') ? 8 : 0);
   // new cups and plates go straight onto the shelves (not just from tomorrow night)
   if (prevMax && service.stockMax > prevMax && service.stock) { service.stock.mugs += service.stockMax - prevMax; service.stock.plates += service.stockMax - prevMax; }
   service.patienceBonus = has('heaters2') ? 1.5 : has('heaters') ? 1.25 : 1;

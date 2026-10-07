@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { Model, C } from './voxel.js';
 import { MAP } from './maps/index.js';
 
-export const CAP = 12; // guests to a bag
+export const CAP = 16; // guests to a bag
 
 // the tied-off bag, as you carry it (and as it sits at the station)
 let bagM = null;

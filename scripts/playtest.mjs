@@ -104,13 +104,13 @@ try {
   st = await page.evaluate(async () => {
     const M = await import('/src/home.js');
     const save = { pending: [] }, owned = [];
-    const got = M.reachMilestones(save, owned, { served: 45, nights: 3, rating: 3 }).map((m) => m.id);
-    const again = M.reachMilestones(save, owned, { served: 45, nights: 3, rating: 3 }).length;
+    const got = M.reachMilestones(save, owned, { served: 80, nights: 3, rating: 3 }).map((m) => m.id);
+    const again = M.reachMilestones(save, owned, { served: 80, nights: 3, rating: 3 }).length;
     const ladder = M.STATION_UPS.every((u) => u.track === 's' || u.track === 'v');
     return { got, owned, pending: save.pending, again, ladder };
   });
   check(st.got.join() === 'sushi,dishes,onigiri,fridge,backdoor' && st.owned.join() === 'dishes,fridge' && st.pending.join() === 'sushi,onigiri,backdoor' && st.again === 0 && st.ladder,
-    `45 guests and 3 nights reach ${st.got.join(', ')}: the kit arrives, the recipes and the back door wait to be done`);
+    `80 guests and 3 nights reach ${st.got.join(', ')}: the kit arrives, the recipes and the back door wait to be done`);
 
   // ---- dev: the ` key toggles a cash box that never runs out
   await page.keyboard.press('Backquote');
@@ -253,9 +253,9 @@ try {
     const shelf = label(/^Take a crate of skewers/);
     s.request('crateTake', 'yakitori');
     const carrying = s.loadKind(), stationLabel = (() => { const it = I.items.find((x) => { try { return /^Restock the yakitori/.test(x.label()); } catch { return false; } }); return it && it.label(); })();
-    s.request('refill', 'gyoza'); const wrong = S.level.gyoza === 6 && s.loadKind() === 'yakitori';
+    s.request('refill', 'gyoza'); const wrong = S.level.gyoza === 8 && s.loadKind() === 'yakitori';
     s.request('refill', 'yakitori');
-    const full = S.level.yakitori === 6 && !s.hands.length;
+    const full = S.level.yakitori === 8 && !s.hands.length;
     // the sake: a cup with every bill while there's some in the keg
     const q = { svc: { items: [{ kind: 'gyoza', done: true }], orderWait: 0, foodWait: 0 } };
     const withSake = s.bill(q).sub; S.level.sake = 0; const dry = s.bill(q).sub;
@@ -265,7 +265,7 @@ try {
   });
   check(st.refused && st.mark && /^Take a crate of skewers/.test(st.shelf || '') && st.carrying === 'yakitori' && st.wrong && st.full,
     `out of skewers the grill won't cook (a marker through the walls); "${st.shelf}" upstairs, carried down, fills it`);
-  check(st.sakePart === 400 && st.keg && st.sake === 12 && st.cost === 240, 'a dry keg takes the house sake off the bill till a fresh one comes from the shed; supplies are billed by the serving');
+  check(st.sakePart === 400 && st.keg && st.sake === 20 && st.cost === 240, 'a dry keg takes the house sake off the bill till a fresh one comes from the shed; supplies are billed by the serving');
   await page.evaluate(() => window.__yoake.service.supplies.reset());
 
   // ---- open the shop and work the night
