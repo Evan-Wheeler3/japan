@@ -1,5 +1,5 @@
-# Publishes the game to GitHub Pages (solo play only; co-op needs the Cloudflare relay, see deploy.sh),
-# and runs the end-to-end playtest. To turn the site on: repository Settings → Pages → Source: GitHub Actions.
+# Publishes the game to GitHub Pages (solo play only: co-op needs a relay, which Pages can't run; see the README's
+# hosting section), and runs the end-to-end playtests: the shop and the parade alone, and the parade with four players. To turn the site on: repository Settings → Pages → Source: GitHub Actions.
 name: Pages
 
 on:
@@ -43,3 +43,16 @@ jobs:
       - run: npm ci
       - run: npx playwright-core install --with-deps chromium
       - run: npm run playtest
+
+  coop-playtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium
+      - run: npm run coop-playtest

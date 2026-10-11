@@ -115,12 +115,14 @@ export class WalkGrid {
     return p;
   }
   // ------------------------------------------------------------------ the flow field
-  // how far every spot is from `goal` (walking, or climbing in through a window on the way)
+  // how far every spot is from `goal` (walking, or climbing in through a window on the way). In co-op `goal` is
+  // everyone still standing: each spot then leads to whoever's nearest
   flow(goal) {
     const dist = this.dist; dist.fill(Infinity);
-    if (goal < 0) return;
+    const goals = (Array.isArray(goal) ? goal : [goal]).filter((g) => g >= 0);
+    if (!goals.length) return;
     const heap = new Heap();
-    dist[goal] = 0; heap.push(goal, 0);
+    for (const g of goals) { dist[g] = 0; heap.push(g, 0); }
     const c = this.cell, cd = c * Math.SQRT2;
     while (heap.size) {
       const [n, d] = heap.pop();

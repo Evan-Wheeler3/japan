@@ -6,6 +6,7 @@
   "scripts": {
     "start": "python3 serve.py",
     "playtest": "node scripts/playtest.mjs",
+    "coop-playtest": "node scripts/coop-playtest.mjs",
     "simulate": "node scripts/simulate.mjs"
   },
   "devDependencies": {

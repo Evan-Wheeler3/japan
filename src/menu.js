@@ -158,13 +158,13 @@ export class Menu {
       const rows = players.map((q) => `<div class="person glass"><div class="av" style="background:${q.look ? q.look.coat : '#888'}"></div>
         <div class="nm">${esc(q.name)}</div><div class="note hand${q.host ? ' host' : ''}">${q.host ? 'opened up' : 'just walked in'}</div></div>`).join('');
       const empty = players.length < 4 ? `<div class="person empty"><div class="av"></div><div class="wait">waiting at the door…</div></div>` : '';
-      html = `<div class="col"><div class="hand tagline">${this.isHost ? 'friends are on their way' : 'you made it in'}</div>
+      html = `<div class="col"><div class="hand tagline">${this.parade ? (this.isHost ? 'call your friends: the parade is coming' : 'you made it in · the parade is coming') : this.isHost ? 'friends are on their way' : 'you made it in'}</div>
         <div style="display:flex;flex-direction:column;gap:10px"><div class="lbl">${this.isHost ? 'your code' : 'game code'}</div>
           <div class="neon amber code">${esc(this.code)}</div>
           ${this.isHost ? `<div style="display:flex;gap:10px"><button class="chip" data-act="copyCode">${this.copied === 'code' ? 'copied!' : 'copy code'}</button><button class="chip" data-act="copyLink">${this.copied === 'link' ? 'copied!' : 'copy link'}</button></div>` : ''}</div>
-        <div style="display:flex;flex-direction:column;gap:12px"><div class="lbl">working tonight · ${players.length} of 4</div><div class="people">${rows}${empty}</div></div>
-        <div class="actions">${this.isHost ? '<button class="pill-btn" data-act="start">open the shop</button>' : '<button class="pill-btn" disabled>waiting for the host…</button>'}
-          <button class="text-btn" data-act="closeUp">${this.isHost ? 'close up' : 'head home'}</button></div></div>`;
+        <div style="display:flex;flex-direction:column;gap:12px"><div class="lbl">${this.parade ? 'standing together' : 'working tonight'} · ${players.length} of 4</div><div class="people">${rows}${empty}</div></div>
+        <div class="actions">${this.isHost ? `<button class="pill-btn" data-act="start">${this.parade ? 'into the night' : 'open the shop'}</button>` : '<button class="pill-btn" disabled>waiting for the host…</button>'}
+          <button class="text-btn" data-act="closeUp">${this.isHost ? (this.parade ? 'call it off' : 'close up') : 'head home'}</button></div></div>`;
     } else if (s === 'pause') {
       const sub = this.pausePanel;
       html = `<div class="col">
@@ -225,6 +225,11 @@ export class Menu {
             <div class="nav"><button class="turn" data-act="page:-1" ${view <= 0 ? 'disabled' : ''}>‹ back</button><span class="hand">${view + 1} of ${views}</span><button class="turn" data-act="page:1" ${view >= views - 1 ? 'disabled' : ''}>next ›</button></div>
           </div></div>`;
       this.bookTurn = null;
+    } else if (s === 'parade') {
+      // the night parade: alone, or with up to three friends
+      html = `<div class="col"><div><div class="hand tagline">${esc(this.readyNote || 'the snow is falling. something is coming up out of it')}</div><div style="font:500 44px Fredoka">百鬼夜行</div></div>
+        ${this.notice ? `<div class="err">${esc(this.notice)}</div>` : ''}
+        ${items([['enter', 'rise alone', true, true], ['host', 'with friends · up to four'], ['join', 'join a friend'], ['quit', 'back to the shop']])}</div>${keys}`;
     } else if (s === 'ready') {
       html = `<div class="col"><div><div class="hand tagline">${esc(this.readyNote || 'the shop is open')}</div><div style="font:500 44px Fredoka">${esc(this.readyTitle || 'clock in')}</div></div>
         ${items([['enter', this.readyItem || 'come on in', true, true]])}</div>${keys}`;
@@ -263,7 +268,7 @@ export class Menu {
     else if (a === 'settings' && this.screen === 'pause') this.show('pause', { pausePanel: this.pausePanel === 'settings' ? null : 'settings' });
     else if (a === 'settings') go('settings');
     else if (a === 'custom') go('custom');
-    else if (a === 'back') go('main', { confirmNew: false });
+    else if (a === 'back') go(this.parade ? 'parade' : 'main', { confirmNew: false });
     else if (a === 'turnL') this.turn--;
     else if (a === 'turnR') this.turn++;
     else if (a === 'surprise') { this.profile.look = { ...randomLook(rand()), hat: Math.random() < 0.3 ? Math.floor(Math.random() * 2) : -1 }; this.save(); this.rebuildPreview(); this.render(); }

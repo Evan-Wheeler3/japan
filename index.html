@@ -517,6 +517,14 @@
     #zm-over .rd { display: flex; align-items: center; gap: 14px; margin: 8px 0; }
     #zm-over .rd b { font: 400 64px "Yuji Syuku", serif; font-weight: 400; color: #f4e6cc; }
     #zm-over .rd span { font: 600 18px Fredoka, sans-serif; color: #cdb497; }
+    /* with friends: everyone's points, bottom left over the round; who's down, who's out */
+    .zm-team { position: absolute; left: 34px; bottom: 132px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+    .zm-team .tr, #zm-over .team .tr { display: flex; align-items: center; gap: 8px; font: 600 15px Nunito, sans-serif; color: #f6e2b8; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+    .zm-team .tr i, #zm-over .team .tr i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+    .zm-team .tr b, #zm-over .team .tr b { font-weight: 600; min-width: 64px; }
+    .zm-team .tr span, #zm-over .team .tr span { font: 400 20px "Yuji Syuku", serif; }
+    .zm-team .tr.down span { color: #ff6a58; } .zm-team .tr.dead { opacity: .45; }
+    #zm-over .team { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px; }
     #zm-over .stats { display: grid; grid-template-columns: repeat(5, minmax(96px, auto)); gap: 10px; }
     #zm-over .stats div { background: rgba(40,10,6,.6); border: 1px solid rgba(255,200,160,.14); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; }
     #zm-over .stats b { font: 600 26px Fredoka, sans-serif; color: #fff2dc; }
@@ -524,7 +532,7 @@
     #zm-over .acts { display: flex; gap: 20px; align-items: center; margin-top: 14px; }
     #zm-over .pill-btn { background: #c8201a; color: #fff2e0; box-shadow: 0 0 28px rgba(220,30,20,.45); }
     @media (max-width: 700px) {
-      .zm-round { font-size: 60px; left: 16px; bottom: 16px; } .zm-points { font-size: 32px; } .zm-right { right: 16px; bottom: 16px; }
+      .zm-round { font-size: 60px; left: 16px; bottom: 16px; } .zm-team { left: 16px; bottom: 90px; } .zm-points { font-size: 32px; } .zm-right { right: 16px; bottom: 16px; }
       #zm-over .stats { grid-template-columns: repeat(2, minmax(110px, auto)); } #zm-over .ttl { font-size: 54px; }
     }
   </style>
@@ -547,7 +555,7 @@
   <div id="overlay"><div class="shade"></div><div id="screen"></div></div>
   <div id="summary"></div>
   <div id="purse" class="hud glass"></div>
-  <div id="zm"><div class="zm-hurt"></div><div class="zm-flash"></div><div class="zm-round"></div><div class="zm-perks"></div><div class="zm-timers"></div>
+  <div id="zm"><div class="zm-hurt"></div><div class="zm-flash"></div><div class="zm-round"></div><div class="zm-team"></div><div class="zm-perks"></div><div class="zm-timers"></div>
     <div class="zm-right"><div class="zm-throw"></div><div class="zm-weapon"></div><div class="zm-points"></div><div class="zm-pluses"></div></div>
     <div class="zm-msg"></div><div class="zm-sub"></div></div>
   <div id="tut"></div>

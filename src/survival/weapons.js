@@ -304,8 +304,7 @@ export class Arsenal {
       // a sideways cut carries across the body
       const side = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)).multiplyScalar(-this.swing.side * 0.8);
       if (!w.blunt) dir.add(side).normalize();
-      const res = k.hurt({ dmg: this.insta ? 1e9 : w.dmg, part, blade: w.blade || 0, blunt: !!w.blunt, knock: w.knock, dir, side: this.swing.side, point: c, headMul: 1.5 });
-      this.onDamage(k, res, { melee: true, weapon: w });
+      this.horde.strike(k, { dmg: this.insta ? 1e9 : w.dmg, part, blade: w.blade || 0, blunt: !!w.blunt, knock: w.knock, dir, side: this.swing.side, point: c, headMul: 1.5 }, { melee: true, weapon: w }, this.onDamage);
       n++; landed = true;
     }
     if (landed) { this.audio.zmHit && this.audio.zmHit(w.blunt ? 'blunt' : w.blade ? 'blade' : 'punch'); this.anim.kick = Math.max(this.anim.kick, 0.35); }
@@ -320,8 +319,7 @@ export class Arsenal {
     let mul = 1;
     for (const h of hits) {
       const point = o.clone().addScaledVector(d, h.t);
-      const res = h.k.hurt({ dmg: this.insta ? 1e9 : w.dmg * mul, part: h.part, gun: true, headMul: w.head, pop: w.pop, dir: d.clone(), point });
-      this.onDamage(h.k, res, { gun: true, weapon: w });
+      this.horde.strike(h.k, { dmg: this.insta ? 1e9 : w.dmg * mul, part: h.part, gun: true, headMul: w.head, pop: w.pop, dir: d.clone(), point }, { gun: true, weapon: w }, this.onDamage);
       mul *= 0.75;
     }
     if (hits.length < w.pierce && wallT < 400) {
@@ -372,8 +370,7 @@ export class Arsenal {
       let smash = null;
       if (hit) {
         const point = prev.clone().addScaledVector(seg, hit.t);
-        const res = hit.k.hurt({ dmg: this.insta ? 1e9 : THROWN[T.kind].dmg, part: hit.part, dir: seg.clone(), point, headMul: 2 });
-        this.onDamage(hit.k, res, { thrown: true });
+        this.horde.strike(hit.k, { dmg: this.insta ? 1e9 : THROWN[T.kind].dmg, part: hit.part, dir: seg.clone(), point, headMul: 2 }, { thrown: true }, this.onDamage);
         smash = point;
       } else if (this.world.solid(T.p.x, T.p.y, T.p.z) || T.t > 4) smash = T.p;
       if (smash) {

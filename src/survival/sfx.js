@@ -81,8 +81,8 @@ export class ParadeSound {
     else if (kind === 'blunt') { this.osc(t, 0.25, 90, 40, 0.8, d); this.noise(t, 0.12, 500, 1, 0.6, d); this.noise(t + 0.02, 0.1, 2200, 2, 0.2, d); }
     else { this.osc(t, 0.15, 120, 60, 0.5, d); this.noise(t, 0.06, 600, 1, 0.3, d); }
   }
-  shot(id) {
-    if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(1.0);
+  shot(id, pos = null) { // (pos: a friend's, somewhere else in the place)
+    if (!this.ctx) return; const t = this.ctx.currentTime, d = this.out(pos ? 0.85 : 1.0, pos);
     if (id === 'tanegashima') { this.noise(t, 0.9, 260, 0.6, 1.2, d, 'lowpass', null, this.a.brown); this.noise(t, 0.12, 1800, 0.7, 0.8, d); this.osc(t, 0.6, 70, 30, 0.9, d); for (let i = 0; i < 6; i++) this.noise(t + 0.2 + i * 0.09, 0.05, 2500, 2, 0.08, d); return; }
     if (id === 'type100') { this.noise(t, 0.06, 2600, 0.8, 0.55, d, 'highpass'); this.noise(t, 0.14, 500, 0.7, 0.45, d, 'lowpass', null, this.a.brown); this.osc(t, 0.08, 190, 70, 0.3, d); return; }
     if (id === 'type96') { this.noise(t, 0.08, 2000, 0.8, 0.8, d, 'highpass'); this.noise(t, 0.22, 340, 0.7, 0.75, d, 'lowpass', null, this.a.brown); this.osc(t, 0.12, 120, 50, 0.45, d); if (Math.random() < 0.3) this.noise(t + 0.15, 0.4, 600, 0.5, 0.08, d, 'lowpass'); return; }

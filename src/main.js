@@ -19,6 +19,7 @@ import { Net, newCode } from './net.js';
 import { Coop } from './coop.js';
 import { TouchControls, isTouch } from './touch.js';
 import { Parade } from './survival/mode.js';
+import { Team } from './survival/team.js';
 import { MAP, setMap } from './maps/index.js';
 import { MOUNTAIN } from './maps/mountain.js';
 import { TOKYO } from './maps/tokyo.js';
@@ -238,7 +239,7 @@ async function boot() {
     else if (!locked && arrived && !document.body.classList.contains('summary'))
       menu.show('pause', { clock: parade ? parade.pauseText() : clockText(shift.minutes).toLowerCase(), coop: !!coop, isHost: !!(coop && coop.isHost), pausePanel: null });
     // full pause once you've come in (solo only: in co-op the shop keeps going for everyone else)
-    paused = arrived && !locked && !coop && !dev && !sunrise && !arcadeOpen;
+    paused = arrived && !locked && !coop && !(parade && parade.team) && !dev && !sunrise && !arcadeOpen; // (with friends nothing waits for you)
     if (audio.ctx) { if (paused && !arcadeOpen && !miniOpen) audio.ctx.suspend(); else audio.ctx.resume(); }
     if (locked && !introShown) { introShown = true; setTimeout(() => $('intro').classList.add('gone'), 9000); }
   }
@@ -728,15 +729,32 @@ async function boot() {
     wakeUp();
     if (!net.isHost) menu.show('ready', { readyNote: `${net.nameOf(net.players.find((p) => p.host)?.id)} opened up`, readyTitle: 'the shop is open', readyItem: 'come in' });
   };
-  const sentBegin = new Set();
+  const sentBegin = new Set(), modeSent = new Set();
+  // this page is the night parade's (reached from the title's menu item, or sent here to join a friend's)
+  const paradeMode = !!paradeNext;
+  menu.parade = paradeMode;
+  const startTeamParade = () => startParade(new Team({ net, scene, litMat, emitMat }));
   const wireNet = () => {
     net.onLobby = (players) => {
-      if (!coop) menu.show('lobby', { players });
+      if (!coop && !parade) menu.show('lobby', { players });
       if (coop) coop.syncAvatars();
-      // someone joined after we opened: let them in
-      if (net.isHost && coop) for (const p of players) if (p.id !== net.id && !sentBegin.has(p.id)) { sentBegin.add(p.id); net.sendTo(p.id, { t: 'begin' }); }
+      if (parade && parade.team) parade.team.sync();
+      if (!net.isHost) return;
+      // tell everyone who walks in what we're playing (a friend on the wrong page goes to the right one)
+      for (const p of players) if (p.id !== net.id && !modeSent.has(p.id)) { modeSent.add(p.id); net.sendTo(p.id, { t: 'mode', mode: paradeMode ? 'parade' : 'shop' }); }
+      // someone joined after we started: let them in (in the parade, with everything they've missed)
+      if (coop || (parade && parade.team)) for (const p of players) if (p.id !== net.id && !sentBegin.has(p.id)) {
+        sentBegin.add(p.id); net.sendTo(p.id, { t: 'begin' });
+        if (parade && parade.team) parade.sendState(p.id);
+      }
     };
-    net.on('begin', () => { if (!net.isHost) beginCoop(); });
+    net.on('mode', (m) => {
+      if (net.isHost || (m.mode === 'parade') === paradeMode) return;
+      // the host's playing the other thing: reload onto its map and join again
+      try { if (m.mode === 'parade') sessionStorage.setItem('yoake.parade', '1'); sessionStorage.setItem('yoake.join', net.code); } catch {}
+      net.close(); location.reload();
+    });
+    net.on('begin', () => { if (net.isHost) return; if (paradeMode) startTeamParade(); else beginCoop(); });
     net.onClose = (why) => leaveWith(why);
   };
   const applySettings = (st) => { audio.musicVol = st.radio; audio.windVol = st.wind; player.sens = 0.0008 + st.look * 0.0028; };
@@ -745,25 +763,32 @@ async function boot() {
     onSolo: () => enter(),
     // the night parade is played on the mountain: off the street and up there (a reload, as the shop's world is built once)
     onParade: () => { if (MAP === MOUNTAIN) return startParade(); try { sessionStorage.setItem('yoake.parade', '1'); } catch {} location.reload(); },
-    onHost: async () => {
+    // keep: the code to open with again (the parade's "rise again, all of you": the old one's freed as we leave)
+    onHost: async (keep = null) => {
       menu.show('connecting');
-      for (let tries = 0; tries < 5 && !net; tries++) {
+      const home = paradeMode ? 'parade' : 'main';
+      for (let tries = 0; tries < (keep ? 8 : 5) && !net; tries++) {
         const n = new Net();
-        try { await n.connect(newCode(), 'host', menu.profile); net = n; }
-        catch (e) { if (!/taken/.test(e.message)) return menu.show('main', { notice: e.message }); }
+        try { await n.connect(keep || newCode(), 'host', menu.profile); net = n; }
+        catch (e) { if (!/taken/.test(e.message)) return menu.show(home, { notice: e.message }); if (keep) await new Promise((r) => setTimeout(r, 700)); }
       }
-      if (!net) return menu.show('main', { notice: "couldn't get a game code, try again" });
+      if (!net) return menu.show(home, { notice: "couldn't get a game code, try again" });
       wireNet();
       menu.show('lobby', { code: net.code, isHost: true, players: net.players });
     },
-    onJoin: async (code) => {
+    // tries: when following the host back in, they may not be there yet
+    onJoin: async (code, tries = 1) => {
       menu.show('join', { busy: true, error: null });
-      const n = new Net();
-      try { await n.connect(code, 'join', menu.profile); } catch (e) { return menu.show('join', { busy: false, error: e.message }); }
-      net = n; menu.busy = false; wireNet();
+      for (let i = 0; i < tries; i++) {
+        const n = new Net();
+        try { await n.connect(code, 'join', menu.profile); net = n; break; }
+        catch (e) { if (i === tries - 1 || !/no game/.test(e.message)) return menu.show('join', { busy: false, error: e.message }); await new Promise((r) => setTimeout(r, 1000)); }
+      }
+      menu.busy = false; wireNet();
       menu.show('lobby', { code, isHost: false, players: net.players });
     },
     onStart: () => {
+      if (paradeMode) { for (const p of net.players) sentBegin.add(p.id); net.send({ t: 'begin' }); startTeamParade(); return; }
       for (const p of net.players) sentBegin.add(p.id);
       net.send({ t: 'begin' });
       beginCoop(); enter();
@@ -785,11 +810,14 @@ async function boot() {
   let notice = null;
   try { notice = sessionStorage.getItem('yoake.notice'); sessionStorage.removeItem('yoake.notice'); } catch {}
   const joinCode = (new URLSearchParams(location.search).get('join') || '').toUpperCase();
+  // coming back round: the host opening again with the same code, or a friend following them (or sent to this map)
+  let rehost = null, autoJoin = null;
+  try { rehost = sessionStorage.getItem('yoake.rehost'); autoJoin = sessionStorage.getItem('yoake.join'); sessionStorage.removeItem('yoake.rehost'); sessionStorage.removeItem('yoake.join'); } catch {}
+  if (paradeNext) menu.h.onResume = () => startParade();
   if (joinCode) { history.replaceState(null, '', location.pathname); menu.show('join', { code: joinCode, notice: null }); }
-  else if (paradeNext) {
-    menu.h.onResume = () => startParade();
-    menu.show('ready', { readyNote: 'the snow is falling. something is coming up out of it', readyTitle: '百鬼夜行', readyItem: 'rise again' });
-  }
+  else if (autoJoin) menu.h.onJoin(autoJoin, 10);
+  else if (paradeNext && rehost) menu.h.onHost(rehost);
+  else if (paradeNext) menu.show('parade', { notice });
   else { menu.saveInfo = { night: save.night }; menu.show('main', { notice }); }
   for (const seat of batch.seats) {
     interactions.add([seat.x, seat.y - 0.1, seat.z, 0.24, 0.3, 0.24], () => 'Sit down', () => {
@@ -813,7 +841,9 @@ async function boot() {
 
   // ---------------------------------------------------------------- 百鬼夜行: the night parade (a survival mode; the shop's save is untouched)
   let parade = null;
-  const startParade = () => {
+  // who's in the way of a door swinging shut: you, your friends, the horde
+  const paradeAgents = () => [player.pos, ...(parade.team ? [...parade.team.avatars.values()].filter((a) => a.target).map((a) => a.pos) : []), ...parade.horde.list.filter((k) => k.alive).map((k) => k.pos)];
+  const startParade = (team = null) => {
     if (parade) { lock(); return; }
     if (arrived) return;
     audio.start();
@@ -824,8 +854,14 @@ async function boot() {
     parade = new Parade({ scene, camera, player, world, interactions, audio, toast, litMat, emitMat, glassMat, composer, snowPile,
       doors: D,
       allDoors: doors, glass: glassPanes, lamps, hud: $('zm'),
-      onQuit: () => location.reload(),
-      onAgain: () => { try { sessionStorage.setItem('yoake.parade', '1'); } catch {} location.reload(); } });
+      team,
+      onQuit: () => { if (net) net.close(); location.reload(); },
+      // again: alone, straight back in; with friends, the host takes everyone back to the lobby (same code) and they follow
+      onAgain: () => {
+        try { sessionStorage.setItem('yoake.parade', '1'); if (team) { sessionStorage.setItem('yoake.rehost', net.code); team.send('again', { code: net.code }); } } catch {}
+        setTimeout(() => { if (net) net.close(); location.reload(); }, team ? 300 : 0);
+      },
+      onRejoin: (code) => { try { sessionStorage.setItem('yoake.parade', '1'); sessionStorage.setItem('yoake.join', code); } catch {} if (net) net.close(); location.reload(); } });
     parade.start();
     // phones: buttons to strike (hold to keep swinging), throw a dish or a fire-pot, jump, switch weapons, reload, and
     // use (hold to rebuild)
@@ -866,7 +902,9 @@ async function boot() {
     const ticker = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 100)'], { type: 'text/javascript' })));
     ticker.onmessage = () => {
       const now = performance.now(), dt = Math.min(0.25, (now - bgLast) / 1000); bgLast = now;
-      if (!document.hidden || !coop || !coop.isHost) return;
+      if (!document.hidden) return;
+      if (parade && parade.team && parade.host) { parade.update(dt); for (const d of doors) d.update(dt, paradeAgents()); return; } // (the parade goes on for your friends)
+      if (!coop || !coop.isHost) return;
       crowd.update(dt); service.update(dt); shift.update(dt);
       for (const d of doors) d.update(dt, [player.pos, ...crowd.positions(), ...crowd.others, ...service.crew.positions()]);
       coop.update(dt);
@@ -907,12 +945,12 @@ async function boot() {
 
     // the shop waits for you: nothing ticks behind the menu
     // (a hidden co-op host is run by the background ticker instead, so don't double up)
-    const bgHost = document.hidden && coop && coop.isHost;
-    if (parade) parade.update(dt);
+    const bgHost = document.hidden && ((coop && coop.isHost) || (parade && parade.team && parade.host));
+    if (parade) { if (!bgHost) parade.update(dt); }
     else if ((arrived || dev || (coop && !coop.isHost)) && !bgHost) { crowd.update(dt); service.update(dt); shift.update(dt); tutorial.update(dt); }
     if (coop) coop.update(dt);
-    const agents = parade ? [player.pos, ...parade.horde.list.filter((k) => k.alive).map((k) => k.pos)] : [player.pos, ...crowd.positions(), ...crowd.others, ...service.crew.positions()];
-    for (const d of doors) d.update(dt, coop && !coop.isHost ? null : agents); // guests: the host decides when doors close
+    const agents = parade ? paradeAgents() : [player.pos, ...crowd.positions(), ...crowd.others, ...service.crew.positions()];
+    if (!bgHost || !parade) for (const d of doors) d.update(dt, (coop && !coop.isHost) || (parade && !parade.host) ? null : agents); // guests: the host decides when doors close
     if (moving) updateMove();
     else if (player.locked) interactions.update();
     if (touchUI && touchUI.extra) touchUI.extra();

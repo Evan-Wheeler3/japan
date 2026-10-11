@@ -236,7 +236,7 @@ coin on the offering box.
 A survival mode on the title screen, separate from the shop: your save, yen and purchases are never touched.
 
 It's the old shop up on the snowy mountain, boarded up, with the gaki (the hungry dead, in tattered burial white) coming up out
-of the snow in rounds. It plays like Black Ops' zombies, solo. The first five rounds are counted a stroke of 正 at a
+of the snow in rounds. It plays like Black Ops' zombies, alone or with up to three friends. The first five rounds are counted a stroke of 正 at a
 time (the Japanese tally), after that as kanji numerals in the corner. You start in the front room with
 500 points and nothing in your hands. The dishes on the booth tables are your first weapons: grab them with **E** and
 throw them with the mouse or **Q** (plates, tea cups and sake flasks all break on whatever they hit). With no weapon
@@ -256,8 +256,29 @@ at most), and it bounces, rolls and goes off a couple of seconds later, blowing 
 | **Space** | jump |
 | **E** | use things |
 | hold **E** at a window | rebuild its boards |
+| hold **E** by a friend who's down | get them back up |
 
 On a phone there are strike, use, dish, pot, jump, 1/2 and reload buttons.
+
+**With friends (up to four).** Choose the night parade, then "with friends": you get a four-letter code to share (or
+a link). Friends pick "join a friend" and type it, from the title or from the parade's own screen; anyone who joins
+from the shop's title is taken to the mountain automatically. When everyone's in, "into the night" starts it for all
+of you. Someone can still join after it's started.
+
+- **What's shared and what's yours.** Everyone has their own points, weapons, blessings, fire-pots and health. The
+  seals, the power, the boards on the windows, the doors, the dishes on the tables, the omikuji box and the gifts the
+  dead leave behind are shared: open a room and it's open for everyone (and only the one who broke the seal pays). The
+  box shakes for one of you at a time, and only they can take what comes out. A gift is everyone's: whoever walks into
+  it, double points and one-blow kills work for all of you, max ammo fills everyone up, and the bomb pays everyone.
+- **More of them.** As in Black Ops, each extra player brings six more yōkai a round (scaled the same way as the
+  rounds), and they rise a little quicker. Each one goes for whoever's nearest.
+- **Down, not out.** When your health runs out you go down instead of dying: you can't move or fight, your blessings
+  are gone, and you have 30 seconds. A friend standing over you holding **E** for three seconds gets you back up (the
+  Omamori does it in half the time; with friends it doesn't revive you on its own). Bleed out and you're out until the
+  next round starts, when you're back in the front room with your points and nothing else. When all of you are down
+  or out, the night's over; the host's "rise again, all of you" takes everyone back to the lobby with the same code.
+- Your friends' points are listed bottom left, over the round, with a red cross by anyone who's down (there's a
+  cross over them in the world too, through the walls).
 
 - **Rounds: Black Ops' rules, eased.** Four-fifths as many come (4 in round one, then 6, 10, 14, 19, 21 and on up),
   they rise 30% more slowly (2.75 s apart on round one, 5% quicker each round, down to 0.3 s), and no more than 24
@@ -357,7 +378,7 @@ On a phone there are strike, use, dish, pot, jump, 1/2 and reload buttons.
 | `src/service.js` | The night's work: orders, cooking stations, carrying, serving, paying, dishes, HUD |
 | `src/staff.js` | The hired help: five who walk the shop and do the work (bussing, washing, cooking, waiting, the register) |
 | `src/trash.js` | The kitchen bin, the bags and the gomi stations |
-| `src/survival/` | The night parade: `mode.js` (rounds, points, seals, buys, the power, blessings, the box, the HUD), `nav.js` (a two-level walking grid and flow field over the whole lot), `horde.js` and `yokai.js` (the gaki and oni, their rigs and dismemberment), `weapons.js` (first-person weapons and thrown dishes), `grenade.js` (the fire-pots), `gore.js`, `props.js`, `sfx.js` |
+| `src/survival/` | The night parade: `mode.js` (rounds, points, seals, buys, the power, blessings, the box, the HUD), `nav.js` (a two-level walking grid and flow field over the whole lot), `horde.js` and `yokai.js` (the gaki and oni, their rigs and dismemberment), `weapons.js` (first-person weapons and thrown dishes), `grenade.js` (the fire-pots), `team.js` (playing with friends: the others, and the messages between your games), `gore.js`, `props.js`, `sfx.js` |
 | `src/belt.js` | The kaiten sushi belt: its loop from the kitchen round the island, the plates riding it |
 | `src/home.js` | The save file, the catalog, the milestones, what each upgrade does, and the things you can buy for the apartment |
 | `src/minigames.js` | The full-screen milestone games: a recipe's ingredients in order, picking a lock, shovelling the drift |
@@ -379,18 +400,31 @@ belt, washing up, a station restocked from the storeroom), learn nigiri off the 
 and check the save, hire all six and let them run night 2 with nobody playing, then hold the front room in the night parade with a katana, break a seal, sit through an oni
 night and fall. Set `CHROME_PATH` if Playwright can't find a Chromium.
 
+`npm run coop-playtest` is the night parade with four players: four browsers, each with its own save, on the local
+co-op server. One hosts from the parade's screen and three join from the shop's title (and are sent up the
+mountain); the same yōkai rise on every screen, a guest's kill is decided by the host and paid to the guest, a guest
+breaks a seal for everyone, a fallen guest is got back up by another, all four go down and the night ends on every
+screen, and "rise again" brings them all back to the lobby with the same code.
+
 `npm run simulate -- --nights 30 --gap 2.5 --out run.json` is for balancing: a bot plays night after night of the
 real game (drawing switched off, about 30 nights a minute), learns every recipe, does every milestone job, hires and
 buys upgrades between nights, and logs each night: guests, walkouts, the rating and what cost it, takings, wages,
 the wholesaler's bill, the cash box. `--gap` is the seconds of game time between the bot's actions (the walking a
 person does); `--trace N` prints night N minute by minute.
 
-`.github/workflows/pages.yml` publishes the game to GitHub Pages on every push and runs the playtest. Turn it
+`.github/workflows/pages.yml` publishes the game to GitHub Pages on every push and runs both playtests. Turn it
 on once in the repository's Settings → Pages → Source: **GitHub Actions**; the site is then at
 `https://<your-user>.github.io/<repo>/`. That link is for solo play.
 
 Add `#dev` to the URL to skip the title overlay. `window.__yoake` exposes the scene, camera, player and the
 night for debugging.
 
-Co-op needs the relay deployed to your own Cloudflare account (`deploy.sh`, plus a binding from the Pages
-project to the `yoake-relay` worker's `Room` Durable Object). Solo play needs nothing but the local server.
+Co-op (the shop's and the night parade's) needs the relay, which GitHub Pages can't run: the Pages link is for
+solo play. Two ways to get it:
+
+- **On your own machine or network:** `node scripts/coop-server.mjs` serves the game and runs the relay on port 8787,
+  with nothing to install. Open `http://localhost:8787` (friends on the same network use this machine's address).
+- **Online:** deploy to your own Cloudflare account (`deploy.sh`, plus a binding from the Pages project to the
+  `yoake-relay` worker's `Room` Durable Object).
+
+Solo play needs nothing but the local server.

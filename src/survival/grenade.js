@@ -29,13 +29,17 @@ export class Grenades {
     if (this.left <= 0) return false;
     this.left--;
     const o = camera.getWorldPosition(new THREE.Vector3()), d = camera.getWorldDirection(new THREE.Vector3());
+    const p = o.clone().addScaledVector(d, 0.45); p.y -= 0.12;
+    const v = d.clone().multiplyScalar(13 * power).add(new THREE.Vector3(0, 2.6, 0));
+    this.launch(p, v);
+    return { p: p.toArray(), v: v.toArray() };
+  }
+  // a pot in the air from p at v (harmless: a friend's, seen here; theirs does the damage)
+  launch(p, v, harmless = false) {
     const mesh = potModel().mesh(this.mats.lit, this.mats.emit); mesh.scale.setScalar(1.2);
     const spark = this.spark.clone(); spark.position.set(0, 0.16, 0); mesh.add(spark);
-    const p = o.clone().addScaledVector(d, 0.45); p.y -= 0.12;
     mesh.position.copy(p); this.scene.add(mesh);
-    const v = d.clone().multiplyScalar(13 * power).add(new THREE.Vector3(0, 2.6, 0));
-    this.live.push({ mesh, spark, p, v, t: 0, w: new THREE.Vector3(6, 3, 4) });
-    return true;
+    this.live.push({ mesh, spark, p: p.clone(), v: v.clone(), t: 0, w: new THREE.Vector3(6, 3, 4), harmless });
   }
   solid(x, y, z) { return this.world.solid(x, y, z); }
   update(dt) {
@@ -58,26 +62,25 @@ export class Grenades {
       // the fuse fizzes
       if (Math.random() < dt * 30) this.gore.ember(G.p.x, G.p.y + 0.18, G.p.z, (Math.random() - 0.5) * 0.6, 0.6, (Math.random() - 0.5) * 0.6, 0xffc040, 0.025, 0.3);
       G.spark.visible = Math.floor(G.t * 16) % 2 === 0;
-      if (G.t >= FUSE) { this.blast(G.p); this.scene.remove(G.mesh); this.live.splice(i, 1); }
+      if (G.t >= FUSE) { this.blast(G.p, G.harmless); this.scene.remove(G.mesh); this.live.splice(i, 1); }
     }
   }
-  blast(at) {
+  blast(at, harmless = false) {
     const gore = this.gore, ground = this.groundAt(at);
     this.light.position.set(at.x, at.y + 0.6, at.z); this.light.intensity = 60;
     gore.fire(at.x, at.y + 0.2, at.z, 70, 6);
     gore.burst(at.x, ground + 0.05, at.z, 26, [0x3a3632, 0x2a2420, 0x6a6460, 0x1a1816], 0.05, 5, ground);
     gore.splat(at.x, ground, at.z, 1.6, 0x141210);                     // the scorch
-    for (const k of this.horde.list) {
+    if (!harmless) for (const k of this.horde.list) {
       if (!k.alive) continue;
       const c = k.center(new THREE.Vector3()), d = c.distanceTo(at);
       if (d > RADIUS) continue;
       // anything behind a wall is spared
       if (this.wallBetween(at, c)) continue;
       const fall = 1 - d / RADIUS, dir = c.clone().sub(at).setY(0).normalize();
-      const res = k.hurt({ dmg: (300 + this.round * 90) * (0.35 + fall), part: 'torso', blast: fall, dir, point: c, knock: 3 + fall * 5, blunt: true });
-      this.onDamage && this.onDamage(k, res, { blast: true });
+      this.horde.strike(k, { dmg: (300 + this.round * 90) * (0.35 + fall), part: 'torso', blast: fall, dir, point: c, knock: 3 + fall * 5, blunt: true }, { blast: true }, this.onDamage);
     }
-    this.onBlast && this.onBlast(at);
+    this.onBlast && this.onBlast(at, harmless);
   }
   groundAt(p) { for (let y = p.y + 0.2; y > p.y - 3; y -= 0.0625) if (this.solid(p.x, y, p.z)) return Math.floor((y + 0.25) / 0.125) * 0.125 - 0.25 + 0.125; return p.y - 0.2; }
   // a wall between them shields a yōkai; a table or a bench doesn't (the blast goes over it): it's cover only if the

@@ -464,10 +464,10 @@ try {
   // the rules, as in Black Ops (solo): how many come and how fast
   st = await page.evaluate(async () => {
     const M = await import('/src/survival/mode.js');
-    return { counts: [1, 2, 3, 4, 5, 6, 10].map(M.roundCount), d1: M.spawnDelay(1), d56: M.spawnDelay(56), oni: [5, 10, 15].map(M.oniCount), hp: [1, 10].map((r) => Math.round(M.roundHealth(r))) };
+    return { counts: [1, 2, 3, 4, 5, 6, 10].map((r) => M.roundCount(r)), four: [1, 10].map((r) => M.roundCount(r, 4)), d1: M.spawnDelay(1), d56: M.spawnDelay(56), oni: [5, 10, 15].map(M.oniCount), hp: [1, 10].map((r) => Math.round(M.roundHealth(r))) };
   });
-  check(st.counts.join() === '4,6,10,14,19,21,26' && st.d1 === 2.75 && st.d56 === 0.3 && st.oni.join() === '2,3,4' && st.hp.join() === '100,756',
-    `rounds follow Black Ops, eased: ${st.counts.join(', ')} come, ${st.d1} s apart on round one, ${st.d56} s by round 56; oni ${st.oni.join(', ')}`);
+  check(st.counts.join() === '4,6,10,14,19,21,26' && st.four.join() === '8,62' && st.d1 === 2.75 && st.d56 === 0.3 && st.oni.join() === '2,3,4' && st.hp.join() === '100,756',
+    `rounds follow Black Ops, eased: ${st.counts.join(', ')} come (${st.four.join(', ')} with four), ${st.d1} s apart on round one, ${st.d56} s by round 56; oni ${st.oni.join(', ')}`);
   // the power: the machines are dark until the breaker in the washrooms' hall is thrown
   st = await page.evaluate(() => {
     const d = window.__yoake, P = d.parade, before = P.points;

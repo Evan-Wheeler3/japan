@@ -1,7 +1,7 @@
 // The horde: every yōkai on the lot, walking downhill on the flow field toward you, tearing the boards off the
 // windows and climbing through, opening doors, crowding round you and pushing each other aside.
 import * as THREE from 'three';
-import { Yokai } from './yokai.js';
+import { Yokai, seeded, newSeed } from './yokai.js';
 
 const _o = new THREE.Vector3(), _d = new THREE.Vector3();
 
@@ -15,7 +15,8 @@ export class Horde {
   get alive() { return this.list.filter((y) => y.alive); }
   // a new yōkai rising at (x, y, z); stats from the round
   spawn(kind, x, y, z, stats, opts = {}) {
-    const k = new Yokai(kind, this, opts);
+    const seed = opts.seed ?? newSeed(), k = seeded(seed, () => new Yokai(kind, this, opts));
+    k.seed = seed; if (opts.id !== undefined) k.id = opts.id;
     k.pos.set(x, y, z); k.yaw = opts.yaw ?? Math.random() * Math.PI * 2;
     Object.assign(k, { hp: stats.hp, maxHp: stats.hp, walk: stats.speed, dmg: stats.dmg, reach: stats.reach, speedMul: 1, attackDur: stats.attackDur, hitAt: stats.hitAt, tearTime: stats.tearTime, climbTime: stats.climbTime });
     k.riseT = 0; k.state = 'rise'; k.replan = 0; k.cd = 0; k.wp = null;
@@ -38,13 +39,16 @@ export class Horde {
     }
     return false;
   }
-  update(dt, player) {
-    const nav = this.nav, P = player.pos;
-    // the flow field follows you
+  // targets: you (or, in co-op, everyone: { pos, dead, id }; the down and the dead are left alone)
+  update(dt, targets) {
+    if (this.puppet) return this.mirror(dt);
+    const nav = this.nav, list = Array.isArray(targets) ? targets : [targets];
+    const up = list.filter((t) => !t.dead), all = up.length ? up : list.slice(0, 1);
+    // the flow field follows you (in co-op it spreads from everyone standing, so each spot leads to the nearest)
     if ((this.flowT -= dt) <= 0) {
       this.flowT = 0.3;
-      const g = nav.node(P.x, P.y, P.z, 1.2);
-      if (g >= 0) { this.goalNode = g; nav.flow(g); }
+      const goals = all.map((t) => nav.node(t.pos.x, t.pos.y, t.pos.z, 1.2)).filter((g) => g >= 0);
+      if (goals.length) { this.goalNode = goals[0]; nav.flow(goals.length === 1 ? goals[0] : goals); }
     }
     for (let i = this.list.length - 1; i >= 0; i--) {
       const k = this.list[i];
@@ -54,11 +58,50 @@ export class Horde {
         if (k.t > 10.5) { k.remove(); this.list.splice(i, 1); }
         continue;
       }
-      this.think(k, dt, P, player);
+      // whoever's nearest (looked at again now and then, or when they go down)
+      if (!k.target || k.target.dead || (k.retarget = (k.retarget || 0) - dt) <= 0) {
+        k.retarget = 0.5 + Math.random() * 0.3;
+        let best = all[0], bd = Infinity;
+        for (const t of all) { const d = Math.hypot(t.pos.x - k.pos.x, t.pos.z - k.pos.z) + Math.abs(t.pos.y - k.pos.y) * 3; if (d < bd) { bd = d; best = t; } }
+        k.target = best;
+      }
+      this.think(k, dt, k.target.pos, k.target);
       k.pose(dt);
     }
     this.separate(dt);
     this.openDoors();
+  }
+  // ---- co-op, on a guest's screen: the host's game moves them; here they're only drawn, easing towards where the host
+  // says they are (applySnap), each animating as it goes
+  mirror(dt) {
+    const k1 = Math.min(1, dt * 10);
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const k = this.list[i];
+      k.t += dt;
+      if (k.state === 'dead') { k.pose(dt); if (k.t > 10.5) { k.remove(); this.list.splice(i, 1); } continue; }
+      if (k.state === 'rise') k.riseT += dt;
+      if (k.net) {
+        const [x, y, z, yaw] = k.net;
+        k.pos.x += (x - k.pos.x) * k1; k.pos.y += (y - k.pos.y) * k1; k.pos.z += (z - k.pos.z) * k1;
+        k.yaw = turn(k.yaw, yaw, k1);
+      }
+      k.pose(dt);
+    }
+  }
+  byId(id) { return this.list.find((k) => k.id === id); }
+  // what the host sends ten times a second: every one still standing, where and doing what
+  snap() {
+    const r2 = (v) => Math.round(v * 100) / 100;
+    return this.list.filter((k) => k.alive).map((k) => [k.id, r2(k.pos.x), r2(k.pos.y), r2(k.pos.z), r2(k.yaw), STATES.indexOf(k.state), r2(k.speed)]);
+  }
+  applySnap(rows) {
+    for (const [id, x, y, z, yaw, st, speed] of rows) {
+      const k = this.byId(id); if (!k || !k.alive) continue;
+      if (!k.net) { k.pos.set(x, y, z); k.yaw = yaw; }
+      k.net = [x, y, z, yaw]; k.speed = speed;
+      const state = STATES[st] || 'walk';
+      if (state !== k.state) { k.state = state; k.t = 0; }
+    }
   }
   think(k, dt, P, player) {
     const nav = this.nav;
@@ -74,7 +117,7 @@ export class Horde {
       k.yaw = turn(k.yaw, Math.atan2(-dx, -dz), dt * 6);
       if (!k.struck && k.t >= k.hitAt) {
         k.struck = true;
-        if (dp < k.reach + 0.45 && Math.abs(dy) < 1.2 && !player.dead) this.onHit(k);
+        if (dp < k.reach + 0.45 && Math.abs(dy) < 1.2 && !player.dead) this.onHit(k, player);
       }
       if (k.t >= k.attackDur) { k.state = 'walk'; k.t = 0; k.cd = 0.35; }
       return;
@@ -143,7 +186,7 @@ export class Horde {
       const sp = 4.2 * dt, nx = k.pos.x + k.chargeDir[0] * sp, nz = k.pos.z + k.chargeDir[1] * sp;
       k.speed = 4.2;
       const c = nav.col(nx, nz), ok = c >= 0 && nav.match(c, k.pos.y, 0.3) >= 0 && nav.straight(k.pos.x, k.pos.y, k.pos.z, nx + k.chargeDir[0] * 0.3, nz + k.chargeDir[1] * 0.3);
-      if (!k.struck && dp < 1.15 && Math.abs(dy) < 1.1 && !player.dead) { k.struck = true; this.onHit(k); }
+      if (!k.struck && dp < 1.15 && Math.abs(dy) < 1.1 && !player.dead) { k.struck = true; this.onHit(k, player); }
       if (!ok || (k.chargeLeft -= sp) <= 0) { k.state = 'stagger'; k.t = 0; k.chargeCD = 5 + Math.random() * 3; this.onSound && this.onSound(ok ? 'skid' : 'crash', k); return true; }
       k.pos.x = nx; k.pos.z = nz;
       const h = nav.heightAt(k.pos.x, k.pos.y, k.pos.z); k.pos.y += (h - k.pos.y) * Math.min(1, dt * 12);
@@ -209,6 +252,8 @@ export class Horde {
       }
     }
   }
+  // ---- a blow lands: alone, at once; in co-op the host's game decides (mode.js swaps this out), and everyone replays it
+  strike(k, hit, how, onDamage) { const res = seeded(newSeed(), () => k.hurt(hit)); if (onDamage) onDamage(k, res, how); return res; }
   // ---- weapons ask: who's in the line of fire, and who's in reach of a swing
   ray(o, d, maxT, pierce = 1) {
     const hits = [];
@@ -234,6 +279,7 @@ export class Horde {
   clear() { for (const k of this.list) k.remove(); this.list = []; }
 }
 
+const STATES = ['rise', 'walk', 'attack', 'toPortal', 'tear', 'climb', 'stomp', 'charge', 'stagger'];
 const movable = (k) => k.alive && (k.state === 'walk' || k.state === 'attack' || k.state === 'toPortal' || k.state === 'stagger' || k.state === 'stomp');
 function nudge(nav, k, dx, dz) {
   const x = k.pos.x + dx, z = k.pos.z + dz, c = nav.col(x, z);
